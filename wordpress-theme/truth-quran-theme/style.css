@@ -1,0 +1,32 @@
+/*
+Theme Name: Truth Quran Academy Premium Theme
+Theme URI: https://truthquranacademy.com/
+Author: Muhammad Zain
+Author URI: https://truthquranacademy.com/
+Description: A premium, fast, lightweight custom WordPress theme designed for Truth Quran Academy. Fully responsive, optimized for Core Web Vitals, and 100% compatible with Rank Math Pro SEO. It supports highly flexible Custom Post Types (CPTs) for Courses and Testimonials, and makes all landing page components completely editable through the WordPress Customizer.
+Version: 1.0.0
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: truth-quran
+Tags: education, dark, translation-ready, custom-menu, custom-logo, custom-colors, featured-images, full-width-template
+*/
+
+/* Reset & Basic Base Styles to align with our high-end luxury design specs */
+body {
+    background-color: #07080b;
+    color: #f3ecd8;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+a {
+    color: #d9b45c;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+a:hover {
+    color: #f2d98a;
+}

@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Outfit:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-arabic: "Noto Naskh Arabic", "Amiri", Georgia, serif;
+  
+  --color-ink: #FAF8F5;
+  --color-ink-light: #F6F3EB;
+  --color-panel: #12141b;
+  --color-gold-primary: #d9b45c;
+  --color-gold-bright: #e7c270;
+  --color-gold-deep: #a9822f;
+  --color-cream: #1E1B15;
+  --color-cream-dim: #5D5749;
+  --color-whatsapp: #1fae5b;
+}
+
+/* Base style resets with elegant, custom Islamic-luxury dark background */
+body {
+  background-color: #07080b;
+  color: #f3ecd8;
+  font-family: "Outfit", sans-serif;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 15% 20%, rgba(217, 180, 92, 0.05) 0%, transparent 45%),
+    radial-gradient(circle at 85% 75%, rgba(217, 180, 92, 0.05) 0%, transparent 45%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cpath d='M40 0l10 30 30 10-30 10-10 30-10-30-30-10 30-10z' fill='%23a9822f' fill-opacity='0.015'/%3E%3Cpath d='M0 40l10-10 10 10-10 10zm80 0l-10-10-10 10 10 10zM40 80l-10-10-10 10 10 10zm0-80l-10 10-10-10 10-10z' fill='%23a9822f' fill-opacity='0.01'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 100% 100%, 80px 80px;
+}
+
+/* Custom CSS Keyframe Animations */
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-slow-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Custom Animation Classes */
+.animate-float-orb {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+.animate-spin-slow-reverse {
+  animation: spin-slow-reverse 25s linear infinite;
+}
+
+.animate-marquee-loop {
+  animation: marquee 40s linear infinite;
+}
+
+.animate-marquee-loop-fast {
+  animation: marquee 25s linear infinite;
+}
+
+/* Hover Pauses for Marquee */
+.hover-pause:hover .animate-marquee-loop {
+  animation-play-state: paused;
+}
+
+.hover-pause:hover .animate-marquee-loop-fast {
+  animation-play-state: paused;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #07080b;
+}
+::-webkit-scrollbar-thumb {
+  background: #1d202b;
+  border: 2px solid #07080b;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d9b45c;
+}
+
+/* Custom Quran-related Section Backgrounds with premium light black overlays and unique tutor backdrops */
+.hero-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(14, 16, 21, 0.94), rgba(7, 8, 11, 0.97)), url("./assets/images/online_quran_teacher_1784116886285.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+.why-us-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(7, 8, 11, 0.95), rgba(14, 16, 21, 0.96)), url("./assets/images/female_quran_tutor_1784119152017.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+.courses-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(14, 16, 21, 0.94), rgba(7, 8, 11, 0.96)), url("./assets/images/tajweed_mastery_art_1784119171753.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+.process-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(7, 8, 11, 0.94), rgba(14, 16, 21, 0.97)), url("./assets/images/islamic_kids_learning_1784120227940.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+.pricing-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(14, 16, 21, 0.95), rgba(7, 8, 11, 0.95)), url("./assets/images/online_quran_teacher_1784116886285.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+.reviews-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(7, 8, 11, 0.95), rgba(14, 16, 21, 0.95)), url("./assets/images/female_quran_tutor_1784119152017.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+.blog-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(14, 16, 21, 0.95), rgba(7, 8, 11, 0.97)), url("./assets/images/tajweed_mastery_art_1784119171753.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+.faq-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(7, 8, 11, 0.95), rgba(14, 16, 21, 0.96)), url("./assets/images/islamic_girl_qaida_1784120204322.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+.contact-section-bg {
+  position: relative;
+  background-image: linear-gradient(to bottom, rgba(14, 16, 21, 0.94), rgba(7, 8, 11, 0.97)), url("./assets/images/online_quran_teacher_1784116886285.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}

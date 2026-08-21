@@ -1,0 +1,259 @@
+{
+  "siteLogoText": "Truth",
+  "siteLogoSubText": "Quran",
+  "heroKicker": "Premium 1-on-1 Online Quranic Academy",
+  "heroTitle": "Embark on a Spiritual Journey with Divine Precision",
+  "heroDescription": "Learn Holy Quran recitation, Tajweed, Hifz, and Arabic language from native certified Arab tutors in private 1-on-1 virtual classrooms. Structured curriculums tailored perfectly for children, sisters, and busy professionals.",
+  "heroPrimaryBtnText": "Book Free Trial Session",
+  "heroSecondaryBtnText": "Explore Courses",
+  "contactPhone": "+92 321 9347471",
+  "contactEmail": "muhammadzain92624@gmail.com",
+  "contactAddress": "Altaf Colony, Ranjar Head Quarter, Lahore Cantt, Pakistan",
+  "whatsappLink": "https://wa.me/923219347471",
+  "facebookLink": "https://facebook.com/truthquranacademy",
+  "instagramLink": "https://instagram.com/truthquranacademy",
+  "courses": [
+    {
+      "id": "noorani-qaida",
+      "title": "Noorani Qaida foundational phonetics",
+      "arabicGlyph": "القاعدة النورانية",
+      "tag": "Foundational Pathway",
+      "difficulty": "Beginners (No Prereqs)",
+      "rating": 5,
+      "description": "Master Arabic alphabet pronunciation and connecting letters with classical Tajweed rules from the absolute ground up."
+    },
+    {
+      "id": "tajweed-intensive",
+      "title": "Tajweed Intensive Recitation Excellence",
+      "arabicGlyph": "تجويد القرآن",
+      "tag": "Phonetic Precision",
+      "difficulty": "Intermediate level",
+      "rating": 5,
+      "description": "A comprehensive deep dive into the rules of Noon Sakinah, Meem Sakinah, Mudood (elongations), and advanced Makharij (letter origins)."
+    },
+    {
+      "id": "quran-hifz",
+      "title": "Quran Hifz & Memory Pathway",
+      "arabicGlyph": "حفظ القرآن",
+      "tag": "Spiritual Retention",
+      "difficulty": "All levels (Tailored)",
+      "rating": 5,
+      "description": "Structured, private 1-on-1 memorization plans led by certified scholars to guide retention and rapid secure recall with classical revision loops."
+    }
+  ],
+  "whyUs": [
+    {
+      "id": "why-1",
+      "title": "1-on-1 Private Attention",
+      "description": "Every student receives custom focused lessons tailored specifically to their learning speed and mental retention.",
+      "icon": "CheckCircle"
+    }
+  ],
+  "pricingPlans": [
+    {
+      "id": "price-1",
+      "name": "Basic Starter",
+      "price": "$30",
+      "period": "month",
+      "features": [
+        "1-on-1 Classes",
+        "2 Classes per week",
+        "Tajweed Essentials",
+        "Monthly Report Cards"
+      ]
+    },
+    {
+      "id": "price-2",
+      "name": "Standard Premium",
+      "price": "$45",
+      "period": "month",
+      "features": [
+        "1-on-1 Classes",
+        "3 Classes per week",
+        "Custom Syllabus & Homework Files",
+        "Weekly Progress Quizzes",
+        "Parent-Teacher Meetings"
+      ],
+      "isPopular": true
+    },
+    {
+      "id": "price-3",
+      "name": "Elite Mastery",
+      "price": "$60",
+      "period": "month",
+      "features": [
+        "1-on-1 Classes",
+        "5 Classes per week",
+        "High-Intensity Learning Track",
+        "Daily Memorization Logs & Audits",
+        "Dedicated Academic Coach",
+        "Full Ijazah & Sanad Path Preparation"
+      ]
+    }
+  ],
+  "testimonials": [
+    {
+      "id": "test-1",
+      "name": "Kamil Al-Mansoori",
+      "role": "Parent",
+      "quote": "My son's articulation has shifted beautifully in just 3 months. Outstanding tutors!",
+      "course": "Kids Classes"
+    }
+  ],
+  "faqs": [
+    {
+      "id": "faq-1",
+      "question": "Do you offer female certified Quran tutors for children and sisters?",
+      "answer": "Yes, we have a distinguished roster of female Arab scholars holding traditional Ijazah credentials, specialized in tutoring young children and private lessons for sisters."
+    },
+    {
+      "id": "faq-2",
+      "question": "How does the private 1-on-1 virtual classroom work?",
+      "answer": "Each student receives dedicated 1-on-1 focus. We utilize interactive whiteboard tools, screen-sharing, and professional high-definition audio/video streams for seamless live learning."
+    }
+  ],
+  "blogPosts": [
+    {
+      "id": "blog-1",
+      "title": "Essential Tajweed Rules for Absolute Beginners",
+      "excerpt": "Phonetics is the spiritual soul of Quranic recitation. Explore the foundational articulation points of Makharij and learn to read beautifully.",
+      "date": "2026-07-18",
+      "author": {
+        "name": "Muhammad Zain"
+      },
+      "category": "Tajweed",
+      "tags": [
+        "Beginners",
+        "Tajweed Guide"
+      ]
+    }
+  ],
+  "teachers": [
+    {
+      "id": "teacher-1",
+      "name": "Sheikh Abdul Rahman",
+      "role": "Head of Quranic Studies",
+      "bio": "Graduated from Jamia Naeemia Lahore. Holds high-ranking Ijazah in ten qira'at of the Quran.",
+      "photo": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=300",
+      "rating": 5,
+      "experience": "15+ Years",
+      "status": "published"
+    }
+  ],
+  "developerName": "Muhammad Zain",
+  "developerRole": "Founder & Fullstack Developer",
+  "developerAvatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
+  "seoSettings": {},
+  "videos": [],
+  "integrations": {
+    "ga4Id": "G-TRUTHQURAN123",
+    "gscId": "lTvdLgKMilv0Fo4K8WKaSBqGWsZyrSgLKqSl4yj3I4g",
+    "gtmId": "GTM-P8QXTR",
+    "fbPixelId": "9876543210123",
+    "clarityId": "clrt89abc",
+    "googleSiteVerification": "lTvdLgKMilv0Fo4K8WKaSBqGWsZyrSgLKqSl4yj3I4g",
+    "isConnected": true
+  },
+  "sectionsVisibility": {
+    "hero": true,
+    "whyUs": true,
+    "courses": true,
+    "process": true,
+    "pricing": true,
+    "testimonials": true,
+    "faqs": true,
+    "blog": true,
+    "contact": true
+  },
+  "sectionsOrder": [
+    "hero",
+    "whyUs",
+    "courses",
+    "process",
+    "pricing",
+    "testimonials",
+    "faqs",
+    "blog",
+    "contact"
+  ],
+  "themeColors": {
+    "primaryGold": "#d9b45c",
+    "bgDark": "#07080b",
+    "cardBg": "#12141b",
+    "textLight": "#f3ecd8",
+    "textMuted": "#c9c2ab"
+  },
+  "themeTypography": {
+    "headingFont": "Playfair Display",
+    "bodyFont": "Inter",
+    "baseFontSize": "16px"
+  },
+  "comments": [
+    {
+      "id": "c-1",
+      "name": "Sarah Ahmed",
+      "email": "sarah@gmail.com",
+      "age": "8",
+      "country": "United Kingdom",
+      "course": "noorani-qaida",
+      "message": "Enroll Sarah into Noorani Qaida basic phonetics.",
+      "date": "2026-07-18",
+      "status": "approved",
+      "type": "inquiry"
+    }
+  ],
+  "mediaLibrary": [],
+  "userProfiles": [
+    {
+      "id": "u-1",
+      "name": "Muhammad Zain",
+      "email": "muhammadzain92624@gmail.com",
+      "role": "Administrator",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
+      "registeredDate": "2026-06-15",
+      "passwordHash": "6051fc84a7a0d74c225fb18a496b09952da5642e60723ecae543298edd7d82d6"
+    },
+    {
+      "id": "u-2",
+      "name": "Dr. Jamia Naeemia Scholar",
+      "email": "scholar@truthquran.com",
+      "role": "Editor",
+      "avatar": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&h=150&q=80",
+      "registeredDate": "2026-06-20",
+      "passwordHash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"
+    },
+    {
+      "id": "u-3",
+      "name": "Aisha Al-Ansari",
+      "email": "aisha@truthquran.com",
+      "role": "Author",
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
+      "registeredDate": "2026-07-01",
+      "passwordHash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"
+    },
+    {
+      "id": "u-zain-admin",
+      "name": "Muhammad Zain",
+      "email": "muhammadzain92624@gmail.com",
+      "role": "Administrator",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
+      "registeredDate": "2026-07-21",
+      "passwordHash": "5d1f9e1f5b5949ed6741606081c7ac81c13c192492c635fa2c4949e9100de121"
+    }
+  ],
+  "siteSettings": {
+    "title": "Truth Quran Academy",
+    "tagline": "Uncompromising standards in Quran, Tajweed, and Hifz education",
+    "permalinkStructure": "/%postname%/",
+    "defaultLanguage": "en-US",
+    "isRTL": false,
+    "isCacheEnabled": true,
+    "isPerformanceOptimized": true,
+    "isWooCommerceReady": true,
+    "childThemeSupported": true,
+    "gutenbergCompatible": true,
+    "elementorCompatible": true,
+    "securityFirewallActive": true
+  },
+  "traffic_logs": []
+}

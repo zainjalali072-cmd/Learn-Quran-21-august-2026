@@ -1,0 +1,6 @@
+{
+  "name": "Truth Quran Academy",
+  "description": "Premium online Quran academy offering Tajweed, Hifz, Arabic, and Islamic studies with certified tutors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
