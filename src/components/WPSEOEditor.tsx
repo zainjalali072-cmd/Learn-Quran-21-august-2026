@@ -652,66 +652,82 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     return formatted.join("\n\n");
   };
 
-  // Smart English Heading & Structure Pattern Analyzer (H2 & H3)
+  // Smart English Heading & Structure Pattern Analyzer (H2, H3, H4)
   const detectHeadingLevel = (trimmed: string): "h2" | "h3" | "h4" | null => {
     if (!trimmed || trimmed.length < 2) return null;
 
     // 1. Explicit Markdown Headings
     if (/^####\s+/.test(trimmed)) return "h4";
     if (/^###\s+/.test(trimmed)) return "h3";
-    if (/^##?\s+/.test(trimmed)) return "h2";
+    if (/^##\s+/.test(trimmed)) return "h2";
+    if (/^#\s+/.test(trimmed)) return "h2";
 
-    // 2. Pre-existing HTML tags should not be converted
-    if (/^<[a-z0-9]+/i.test(trimmed)) return null;
+    // 2. Pre-existing HTML block tags should not be re-converted
+    if (/^<(h[1-6]|p|table|div|ul|ol|blockquote|hr|section|article|img|iframe)/i.test(trimmed)) return null;
 
-    // 3. Sentences ending with period, comma, or semicolon are paragraphs
+    // 3. Sentences ending with period, comma, or semicolon are standard body paragraphs
     if (/[.,;]$/.test(trimmed)) return null;
     if (trimmed.includes(". ") || trimmed.includes("; ")) return null;
-    if (trimmed.length > 95) return null; // Standard headings are concise
+    if (trimmed.length > 90) return null; // Headings are concise
 
     // 4. Sub-heading patterns (H3):
-    // Sub-numbering: "1.1", "1.2", "2.1", "a.", "b.", "a)", "b)", "(1)", "(a)"
-    if (/^(\d+\.\d+|[a-zA-Z]\.|\([a-zA-Z0-9]+\))\s+[A-Za-z0-9]/.test(trimmed)) {
+    // Sub-numbering: "1.1", "1.2", "2.1", "3.4", "1.a", "1.b", "a.", "b.", "c.", "A.", "B.", "C.", "i.", "ii.", "iii.", "(1)", "(2)", "(a)", "(b)"
+    if (/^(\d+\.\d+|[a-zA-Z]\.|\([a-zA-Z0-9]+\)|(i|ii|iii|iv|v|vi)\.)\s+[A-Za-z0-9]/i.test(trimmed)) {
       return "h3";
     }
-    // Sub-rules / Sub-tips / Steps: "Rule 1:", "Tip 2:", "Step 3:", "Phase 2:", "Method 1:"
-    if (/^(Rule|Tip|Method|Factor|Reason|Point|Feature|Benefit|Level|Phase|Stage|Step|Lesson)\s+\d+[:\s]/i.test(trimmed)) {
+
+    // Specific sub-sections / steps / rules / methods / types:
+    // "Rule 1:", "Rule 1 -", "Step 2:", "Tip 3:", "Method 1:", "Type 2:", "Benefit 1:", "Stage 3:", "Phase 2:", "Lesson 1:", "Point 2:", "Level 1:"
+    if (/^(Rule|Step|Tip|Method|Type|Point|Benefit|Factor|Stage|Phase|Lesson|Level|Principle|Feature|Example|Aspect)\s+\d+([:\-–—\s]|$)/i.test(trimmed)) {
       return "h3";
     }
-    // Short category subheaders ending with colon: "Makhraj Al-Halq (Throat):", "1. Izhar Halqi:"
-    if (/^[A-Z0-9][A-Za-z0-9\s()\-–—/]{2,60}:$/.test(trimmed)) {
+
+    // Numbered sub-rules or tajweed topics under 65 chars: e.g. "1. Izhar Halqi (Clear Pronunciation)", "2. Idgham with Ghunnah", "3. Iqlab (Conversion)"
+    if (/^\d{1,2}\.\s+[A-Za-z0-9\s()\-–—/]{3,60}(:|\s-\s|\s–\s|\s\([^)]+\))?$/.test(trimmed)) {
+      if (/\((.*?)\)/.test(trimmed) || /[:\-–—]/.test(trimmed) || trimmed.length <= 48) {
+        return "h3";
+      }
+    }
+
+    // Sub-topic ending in colon: "Makhraj Al-Halq (Throat Letters):", "1. Izhar Halqi:"
+    if (/^[A-Za-z0-9][A-Za-z0-9\s()\-–—/]{2,60}:$/.test(trimmed)) {
+      return "h3";
+    }
+
+    // Short question sub-topics (< 45 chars): "How to Pronounce Al-Halq?", "Where is Al-Jauf?"
+    if (trimmed.endsWith("?") && trimmed.length <= 45) {
       return "h3";
     }
 
     // 5. Main Section Heading patterns (H2):
-    // Numbered top-level sections: "1. Introduction to Tajweed", "2. What is Makharij?", "Section 1: Basics"
-    if (/^(\d{1,2}\.|\b(Part|Section|Chapter|Unit)\s+\d+:?)\s+[A-Za-z0-9]/.test(trimmed)) {
-      return "h2";
-    }
-    if (/^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+[A-Za-z0-9]/.test(trimmed)) {
-      return "h2";
-    }
-
-    // Question-style major headings (Very common in SEO articles):
-    if (trimmed.endsWith("?") && /^(what|why|how|who|where|when|can|which|is|are|do|does|should|could|would)\b/i.test(trimmed)) {
-      return "h2";
-    }
-
-    // Standard SEO and Quranic article section titles
+    // Standard major section headings in Quran & Tajweed articles:
     const cleanLower = trimmed.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
     const majorHeadings = [
       "introduction", "overview", "conclusion", "summary", "final thoughts",
       "key takeaways", "frequently asked questions", "faqs", "faq",
       "table of contents", "course curriculum", "curriculum overview",
-      "why choose us", "core benefits", "step by step guide", "common mistakes",
-      "rules of tajweed", "benefits of tajweed", "types of tajweed",
+      "why choose us", "why learn tajweed", "core benefits", "step by step guide", "common mistakes",
+      "rules of tajweed", "benefits of tajweed", "types of tajweed", "what is tajweed",
       "importance of tajweed", "about the course", "who should attend", "next steps"
     ];
     if (majorHeadings.some(h => cleanLower === h || cleanLower.startsWith(h + " "))) {
       return "h2";
     }
 
-    // Standalone Title Case & Capitalized Phrases (e.g. "The Importance Of Tajweed In Daily Recitation")
+    // Major top-level Roman numerals or Chapters: "Chapter 1: Basics", "Part 2: Articulation Points", "Section 1: Foundations"
+    if (/^(\b(Part|Section|Chapter|Unit)\s+\d+:?)\s+[A-Za-z0-9]/.test(trimmed)) {
+      return "h2";
+    }
+    if (/^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+[A-Za-z0-9]/.test(trimmed)) {
+      return "h2";
+    }
+
+    // Major broad questions (> 40 chars or standard H2 queries):
+    if (trimmed.endsWith("?") && /^(what|why|how|who|where|when|can|which|is|are|do|does|should|could|would)\b/i.test(trimmed)) {
+      return "h2";
+    }
+
+    // Standalone Title Case & Capitalized Phrases
     const words = trimmed.split(/\s+/).filter(w => /^[a-zA-Z]/.test(w));
     if (words.length >= 2 && words.length <= 12 && trimmed.length <= 80) {
       const stopWords = new Set(["a", "an", "the", "in", "on", "of", "for", "to", "with", "and", "or", "is", "at", "by", "from", "as", "vs", "your", "our", "its"]);
@@ -725,8 +741,12 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         }
       }
       const isAllCaps = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
-      if (isAllCaps && trimmed.length <= 60) return "h2";
+      if (isAllCaps && trimmed.length <= 50) return "h2";
       if (sigCount > 0 && (capCount / sigCount) >= 0.65) {
+        // Shorter subtitles (<= 4 words or <= 35 chars) classify as H3
+        if (words.length <= 4 && trimmed.length <= 35) {
+          return "h3";
+        }
         return "h2";
       }
     }
@@ -737,7 +757,18 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   // Robust Markdown, HTML & Smart English Heading Auto-Parsing Formatter
   const convertMarkdownAndHtmlToCleanHtml = (text: string): string => {
     if (!text || !text.trim()) return text;
-    const lines = text.split(/\r?\n/);
+
+    // Clean up unwanted external code wrappers or leading tab/4-space indents from normal text
+    const cleanRaw = text
+      .replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (match, codeContent) => {
+        // If it was explicitly tagged as code fence with triple backticks, preserve it
+        if (codeContent.includes("```") || codeContent.includes("<code class=")) return match;
+        // Otherwise convert to clean text lines
+        return codeContent.replace(/<code[^>]*>/gi, "").replace(/<\/code>/gi, "");
+      })
+      .replace(/<code(?![^>]*class=["']language-)[^>]*>(.*?)<\/code>/gi, "$1");
+
+    const lines = cleanRaw.split(/\r?\n/);
     const resultBlocks: string[] = [];
     let inBulletList = false;
     let bulletItems: string[] = [];
@@ -758,7 +789,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     };
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      let line = lines[i];
+      // Strip accidental leading 2-4 space/tab indents so it is parsed as normal clean English
       const trimmed = line.trim();
 
       if (!trimmed) {
@@ -766,13 +798,13 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         continue;
       }
 
-      // Convert inline markdown: bold, italic, links
+      // Convert inline markdown: bold, italic, links (Gold Anchor Text #FACC15)
       const formattedInline = trimmed
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/__(.*?)__/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/_(.*?)_/g, '<em>$1</em>')
-        .replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#EAB308] font-semibold">$1</a>');
+        .replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">$1</a>');
 
       // Pre-existing HTML block elements (preserve directly without re-wrapping)
       if (/^<h[1-6][^>]*>(.*?)<\/h[1-6]>/i.test(trimmed) || /^<(table|div|hr|ul|ol|blockquote|p|img|iframe|section)/i.test(trimmed)) {
@@ -817,7 +849,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         continue;
       }
 
-      // Numbered list item (e.g. "1. Item", "2. Item" that wasn't classified as an H2 heading)
+      // Numbered list item (e.g. "1. Item", "2. Item" that wasn't classified as an H2 or H3 heading)
       if (/^\d+[.)]\s+(.*)$/.test(trimmed)) {
         if (inBulletList) flushLists();
         inNumberedList = true;
@@ -825,7 +857,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         continue;
       }
 
-      // Standard paragraph
+      // Standard clean English paragraph
       flushLists();
       resultBlocks.push(`<p class="my-4 leading-relaxed text-[#F3F4F6]">${formattedInline}</p>`);
     }
@@ -1202,28 +1234,74 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     }
   };
 
-  // Heading Formatter tool
+  // Robust Heading Formatter & Manual Override Tool
   const applyHeading = (level: "h2" | "h3" | "h4" | "p") => {
     if (!currentPost) return;
     const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
     const content = currentPost.content || "";
 
-    if (textarea && textarea.selectionStart !== undefined && textarea.selectionEnd !== undefined && textarea.selectionStart !== textarea.selectionEnd) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const selectedText = content.substring(start, end).trim();
-      const openTag = `<${level}>`;
-      const closeTag = `</${level}>`;
-      const newContent = content.substring(0, start) + `\n${openTag}${selectedText}${closeTag}\n` + content.substring(end);
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    // Helper to strip existing heading/paragraph tags cleanly
+    const stripExistingBlockTags = (str: string) => {
+      return str
+        .replace(/^<p class=['"][^'"]*['"]>/i, "")
+        .replace(/^<(h[1-6]|p)>/i, "")
+        .replace(/<\/(h[1-6]|p)>$/i, "")
+        .replace(/^<p>/i, "")
+        .replace(/<\/p>$/i, "")
+        .trim();
+    };
+
+    if (start !== end) {
+      // 1. Text is selected: replace existing tag or wrap cleanly
+      const selectedText = content.substring(start, end);
+      const cleaned = stripExistingBlockTags(selectedText);
+      
+      let replacement = "";
+      if (level === "p") {
+        replacement = `<p class="my-4 leading-relaxed text-[#F3F4F6]">${cleaned}</p>`;
+      } else {
+        replacement = `<${level}>${cleaned}</${level}>`;
+      }
+
+      const newContent = content.substring(0, start) + replacement + content.substring(end);
       handleUpdateField("content", newContent);
       pushHistory(newContent);
-      showToast(`Applied <${level}> to selected heading`);
+      showToast(`✅ Selection converted to <${level.toUpperCase()}>`);
     } else {
-      const defaultHeading = level === "h2" ? "Main Section Heading" : level === "h3" ? "Sub-section Heading" : level === "h4" ? "Minor Topic" : "Paragraph text here";
-      const newContent = content + `\n\n<${level}>${defaultHeading}</${level}>\n\n`;
-      handleUpdateField("content", newContent);
-      pushHistory(newContent);
-      showToast(`Inserted <${level}> block`);
+      // 2. Cursor is positioned inside a line or heading block
+      const lineStart = content.lastIndexOf("\n", start - 1) + 1;
+      const nextNewline = content.indexOf("\n", start);
+      const lineEnd = nextNewline === -1 ? content.length : nextNewline;
+      const currentLine = content.substring(lineStart, lineEnd);
+
+      if (currentLine.trim()) {
+        // Active line exists: replace current line with the chosen heading/paragraph level
+        const cleaned = stripExistingBlockTags(currentLine.trim());
+        let replacement = "";
+        if (level === "p") {
+          replacement = `<p class="my-4 leading-relaxed text-[#F3F4F6]">${cleaned}</p>`;
+        } else {
+          replacement = `<${level}>${cleaned}</${level}>`;
+        }
+
+        const newContent = content.substring(0, lineStart) + replacement + content.substring(lineEnd);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+        showToast(`✅ Line updated to <${level.toUpperCase()}>`);
+      } else {
+        // Empty line: insert a new clean heading template
+        const defaultText = level === "h2" ? "Main Section Heading" : level === "h3" ? "Sub-section Heading" : level === "h4" ? "Minor Topic" : "Start writing paragraph text here...";
+        const replacement = level === "p" ? `\n<p class="my-4 leading-relaxed text-[#F3F4F6]">${defaultText}</p>\n` : `\n<${level}>${defaultText}</${level}>\n`;
+        const newContent = content.substring(0, start) + replacement + content.substring(start);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+        showToast(`Inserted <${level.toUpperCase()}> block`);
+      }
     }
   };
 
@@ -1714,30 +1792,31 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
             {/* TOOLBAR */}
             <div className="bg-[#0e1017] border-b border-[#d9b45c]/20 p-2.5 px-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-1.5">
-                {/* Heading Dropdown */}
+                {/* Heading & Style Selector */}
                 <select
+                  value=""
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val === "p") applyFormattingToSelection("<p class='my-4 leading-relaxed text-[#F3F4F6]'>", "</p>");
-                    else if (val === "h1") applyHeading("p");
-                    else if (val === "h2") applyHeading("h2");
-                    else if (val === "h3") applyHeading("h3");
-                    else if (val === "h4") applyHeading("h4");
+                    if (val === "p" || val === "h2" || val === "h3" || val === "h4") {
+                      applyHeading(val as "p" | "h2" | "h3" | "h4");
+                    }
                   }}
-                  className="bg-[#12141b] text-xs font-bold text-[#f2d98a] border border-[#d9b45c]/30 rounded-lg px-2.5 py-1.5 outline-none cursor-pointer hover:border-[#d9b45c]"
+                  className="bg-[#12141b] text-xs font-bold text-[#f2d98a] border border-[#d9b45c]/40 rounded-lg px-2.5 py-1.5 outline-none cursor-pointer hover:border-[#d9b45c] transition-colors"
+                  title="Select or Change Heading Level for Selection / Current Line"
                 >
-                  <option value="p">¶ Paragraph</option>
-                  <option value="h2">H2 — Main Heading</option>
-                  <option value="h3">H3 — Sub Heading</option>
-                  <option value="h4">H4 — Small Topic</option>
+                  <option value="" disabled>Format / Heading ▾</option>
+                  <option value="p">¶ Normal Paragraph</option>
+                  <option value="h2">H2 — Main Section Heading</option>
+                  <option value="h3">H3 — Sub-Section Heading</option>
+                  <option value="h4">H4 — Minor Topic Heading</option>
                 </select>
 
-                {/* Direct Quick Heading 2 & Heading 3 Buttons */}
+                {/* Direct Quick Heading Buttons: H2, H3, H4, Paragraph */}
                 <button
                   type="button"
                   onClick={() => applyHeading("h2")}
                   className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-serif font-bold transition-all flex items-center space-x-1"
-                  title="Heading 2 (H2) - Large Bold Section Title"
+                  title="Convert to Heading 2 (H2)"
                 >
                   <Heading2 size={13} className="text-[#d9b45c]" />
                   <span>H2</span>
@@ -1746,10 +1825,18 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                   type="button"
                   onClick={() => applyHeading("h3")}
                   className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-serif font-bold transition-all flex items-center space-x-1"
-                  title="Heading 3 (H3) - Subsection Title"
+                  title="Convert to Heading 3 (H3) - Sub-heading"
                 >
                   <Heading3 size={13} className="text-[#d9b45c]" />
                   <span>H3</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyHeading("p")}
+                  className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg text-xs font-bold transition-all"
+                  title="Convert to Normal Paragraph (¶)"
+                >
+                  ¶
                 </button>
 
                 <div className="h-5 w-[1px] bg-white/10 my-auto mx-0.5"></div>
@@ -2215,7 +2302,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       onPaste={handleContentPaste}
                       placeholder="Write article content in English or HTML... Type / for image and block options"
                       rows={22}
-                      className="w-full bg-transparent text-xs md:text-sm text-white font-mono leading-relaxed p-2 outline-none resize-y"
+                      className="w-full bg-transparent text-xs md:text-sm text-[#F3F4F6] font-sans leading-relaxed p-2 outline-none resize-y"
                     ></textarea>
                   </div>
 

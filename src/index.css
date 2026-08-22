@@ -101,6 +101,31 @@ body {
   animation-play-state: paused;
 }
 
+/* Universal Article Hyperlink & Anchor Text Yellow Styling (#FACC15) */
+.prose a,
+.article-content a,
+.wp-article-body a,
+.preview-content a,
+#gutenberg-preview-canvas a,
+div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]) {
+  color: #FACC15 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  text-decoration-color: rgba(250, 204, 21, 0.6) !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.prose a:hover,
+.article-content a:hover,
+.wp-article-body a:hover,
+.preview-content a:hover,
+#gutenberg-preview-canvas a:hover,
+div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):hover {
+  color: #FEF08A !important;
+  text-decoration-color: #FEF08A !important;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
@@ -182,4 +207,24 @@ body {
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
+}
+
+/* Global Hyperlink Anchor Text Styling (Yellow #FACC15) */
+.prose a,
+.article-content a,
+.prose-invert a,
+#gutenberg-content-textarea a {
+  color: #FACC15 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  font-weight: 600 !important;
+  transition: color 0.15s ease-in-out;
+}
+
+.prose a:hover,
+.article-content a:hover,
+.prose-invert a:hover,
+#gutenberg-content-textarea a:hover {
+  color: #FEF08A !important;
+  text-decoration-color: #FEF08A !important;
 }
