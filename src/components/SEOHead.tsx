@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { CMSData } from "../cmsStore";
+import { CMSData, getFaviconUrl } from "../cmsStore";
+import { applyFaviconToDocument } from "../utils/favicon";
 
 interface SEOHeadProps {
   cmsData: CMSData;
@@ -227,6 +228,10 @@ export default function SEOHead({ cmsData, currentView, activePostId }: SEOHeadP
 
     // Canonical
     setCanonicalLink(canonical);
+
+    // Dynamic Site Favicon (<link rel="icon" ... />) across all pages
+    const activeFaviconUrl = getFaviconUrl(cmsData);
+    applyFaviconToDocument(activeFaviconUrl);
 
     // Schema
     if (schemaJson) {

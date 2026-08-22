@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   getCMSData, 
   saveCMSData, 
@@ -8,8 +8,15 @@ import {
   WPUser, 
   WPMedia, 
   WPComment, 
-  WPMenuItem 
+  WPMenuItem,
+  DEFAULT_FAVICON_DATA,
+  getFaviconUrl
 } from "../cmsStore";
+import { 
+  applyFaviconToDocument, 
+  DEFAULT_FALLBACK_FAVICON, 
+  determineFaviconMimeType 
+} from "../utils/favicon";
 import { 
   LayoutDashboard, 
   FileText, 
@@ -249,6 +256,103 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
     nextMenu[index] = nextMenu[targetIdx];
     nextMenu[targetIdx] = temp;
     handleSave({ ...cmsData, navigationMenu: nextMenu });
+  };
+
+  // Favicon File Input Ref & Handlers
+  const faviconFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const activeFaviconUrl = getFaviconUrl(cmsData);
+  const isCustomFavicon = Boolean(
+    (cmsData.customImages?.siteFavicon?.url && cmsData.customImages.siteFavicon.url !== DEFAULT_FALLBACK_FAVICON) ||
+    (cmsData.siteSettings?.favicon && cmsData.siteSettings.favicon !== DEFAULT_FALLBACK_FAVICON)
+  );
+
+  const handleFaviconLocalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification("Favicon file size must be less than 5MB.", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        const dataUrl = event.target.result as string;
+        const fileSizeKB = Math.max(1, Math.round(file.size / 1024));
+        const fileName = file.name;
+        
+        // Add to Media Library for reuse
+        const newMediaItem: WPMedia = {
+          id: `fav-${Date.now()}`,
+          title: `Site Favicon - ${fileName}`,
+          url: dataUrl,
+          size: `${fileSizeKB} KB`,
+          date: new Date().toISOString().split("T")[0],
+          type: file.type || determineFaviconMimeType(fileName),
+          dimensions: "512x512",
+          alt: "Site Favicon Icon",
+          caption: "Uploaded Website Favicon",
+          description: "Active site favicon and browser tab icon asset.",
+          author: sessionUser?.name || "Administrator"
+        };
+
+        const updatedCustomImages = {
+          ...(cmsData.customImages || {}),
+          siteFavicon: {
+            url: dataUrl,
+            alt: "Truth Quran Academy Favicon",
+            title: `Favicon (${fileName})`,
+            dimensions: "512x512",
+            size: `${fileSizeKB} KB`
+          }
+        };
+
+        const updatedSettings = {
+          ...(cmsData.siteSettings || {}),
+          favicon: dataUrl
+        };
+
+        const updatedData: CMSData = {
+          ...cmsData,
+          customImages: updatedCustomImages,
+          siteSettings: updatedSettings as any,
+          mediaLibrary: [newMediaItem, ...(cmsData.mediaLibrary || [])]
+        };
+
+        handleSave(updatedData, "✅ New site favicon uploaded and injected into HTML <head> dynamically!");
+        applyFaviconToDocument(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    if (e.target) {
+      e.target.value = "";
+    }
+  };
+
+  const handleFaviconRemove = () => {
+    const updatedCustomImages = {
+      ...(cmsData.customImages || {}),
+      siteFavicon: {
+        ...DEFAULT_FAVICON_DATA
+      }
+    };
+
+    const updatedSettings = {
+      ...(cmsData.siteSettings || {}),
+      favicon: ""
+    };
+
+    const updatedData: CMSData = {
+      ...cmsData,
+      customImages: updatedCustomImages,
+      siteSettings: updatedSettings as any
+    };
+
+    handleSave(updatedData, "✅ Favicon removed & reverted back to default fallback logo!");
+    applyFaviconToDocument(DEFAULT_FALLBACK_FAVICON);
   };
 
   return (
@@ -1481,11 +1585,239 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
                 {/* TAB 10: SETTINGS */}
                 {activeTab === "settings" && (
                   <div className="space-y-6 text-left">
-                    <div className="border-b border-[#d9b45c]/15 pb-2">
-                      <h2 className="font-serif text-xl text-[#f3ecd8] font-bold">WordPress Core Settings Simulator</h2>
-                      <p className="text-xs text-[#c9c2ab] mt-1 font-sans">Configure permalink custom structures, caching, discussion, and directionality toggles.</p>
+                    <input 
+                      type="file" 
+                      ref={faviconFileInputRef} 
+                      onChange={handleFaviconLocalUpload} 
+                      accept=".ico,.png,.svg,.webp,.jpg,.jpeg,image/x-icon,image/png,image/svg+xml,image/webp,image/jpeg" 
+                      className="hidden" 
+                    />
+
+                    <div className="border-b border-[#d9b45c]/15 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h2 className="font-serif text-xl text-[#f3ecd8] font-bold">WordPress Core Settings & Site Identity</h2>
+                        <p className="text-xs text-[#c9c2ab] mt-1 font-sans">Manage Site Icon (Favicon), branding identity, permalinks, caching, and localization.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-sans font-bold uppercase tracking-wider ${isCustomFavicon ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/10 text-amber-300 border border-amber-500/30"}`}>
+                          <span className={`w-2 h-2 rounded-full ${isCustomFavicon ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`}></span>
+                          {isCustomFavicon ? "Custom Favicon Active" : "Default Fallback Favicon"}
+                        </span>
+                      </div>
                     </div>
 
+                    {/* DEDICATED FAVICON MANAGEMENT & SITE ICON MODULE */}
+                    <div className="bg-[#12141b] border-2 border-[#d9b45c]/25 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-96 h-96 bg-[#d9b45c]/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+                      
+                      <div className="border-b border-[#d9b45c]/15 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-[#d9b45c]/15 border border-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <Globe className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h3 className="font-serif text-base text-[#f3ecd8] font-bold">Site Icon (Favicon) Management</h3>
+                              <span className="text-[10px] text-[#d9b45c] uppercase font-bold tracking-wider">Dynamic HTML &lt;head&gt; Link Integration</span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-[#c9c2ab] leading-relaxed pt-1">
+                            The Site Icon is what visitors see in browser tabs, bookmark bars, and WordPress mobile shortcuts. Upload an icon in <strong>.ico</strong>, <strong>.png</strong>, <strong>.svg</strong>, or <strong>.webp</strong> format (Recommended square size: <strong>512 × 512 pixels</strong>).
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        {/* LEFT: REAL-TIME VISUAL PREVIEWS */}
+                        <div className="lg:col-span-6 space-y-4">
+                          <span className="text-[10px] text-[#d9b45c] uppercase font-extrabold tracking-widest block">Live Visual Previews</span>
+                          
+                          {/* 1. Realistic Browser Tab Simulation */}
+                          <div className="bg-[#0b0c10] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                            {/* Browser Top Window Bar */}
+                            <div className="bg-[#191b22] px-3 py-2 border-b border-white/10 flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]/80"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]/80"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]/80"></div>
+                              </div>
+
+                              {/* Active Simulated Tab */}
+                              <div className="flex-1 max-w-[240px] bg-[#12141b] border-t border-l border-r border-[#d9b45c]/30 rounded-t-lg px-2.5 py-1.5 flex items-center justify-between gap-2 shadow-inner">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {/* Rendered Live Favicon Image in Tab */}
+                                  <img 
+                                    src={activeFaviconUrl} 
+                                    alt="Browser Tab Favicon" 
+                                    className="w-4 h-4 rounded-sm object-contain flex-shrink-0 bg-black/40 p-0.5 border border-[#d9b45c]/20" 
+                                  />
+                                  <span className="text-[11px] text-[#f3ecd8] font-sans font-medium truncate">
+                                    {cmsData.siteSettings?.title || "Truth Quran Academy"} - Official
+                                  </span>
+                                </div>
+                                <X className="w-3 h-3 text-gray-400 hover:text-white flex-shrink-0" />
+                              </div>
+
+                              {/* Plus New Tab Button */}
+                              <Plus className="w-3.5 h-3.5 text-gray-500" />
+                            </div>
+
+                            {/* Simulated Browser URL Address Bar */}
+                            <div className="bg-[#12141b] px-4 py-2 flex items-center gap-2 border-b border-white/5">
+                              <div className="flex-1 bg-[#07080b] border border-white/10 rounded-md px-3 py-1 flex items-center gap-2 text-[11px] text-gray-400 font-mono">
+                                <Lock className="w-3 h-3 text-emerald-400" />
+                                <span className="text-gray-200 truncate">https://truthquranacademy.com</span>
+                              </div>
+                            </div>
+
+                            <div className="p-3 text-center bg-[#07080b]/60">
+                              <span className="text-[9px] text-[#c9c2ab]/70 font-mono uppercase tracking-wider">
+                                Real-World Browser Tab Simulation (Active Favicon &lt;link rel="icon"&gt;)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 2. Mobile / App Bookmark Preview */}
+                          <div className="bg-[#0b0c10] border border-[#d9b45c]/15 rounded-xl p-4 flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-[#12141b] border-2 border-[#d9b45c]/40 flex items-center justify-center p-2 shadow-lg shadow-[#d9b45c]/10 flex-shrink-0">
+                              <img 
+                                src={activeFaviconUrl} 
+                                alt="App Icon Preview" 
+                                className="w-full h-full object-contain" 
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1 text-left">
+                              <span className="text-[9px] text-[#d9b45c] uppercase font-bold tracking-widest block">Home Screen & Bookmark Icon</span>
+                              <strong className="text-xs text-[#f3ecd8] font-serif block truncate">{cmsData.siteSettings?.title || "Truth Quran Academy"}</strong>
+                              <p className="text-[10px] text-[#c9c2ab]/60 font-sans mt-0.5">Retina App Launcher, Safari Touch Icons & PWA Manifest</p>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* RIGHT: FAVICON CONTROLS, REPLACEMENT & METADATA */}
+                        <div className="lg:col-span-6 space-y-4">
+                          <span className="text-[10px] text-[#d9b45c] uppercase font-extrabold tracking-widest block">Favicon Controls & Actions</span>
+
+                          {/* Active Favicon Metadata Card */}
+                          <div className="bg-[#07080b] border border-[#d9b45c]/15 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[#c9c2ab] font-sans">Active Icon Status:</span>
+                              <span className={`font-bold font-sans ${isCustomFavicon ? "text-emerald-400" : "text-[#d9b45c]"}`}>
+                                {isCustomFavicon ? "Custom Active Favicon" : "Default Academy Emblem"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs border-t border-white/5 pt-2">
+                              <span className="text-[#c9c2ab] font-sans">Detected Dimensions:</span>
+                              <span className="text-white font-mono text-[11px]">{cmsData.customImages?.siteFavicon?.dimensions || "512 × 512 px"}</span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs border-t border-white/5 pt-2">
+                              <span className="text-[#c9c2ab] font-sans">Format & MIME Type:</span>
+                              <span className="text-white font-mono text-[11px]">{determineFaviconMimeType(activeFaviconUrl)}</span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs border-t border-white/5 pt-2">
+                              <span className="text-[#c9c2ab] font-sans">HTML Head Injection:</span>
+                              <span className="text-emerald-400 font-sans font-bold text-[10px] flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> &lt;link rel="icon"&gt; Active
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                            {/* Upload from Local Device */}
+                            <button
+                              type="button"
+                              onClick={() => faviconFileInputRef.current?.click()}
+                              className="py-2.5 px-3 bg-[#d9b45c] hover:bg-[#c49f47] text-black rounded-lg text-xs font-sans font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                            >
+                              <Upload className="w-4 h-4" />
+                              Upload Favicon
+                            </button>
+
+                            {/* Choose from Media Library */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCurrentThemeImageKey("siteFavicon");
+                                setIsThemeImageManagerOpen(true);
+                              }}
+                              className="py-2.5 px-3 bg-[#12141b] hover:bg-[#1a1d26] text-[#d9b45c] border border-[#d9b45c]/40 rounded-lg text-xs font-sans font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
+                            >
+                              <ImageIcon className="w-4 h-4" />
+                              Media Library
+                            </button>
+                          </div>
+
+                          {/* Replace / Change & Remove Buttons */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => faviconFileInputRef.current?.click()}
+                              className="flex-1 py-2 px-3 bg-[#07080b] hover:bg-white/5 text-gray-200 border border-white/10 rounded-lg text-[11px] font-sans font-semibold flex items-center justify-center gap-1.5 transition-all"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-[#d9b45c]" />
+                              Change / Replace Icon
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleFaviconRemove}
+                              disabled={!isCustomFavicon}
+                              className={`py-2 px-3 rounded-lg text-[11px] font-sans font-semibold flex items-center justify-center gap-1.5 transition-all ${isCustomFavicon ? "bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/5 text-gray-600 border border-white/5 cursor-not-allowed"}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Remove (Revert Default)
+                            </button>
+                          </div>
+
+                          {/* HTML Snippet Notice */}
+                          <div className="bg-[#07080b]/80 border border-white/5 rounded-lg p-2.5 font-mono text-[10px] text-[#c9c2ab]/70 leading-relaxed">
+                            <span className="text-[#d9b45c] font-bold block mb-1">Dynamic Header Code:</span>
+                            &lt;link rel="icon" type="{determineFaviconMimeType(activeFaviconUrl)}" href="{activeFaviconUrl.slice(0, 38)}..." /&gt;
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* GENERAL SITE IDENTITY (TITLE & TAGLINE) */}
+                    <div className="bg-[#12141b] border border-[#d9b45c]/10 rounded-xl p-5 space-y-4">
+                      <span className="text-[10px] text-[#d9b45c] uppercase font-bold tracking-widest block border-b border-[#d9b45c]/10 pb-1.5">Site Identity & General Branding</span>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-[#c9c2ab] uppercase font-bold">Site Title</label>
+                          <input 
+                            type="text" 
+                            value={cmsData.siteSettings?.title || "Truth Quran Academy"}
+                            onChange={(e) => {
+                              const settings = { ...cmsData.siteSettings, title: e.target.value };
+                              handleSave({ ...cmsData, siteSettings: settings });
+                            }}
+                            className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded p-2.5 text-xs text-white font-serif outline-none focus:border-[#d9b45c]"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-[#c9c2ab] uppercase font-bold">Tagline</label>
+                          <input 
+                            type="text" 
+                            value={cmsData.siteSettings?.tagline || "Learn Quran Online with Certified Arab & Native Tutors"}
+                            onChange={(e) => {
+                              const settings = { ...cmsData.siteSettings, tagline: e.target.value };
+                              handleSave({ ...cmsData, siteSettings: settings });
+                            }}
+                            className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded p-2.5 text-xs text-white font-sans outline-none focus:border-[#d9b45c]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PERMALINKS & LOCALIZATION */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       
                       {/* Permalinks & Reading */}
@@ -1706,13 +2038,25 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
                 title: img.title,
                 caption: img.caption,
                 description: img.description,
-                dimensions: img.dimensions || "1024x768"
+                dimensions: img.dimensions || "512x512",
+                size: img.size
               }
             };
+            
+            let updatedSettings = cmsData.siteSettings;
+            if (currentThemeImageKey === "siteFavicon") {
+              updatedSettings = {
+                ...(cmsData.siteSettings || {}),
+                favicon: img.url
+              } as any;
+              applyFaviconToDocument(img.url);
+            }
+
             handleSave({
               ...cmsData,
-              customImages: updatedCustomImages
-            });
+              customImages: updatedCustomImages,
+              siteSettings: updatedSettings
+            }, currentThemeImageKey === "siteFavicon" ? "✅ Site favicon updated from Media Library and injected into HTML <head>!" : undefined);
           }
         }}
         onSaveMediaLibrary={(updatedMedia) => {

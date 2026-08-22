@@ -203,6 +203,7 @@ export interface CMSData {
     gutenbergCompatible: boolean;
     elementorCompatible: boolean;
     securityFirewallActive: boolean;
+    favicon?: string;
   };
   widgets: Record<string, string[]>; // footer1, footer2, sidebar widget items list
   aiSettings?: AISettings;
@@ -378,9 +379,27 @@ export const DEFAULT_TEACHERS: WPTeacher[] = [
   }
 ];
 
+export const DEFAULT_FAVICON_DATA = {
+  url: logoImg,
+  alt: "Truth Quran Academy Favicon",
+  title: "Truth Quran Academy Favicon",
+  dimensions: "64x64",
+  size: "12 KB"
+};
+
+export function getFaviconUrl(data: CMSData): string {
+  if (data.customImages?.siteFavicon?.url && data.customImages.siteFavicon.url.trim() !== "") {
+    return data.customImages.siteFavicon.url;
+  }
+  if (data.siteSettings?.favicon && data.siteSettings.favicon.trim() !== "") {
+    return data.siteSettings.favicon;
+  }
+  return logoImg;
+}
+
 const DEFAULT_CUSTOM_IMAGES: Record<string, { url: string; alt: string; title: string; caption?: string; description?: string; dimensions?: string; size?: string; }> = {
   siteLogo: { url: logoImg, alt: "Truth Quran Academy Logo", title: "Truth Quran Academy Logo", caption: "Official Academy Logo", description: "The primary branding logo used on headers, footers, and cards.", dimensions: "512x512", size: "142 KB" },
-  siteFavicon: { url: logoImg, alt: "Truth Quran Academy Favicon", title: "Truth Quran Academy Favicon", dimensions: "64x64", size: "12 KB" },
+  siteFavicon: DEFAULT_FAVICON_DATA,
   heroBg: { url: kidsLearningBg, alt: "Kids studying Quran together", title: "Hero Banner Background", caption: "Primary background illustrating kids learning", description: "Main banner background for the academy homepage.", dimensions: "1920x1080", size: "310 KB" },
   aboutTeacherBg: { url: teacherBg, alt: "Online Quran teacher guiding adult student", title: "Online Tutor Section Background", dimensions: "1200x800", size: "245 KB" },
   aboutFemaleTeacherBg: { url: femaleTeacherBg, alt: "Female tutor assisting child student", title: "Female Tutor Section Background", dimensions: "1200x800", size: "220 KB" },
