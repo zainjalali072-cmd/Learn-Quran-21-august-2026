@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BlogPost } from "../types";
-import { saveCMSData, CMSData, cleanHTMLToExcerpt, DEFAULT_POST_IMAGE, submitUrlsForIndexing } from "../cmsStore";
+import { saveCMSData, CMSData, cleanHTMLToExcerpt, DEFAULT_POST_IMAGE, submitUrlsForIndexing, WPMedia } from "../cmsStore";
+import { WPMediaLibraryModal } from "./WPMediaLibraryModal";
 import { 
   Check, 
   ChevronDown, 
@@ -251,6 +252,13 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
   const [showMediaLibraryModal, setShowMediaLibraryModal] = useState(false);
   const [mediaTargetField, setMediaTargetField] = useState<"featured" | "internal">("featured");
+
+  // Slash Command State
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashQuery, setSlashQuery] = useState("");
+  const [slashCursorIndex, setSlashCursorIndex] = useState<number | null>(null);
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
 
   // Cropper Studio
   const [showCropModal, setShowCropModal] = useState(false);
@@ -628,42 +636,124 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     return formatted.join("\n\n");
   };
 
+  // Robust Markdown & HTML Auto-Detection and Sanitization Formatter
+  const convertMarkdownAndHtmlToCleanHtml = (text: string): string => {
+    if (!text || !text.trim()) return text;
+    const lines = text.split(/\r?\n/);
+    const resultBlocks: string[] = [];
+    let inBulletList = false;
+    let bulletItems: string[] = [];
+    let inNumberedList = false;
+    let numberedItems: string[] = [];
+
+    const flushLists = () => {
+      if (inBulletList && bulletItems.length > 0) {
+        resultBlocks.push(`<ul class="list-disc pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]">\n${bulletItems.map(it => `  <li>${it}</li>`).join("\n")}\n</ul>`);
+        bulletItems = [];
+        inBulletList = false;
+      }
+      if (inNumberedList && numberedItems.length > 0) {
+        resultBlocks.push(`<ol class="list-decimal pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]">\n${numberedItems.map(it => `  <li>${it}</li>`).join("\n")}\n</ol>`);
+        numberedItems = [];
+        inNumberedList = false;
+      }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        flushLists();
+        continue;
+      }
+
+      // Convert inline markdown: bold, italic, links
+      const formattedInline = trimmed
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.*?)__/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/_(.*?)_/g, '<em>$1</em>')
+        .replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#EAB308] font-semibold">$1</a>');
+
+      // Markdown H4 (####)
+      if (/^####\s+(.*)$/.test(trimmed)) {
+        flushLists();
+        resultBlocks.push(`<h4>${trimmed.replace(/^####\s+/, "")}</h4>`);
+        continue;
+      }
+
+      // Markdown H3 (###)
+      if (/^###\s+(.*)$/.test(trimmed)) {
+        flushLists();
+        resultBlocks.push(`<h3>${trimmed.replace(/^###\s+/, "")}</h3>`);
+        continue;
+      }
+
+      // Markdown H2 (##)
+      if (/^##\s+(.*)$/.test(trimmed)) {
+        flushLists();
+        resultBlocks.push(`<h2>${trimmed.replace(/^##\s+/, "")}</h2>`);
+        continue;
+      }
+
+      // Markdown H1 (#) -> map to H2 for article hierarchy
+      if (/^#\s+(.*)$/.test(trimmed)) {
+        flushLists();
+        resultBlocks.push(`<h2>${trimmed.replace(/^#\s+/, "")}</h2>`);
+        continue;
+      }
+
+      // Existing HTML headings
+      if (/^<h[1-6][^>]*>(.*?)<\/h[1-6]>/i.test(trimmed)) {
+        flushLists();
+        resultBlocks.push(trimmed);
+        continue;
+      }
+
+      // Blockquote
+      if (/^>\s*(.*)$/.test(trimmed)) {
+        flushLists();
+        const quoteText = trimmed.replace(/^>\s*/, "");
+        resultBlocks.push(`<blockquote class="border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]">${quoteText}</blockquote>`);
+        continue;
+      }
+
+      // Bullet list item (- or * or •)
+      if (/^[-*•]\s+(.*)$/.test(trimmed)) {
+        if (inNumberedList) flushLists();
+        inBulletList = true;
+        bulletItems.push(trimmed.replace(/^[-*•]\s+/, ""));
+        continue;
+      }
+
+      // Numbered list item
+      if (/^\d+[.)]\s+(.*)$/.test(trimmed)) {
+        if (inBulletList) flushLists();
+        inNumberedList = true;
+        numberedItems.push(trimmed.replace(/^\d+[.)]\s+/, ""));
+        continue;
+      }
+
+      // Pre-existing HTML block elements (table, div, hr, ul, ol, blockquote, img, p)
+      if (/^<(table|div|hr|ul|ol|blockquote|p|img|iframe|section)/i.test(trimmed)) {
+        flushLists();
+        resultBlocks.push(trimmed);
+        continue;
+      }
+
+      // Standard paragraph
+      flushLists();
+      resultBlocks.push(`<p>${formattedInline}</p>`);
+    }
+
+    flushLists();
+    return resultBlocks.join("\n\n");
+  };
+
   // Convert current content into clean structured HTML
   const autoFormatContentToHTML = (raw: string): string => {
-    if (!raw.trim()) return raw;
-    const blocks = raw.split(/\n\n+/);
-    const formatted = blocks.map((block) => {
-      const trimmed = block.trim();
-      if (!trimmed) return "";
-      
-      if (trimmed.startsWith("### ")) {
-        return `<h3>${trimmed.replace(/^###\s+/, "")}</h3>`;
-      }
-      if (trimmed.startsWith("## ")) {
-        return `<h2>${trimmed.replace(/^##\s+/, "")}</h2>`;
-      }
-      if (trimmed.startsWith("# ")) {
-        return `<h1>${trimmed.replace(/^#\s+/, "")}</h1>`;
-      }
-      if (/^<h[1-6]/i.test(trimmed) || /^<table/i.test(trimmed) || /^<div/i.test(trimmed) || /^<ul/i.test(trimmed) || /^<ol/i.test(trimmed) || /^<blockquote/i.test(trimmed)) {
-        return trimmed;
-      }
-      
-      if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.includes("\n- ") || trimmed.includes("\n* ")) {
-        const items = trimmed.split(/\n[-*]\s+/).filter(Boolean);
-        return `<ul class="list-disc pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]">\n${items.map(it => `  <li>${it.replace(/^[-*]\s+/, "")}</li>`).join("\n")}\n</ul>`;
-      }
-
-      if (/^\d+\.\s+/.test(trimmed) || trimmed.includes("\n1. ")) {
-        const items = trimmed.split(/\n\d+\.\s+/).filter(Boolean);
-        return `<ol class="list-decimal pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]">\n${items.map(it => `  <li>${it.replace(/^\d+\.\s+/, "")}</li>`).join("\n")}\n</ol>`;
-      }
-
-      const withBreaks = trimmed.replace(/\n/g, "<br />");
-      return `<p>${withBreaks}</p>`;
-    }).filter(Boolean);
-
-    return formatted.join("\n\n");
+    return convertMarkdownAndHtmlToCleanHtml(raw);
   };
 
   const handleAutoFormatText = () => {
@@ -675,6 +765,359 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     handleUpdateField("content", formatted);
     pushHistory(formatted);
     showToast("Formatted plain text into structured HTML paragraphs & headings!");
+  };
+
+  // Slash Command Menu Items
+  const slashMenuItems = useMemo(() => {
+    const items = [
+      {
+        id: "image",
+        label: "Image / Media",
+        desc: "Upload or select an image to insert inline between or before headings",
+        badge: "Media",
+        icon: ImageIcon,
+        keywords: ["image", "img", "photo", "picture", "upload", "media", "pic", "gallery"]
+      },
+      {
+        id: "h2",
+        label: "Heading 2 (##)",
+        desc: "Main section heading — large gold serif typography",
+        badge: "H2",
+        icon: Heading2,
+        keywords: ["h2", "heading", "title", "section", "##"]
+      },
+      {
+        id: "h3",
+        label: "Heading 3 (###)",
+        desc: "Sub-section heading — yellow serif subtitle",
+        badge: "H3",
+        icon: Heading3,
+        keywords: ["h3", "heading", "subheading", "subtitle", "###"]
+      },
+      {
+        id: "h4",
+        label: "Heading 4 (####)",
+        desc: "Minor topic or sub-point heading",
+        badge: "H4",
+        icon: Heading4,
+        keywords: ["h4", "heading", "topic", "####"]
+      },
+      {
+        id: "paragraph",
+        label: "Paragraph",
+        desc: "Plain article paragraph text block",
+        badge: "Text",
+        icon: FileText,
+        keywords: ["p", "paragraph", "text", "body", "plain"]
+      },
+      {
+        id: "bullet_list",
+        label: "Bulleted List",
+        desc: "Create an unordered list with gold bullet markers",
+        badge: "List",
+        icon: List,
+        keywords: ["bullet", "list", "ul", "dots", "unordered"]
+      },
+      {
+        id: "ordered_list",
+        label: "Numbered List",
+        desc: "Create a numbered step-by-step list",
+        badge: "List",
+        icon: ListOrdered,
+        keywords: ["number", "numbered", "list", "ol", "steps", "ordered"]
+      },
+      {
+        id: "quote",
+        label: "Quote / Hadith Callout",
+        desc: "Quranic reminder, Hadith, or scholar quotation callout",
+        badge: "Quote",
+        icon: Quote,
+        keywords: ["quote", "blockquote", "callout", "hadith", "scholar"]
+      },
+      {
+        id: "table",
+        label: "Structured Table",
+        desc: "Insert comparison, schedule, or pricing table",
+        badge: "Table",
+        icon: TableIcon,
+        keywords: ["table", "grid", "comparison", "pricing", "data"]
+      },
+      {
+        id: "cta",
+        label: "CTA Booking Button",
+        desc: "Insert Trial Class booking or WhatsApp Contact button",
+        badge: "CTA",
+        icon: MousePointerClick,
+        keywords: ["cta", "button", "link", "trial", "contact", "enroll"]
+      },
+      {
+        id: "divider",
+        label: "Divider Line",
+        desc: "Horizontal divider separator line",
+        badge: "HR",
+        icon: Minus,
+        keywords: ["divider", "line", "hr", "separator", "rule"]
+      }
+    ];
+
+    if (!slashQuery.trim()) return items;
+    const q = slashQuery.toLowerCase().trim();
+    return items.filter(
+      it => it.label.toLowerCase().includes(q) ||
+            it.desc.toLowerCase().includes(q) ||
+            it.keywords.some(k => k.toLowerCase().includes(q))
+    );
+  }, [slashQuery]);
+
+  // Handle Slash Command Item Selection
+  const handleSelectSlashItem = (item: typeof slashMenuItems[0]) => {
+    if (!currentPost) return;
+    const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+    const content = currentPost.content || "";
+    const triggerIndex = slashCursorIndex !== null ? slashCursorIndex : (textarea?.selectionStart ?? content.length);
+    
+    // Calculate the slash replacement range
+    const beforeSlash = content.substring(0, triggerIndex);
+    const afterSlash = content.substring(triggerIndex + 1 + slashQuery.length);
+
+    if (item.id === "image") {
+      setMediaTargetField("internal");
+      setShowMediaLibraryModal(true);
+      setShowSlashMenu(false);
+      return;
+    }
+
+    let replacement = "";
+    if (item.id === "h2") {
+      replacement = `\n<h2>Main Section Heading</h2>\n\n`;
+    } else if (item.id === "h3") {
+      replacement = `\n<h3>Sub-section Heading</h3>\n\n`;
+    } else if (item.id === "h4") {
+      replacement = `\n<h4>Minor Topic</h4>\n\n`;
+    } else if (item.id === "paragraph") {
+      replacement = `\n<p>Start writing paragraph text here...</p>\n\n`;
+    } else if (item.id === "bullet_list") {
+      replacement = `\n<ul class="list-disc pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]">\n  <li>Key Point 1</li>\n  <li>Key Point 2</li>\n</ul>\n\n`;
+    } else if (item.id === "ordered_list") {
+      replacement = `\n<ol class="list-decimal pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]">\n  <li>Step 1: Introduction</li>\n  <li>Step 2: Practical Tajweed Rule</li>\n</ol>\n\n`;
+    } else if (item.id === "quote") {
+      replacement = `\n<blockquote class="border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]">"The best amongst you are those who learn the Quran and teach it." — Sahih Bukhari</blockquote>\n\n`;
+    } else if (item.id === "table") {
+      setShowTableModal(true);
+      replacement = ``;
+    } else if (item.id === "cta") {
+      setShowCtaModal(true);
+      replacement = ``;
+    } else if (item.id === "divider") {
+      replacement = `\n<hr class="border-[#d9b45c]/30 my-8" />\n\n`;
+    }
+
+    const newContent = beforeSlash + replacement + afterSlash;
+    handleUpdateField("content", newContent);
+    pushHistory(newContent);
+    setShowSlashMenu(false);
+    setSlashQuery("");
+    setSlashCursorIndex(null);
+    showToast(`Inserted ${item.label}`);
+  };
+
+  // Media selection callback for Featured & Inline images
+  const handleMediaSelect = (imageDetails: { url: string; alt: string; title: string; caption?: string; description?: string }) => {
+    if (!currentPost) return;
+
+    if (mediaTargetField === "featured") {
+      handleUpdateField("coverImage", imageDetails.url);
+      handleUpdateField("featuredImage", imageDetails.url);
+      if (imageDetails.alt) handleUpdateField("imageAltText", imageDetails.alt);
+      if (imageDetails.title) handleUpdateField("imageTitle", imageDetails.title);
+      if (imageDetails.caption) handleUpdateField("imageCaption", imageDetails.caption);
+      setShowMediaLibraryModal(false);
+      showToast("Featured image updated from Media Library!");
+      return;
+    }
+
+    // Inline image insertion
+    const altText = imageDetails.alt || imageDetails.title || currentPost.title || "Quran Tajweed Article Illustration";
+    const captionHtml = imageDetails.caption ? `<p class="text-xs text-[#c9c2ab] mt-2 italic text-center">${imageDetails.caption}</p>` : "";
+    const imageHtml = `\n<div class="my-6 text-center">\n  <img src="${imageDetails.url}" alt="${altText}" class="w-full max-w-2xl mx-auto rounded-2xl border border-[#d9b45c]/30 shadow-2xl object-cover" />\n  ${captionHtml}\n</div>\n\n`;
+
+    const content = currentPost.content || "";
+    let newContent = "";
+
+    if (slashCursorIndex !== null) {
+      const before = content.substring(0, slashCursorIndex);
+      const after = content.substring(slashCursorIndex + 1 + slashQuery.length);
+      newContent = before + imageHtml + after;
+      setSlashCursorIndex(null);
+      setSlashQuery("");
+    } else {
+      const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+      if (textarea && textarea.selectionStart !== undefined) {
+        const pos = textarea.selectionStart;
+        newContent = content.substring(0, pos) + imageHtml + content.substring(pos);
+      } else {
+        newContent = content + imageHtml;
+      }
+    }
+
+    handleUpdateField("content", newContent);
+    pushHistory(newContent);
+    setShowMediaLibraryModal(false);
+    setShowSlashMenu(false);
+    showToast("✅ Inline image inserted smoothly!");
+  };
+
+  // Content Input Handlers for Slash Commands, Markdown Headings, and Pasting
+  const handleContentPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData("text/plain");
+    if (!pastedText) return;
+
+    // Check if pasted text contains markdown headings (#, ##, ###, ####), lists, or formatting
+    const hasMarkdownHeading = /^#{1,4}\s+/m.test(pastedText);
+    const hasHtmlTags = /<\/?(h[1-6]|p|ul|ol|blockquote|table|div)[^>]*>/i.test(pastedText);
+    const hasMarkdownList = /^[-*•]\s+|\d+[.)]\s+/m.test(pastedText);
+    const hasMarkdownFormatting = /\*\*.*?\*\*|\[.*?\]\(https?:\/\//.test(pastedText);
+
+    if (hasMarkdownHeading || hasHtmlTags || hasMarkdownList || hasMarkdownFormatting) {
+      e.preventDefault();
+      const converted = convertMarkdownAndHtmlToCleanHtml(pastedText);
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const content = currentPost?.content || "";
+
+      const newContent = content.substring(0, start) + converted + content.substring(end);
+      handleUpdateField("content", newContent);
+      pushHistory(newContent);
+      showToast("✨ Auto-detected and formatted H2/H3 headings & markdown structure!");
+    }
+  };
+
+  const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // If slash menu is active, handle keyboard navigation
+    if (showSlashMenu) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) => (prev + 1) % slashMenuItems.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) => (prev - 1 + slashMenuItems.length) % slashMenuItems.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (slashMenuItems[slashSelectedIndex]) {
+          handleSelectSlashItem(slashMenuItems[slashSelectedIndex]);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        setShowSlashMenu(false);
+        setSlashQuery("");
+        return;
+      }
+    }
+
+    // Typing Heading Auto-Detection on Enter key:
+    if (e.key === "Enter") {
+      const textarea = e.currentTarget;
+      const cursor = textarea.selectionStart;
+      const content = textarea.value;
+      
+      const lineStart = content.lastIndexOf("\n", cursor - 1) + 1;
+      const currentLine = content.substring(lineStart, cursor);
+
+      // Check if current line starts with ## (H2)
+      if (/^##\s+(.+)$/.test(currentLine)) {
+        e.preventDefault();
+        const headingText = currentLine.replace(/^##\s+/, "").trim();
+        const replacement = `<h2>${headingText}</h2>\n\n`;
+        const newContent = content.substring(0, lineStart) + replacement + content.substring(cursor);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+        showToast("Converted to <h2> Section Heading!");
+        return;
+      }
+
+      // Check if current line starts with ### (H3)
+      if (/^###\s+(.+)$/.test(currentLine)) {
+        e.preventDefault();
+        const headingText = currentLine.replace(/^###\s+/, "").trim();
+        const replacement = `<h3>${headingText}</h3>\n\n`;
+        const newContent = content.substring(0, lineStart) + replacement + content.substring(cursor);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+        showToast("Converted to <h3> Subsection Heading!");
+        return;
+      }
+
+      // Check if current line starts with #### (H4)
+      if (/^####\s+(.+)$/.test(currentLine)) {
+        e.preventDefault();
+        const headingText = currentLine.replace(/^####\s+/, "").trim();
+        const replacement = `<h4>${headingText}</h4>\n\n`;
+        const newContent = content.substring(0, lineStart) + replacement + content.substring(cursor);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+        showToast("Converted to <h4> Minor Topic Heading!");
+        return;
+      }
+
+      // Check if current line starts with # (H1/H2)
+      if (/^#\s+(.+)$/.test(currentLine)) {
+        e.preventDefault();
+        const headingText = currentLine.replace(/^#\s+/, "").trim();
+        const replacement = `<h2>${headingText}</h2>\n\n`;
+        const newContent = content.substring(0, lineStart) + replacement + content.substring(cursor);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+        showToast("Converted to <h2> Heading!");
+        return;
+      }
+
+      // Check if current line starts with > (Blockquote)
+      if (/^>\s+(.+)$/.test(currentLine)) {
+        e.preventDefault();
+        const quoteText = currentLine.replace(/^>\s+/, "").trim();
+        const replacement = `<blockquote class="border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]">${quoteText}</blockquote>\n\n`;
+        const newContent = content.substring(0, lineStart) + replacement + content.substring(cursor);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+        showToast("Converted to Quote Callout!");
+        return;
+      }
+    }
+  };
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    const cursor = e.target.selectionStart;
+    handleUpdateField("content", val);
+    pushHistory(val);
+
+    // Check if user just typed `/`
+    const textBeforeCursor = val.substring(0, cursor);
+    const lastSlashIndex = textBeforeCursor.lastIndexOf("/");
+
+    if (lastSlashIndex !== -1) {
+      const textAfterSlash = textBeforeCursor.substring(lastSlashIndex + 1);
+      const charBeforeSlash = lastSlashIndex > 0 ? val[lastSlashIndex - 1] : "\n";
+      if ((charBeforeSlash === "\n" || charBeforeSlash === " " || charBeforeSlash === ">") && !textAfterSlash.includes(" ") && !textAfterSlash.includes("\n")) {
+        setShowSlashMenu(true);
+        setSlashQuery(textAfterSlash);
+        setSlashCursorIndex(lastSlashIndex);
+        setSlashSelectedIndex(0);
+        return;
+      }
+    }
+
+    if (showSlashMenu) {
+      setShowSlashMenu(false);
+      setSlashQuery("");
+      setSlashCursorIndex(null);
+    }
   };
 
   // Heading Formatter tool
@@ -1438,49 +1881,250 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
             </div>
 
-            {/* MAIN CONTENT CANVAS / SIDE-BY-SIDE SPLIT PREVIEW */}
-            {viewLayoutMode === "preview" ? (
-              /* FULL LIVE ARTICLE PREVIEW */
-              <div className="p-6 bg-[#07080b] border border-[#d9b45c]/20 rounded-b-2xl space-y-6 max-h-[650px] overflow-y-auto">
-                <div className="border-b border-white/10 pb-4">
-                  <span className="text-[10px] font-bold text-[#d9b45c] uppercase tracking-wider">{currentPost.category || "Tajweed Rules"}</span>
-                  <h1 className="text-2xl md:text-3xl font-serif font-bold text-white mt-1">{currentPost.title || "Untitled Article"}</h1>
-                  <p className="text-xs text-[#F3F4F6]/70 mt-2 italic">{currentPost.excerpt || cleanHTMLToExcerpt(currentPost.content, "")}</p>
-                </div>
-                {(currentPost.coverImage || currentPost.featuredImage) && (
-                  <img
-                    src={currentPost.coverImage || currentPost.featuredImage}
-                    alt={currentPost.imageAltText || "Featured"}
-                    className="w-full aspect-video object-cover rounded-2xl border border-white/10"
-                  />
-                )}
-                <div
-                  className="prose prose-invert max-w-none text-xs md:text-sm text-[#F3F4F6] leading-relaxed font-sans
-                    [&>h1]:font-serif [&>h1]:text-2xl [&>h1]:md:text-3xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-8 [&>h1]:mb-4
-                    [&>h2]:font-serif [&>h2]:text-xl [&>h2]:md:text-2xl [&>h2]:text-white [&>h2]:font-bold [&>h2]:border-b [&>h2]:border-[#d9b45c]/30 [&>h2]:pb-2 [&>h2]:mt-8 [&>h2]:mb-4
-                    [&_h2]:font-serif [&_h2]:text-xl [&_h2]:md:text-2xl [&_h2]:text-white [&_h2]:font-bold [&_h2]:border-b [&_h2]:border-[#d9b45c]/30 [&_h2]:pb-2 [&_h2]:mt-8 [&_h2]:mb-4
-                    [&>h3]:font-serif [&>h3]:text-lg [&>h3]:md:text-xl [&>h3]:text-[#f2d98a] [&>h3]:font-bold [&>h3]:mt-6 [&>h3]:mb-3
-                    [&_h3]:font-serif [&_h3]:text-lg [&_h3]:md:text-xl [&_h3]:text-[#f2d98a] [&_h3]:font-bold [&_h3]:mt-6 [&_h3]:mb-3
-                    [&>h4]:font-serif [&>h4]:text-base [&>h4]:md:text-lg [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-5 [&>h4]:mb-2
-                    [&_h4]:font-serif [&_h4]:text-base [&_h4]:md:text-lg [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2
-                    [&>p]:mb-4 [&>p]:leading-relaxed [&>p]:text-[#F3F4F6] [&_p]:mb-4 [&_p]:leading-relaxed [&_p]:text-[#F3F4F6]
-                    [&>ul]:my-4 [&>ul]:pl-5 [&>ul]:space-y-1.5 [&>ul>li]:list-disc [&>ul>li]:marker:text-[#d9b45c] [&>ul>li]:text-[#F3F4F6]
-                    [&>ol]:my-4 [&>ol]:pl-5 [&>ol]:space-y-1.5 [&>ol>li]:list-decimal [&>ol>li]:marker:text-[#d9b45c] [&>ol>li]:text-[#F3F4F6]
-                    [&>blockquote]:my-6 [&>blockquote]:p-4 [&>blockquote]:bg-[#12141b] [&>blockquote]:border-l-4 [&>blockquote]:border-[#d9b45c] [&>blockquote]:italic [&>blockquote]:text-[#f2d98a] [&>blockquote]:rounded-r-xl
-                    [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:border [&_table]:border-[#d9b45c]/30 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:text-xs [&_table]:md:text-sm [&_table]:bg-[#12141b]/90 [&_table]:text-left [&_table]:shadow-lg
-                    [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-3.5 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10 [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs
-                    [&_td]:p-3.5 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
-                    [&_tr:hover]:bg-white/[0.04] [&_tr:hover]:transition-colors
-                    [&_.cta-button-block]:my-8 [&_.cta-button-block_a]:no-underline [&_.cta-button-block_a]:hover:no-underline
-                    [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#EAB308] [&>a]:font-semibold
-                    [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#EAB308] [&_a]:font-semibold"
-                  dangerouslySetInnerHTML={{ __html: formatContentForPreview(currentPost.content) }}
-                />
+            {/* QUICK SLASH COMMANDS & BLOCK SELECTOR HELPER BAR */}
+            <div className="px-4 py-2 bg-[#0e1017] border-y border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#c9c2ab]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-mono text-[#d9b45c] font-bold flex items-center mr-1">
+                  <span className="bg-[#d9b45c]/20 text-[#f2d98a] px-1.5 py-0.5 rounded border border-[#d9b45c]/30 font-extrabold mr-1.5">/</span> Slash Blocks:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMediaTargetField("internal");
+                    setShowMediaLibraryModal(true);
+                  }}
+                  className="px-2.5 py-1 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-[#d9b45c]/40 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition-all shadow-sm"
+                  title="Upload & Insert Inline Image"
+                >
+                  <ImageIcon size={12} className="text-[#d9b45c]" />
+                  <span>/image (Media)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyHeading("h2")}
+                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
+                  title="Insert H2 Heading (or type ## + Enter)"
+                >
+                  <Heading2 size={11} className="text-[#d9b45c]" />
+                  <span>/h2 (##)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyHeading("h3")}
+                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
+                  title="Insert H3 Subheading (or type ### + Enter)"
+                >
+                  <Heading3 size={11} className="text-[#d9b45c]" />
+                  <span>/h3 (###)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormattingToSelection("<ul class='list-disc pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]'><li>", "</li></ul>")}
+                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
+                >
+                  <List size={11} className="text-[#d9b45c]" />
+                  <span>/bullet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormattingToSelection("<blockquote class='border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]'>", "</blockquote>")}
+                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
+                >
+                  <Quote size={11} className="text-[#d9b45c]" />
+                  <span>/quote</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTableModal(true)}
+                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
+                >
+                  <TableIcon size={11} className="text-[#d9b45c]" />
+                  <span>/table</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCtaModal(true)}
+                  className="px-2 py-0.5 bg-gradient-to-r from-[#d9b45c]/20 to-[#f2d98a]/20 hover:from-[#d9b45c]/30 text-[#f2d98a] border border-[#d9b45c]/40 rounded-md text-[10px] font-bold flex items-center space-x-1 transition-all"
+                >
+                  <MousePointerClick size={11} />
+                  <span>/cta</span>
+                </button>
               </div>
-            ) : viewLayoutMode === "split" ? (
-              /* SIDE-BY-SIDE SPLIT PREVIEW */
-              <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/10 bg-[#07080b]">
-                {/* LEFT: TEXTAREA EDITOR */}
+
+              <div className="hidden lg:flex items-center space-x-2 text-[10px] text-[#c9c2ab]/60">
+                <span>✨ Auto-detects <strong>## H2</strong> & <strong>### H3</strong> on Enter & Paste</span>
+              </div>
+            </div>
+
+            {/* MAIN CONTENT CANVAS / SIDE-BY-SIDE SPLIT PREVIEW */}
+            <div className="relative">
+              {/* FLOATING SLASH COMMAND DROPDOWN MENU */}
+              {showSlashMenu && (
+                <div
+                  ref={slashMenuRef}
+                  className="absolute z-40 top-3 left-6 bg-[#12141b]/98 border-2 border-[#d9b45c]/60 rounded-2xl shadow-2xl p-2 w-84 max-h-80 overflow-y-auto backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black"
+                >
+                  <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      <Sparkles size={13} className="text-[#d9b45c]" />
+                      <span className="text-[10px] font-bold text-[#d9b45c] uppercase tracking-wider">Slash Command Menu</span>
+                    </div>
+                    <span className="text-[9px] text-[#c9c2ab]/60 font-mono">↑↓ Enter • ESC</span>
+                  </div>
+
+                  {slashQuery && (
+                    <div className="px-3 py-1.5 text-[10px] text-white/70 border-b border-white/5 font-mono bg-white/[0.02]">
+                      Matching: <span className="text-[#d9b45c] font-bold">/{slashQuery}</span>
+                    </div>
+                  )}
+
+                  <div className="py-1 space-y-0.5">
+                    {slashMenuItems.map((item, idx) => {
+                      const Icon = item.icon;
+                      const isSelected = idx === slashSelectedIndex;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSelectSlashItem(item)}
+                          onMouseEnter={() => setSlashSelectedIndex(idx)}
+                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-left transition-all ${
+                            isSelected ? "bg-[#d9b45c] text-black font-bold shadow-md" : "text-[#c9c2ab] hover:bg-white/5"
+                          }`}
+                        >
+                          <div className={`p-1.5 rounded-lg shrink-0 ${isSelected ? "bg-black/20 text-black" : "bg-white/5 text-[#d9b45c]"}`}>
+                            <Icon size={16} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-xs ${isSelected ? "text-black font-extrabold" : "text-white font-semibold"}`}>{item.label}</span>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${isSelected ? "bg-black/20 text-black" : "bg-white/10 text-[#d9b45c]"}`}>
+                                {item.badge}
+                              </span>
+                            </div>
+                            <p className={`text-[10px] truncate ${isSelected ? "text-black/80" : "text-[#c9c2ab]/60"}`}>{item.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {slashMenuItems.length === 0 && (
+                      <div className="p-4 text-center text-xs text-[#c9c2ab]/60">
+                        No command matches "/{slashQuery}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {viewLayoutMode === "preview" ? (
+                /* FULL LIVE ARTICLE PREVIEW */
+                <div className="p-6 bg-[#07080b] border border-[#d9b45c]/20 rounded-b-2xl space-y-6 max-h-[650px] overflow-y-auto">
+                  <div className="border-b border-white/10 pb-4">
+                    <span className="text-[10px] font-bold text-[#d9b45c] uppercase tracking-wider">{currentPost.category || "Tajweed Rules"}</span>
+                    <h1 className="text-2xl md:text-3xl font-serif font-bold text-white mt-1">{currentPost.title || "Untitled Article"}</h1>
+                    <p className="text-xs text-[#F3F4F6]/70 mt-2 italic">{currentPost.excerpt || cleanHTMLToExcerpt(currentPost.content, "")}</p>
+                  </div>
+                  {(currentPost.coverImage || currentPost.featuredImage) && (
+                    <img
+                      src={currentPost.coverImage || currentPost.featuredImage}
+                      alt={currentPost.imageAltText || "Featured"}
+                      className="w-full aspect-video object-cover rounded-2xl border border-white/10"
+                    />
+                  )}
+                  <div
+                    className="prose prose-invert max-w-none text-xs md:text-sm text-[#F3F4F6] leading-relaxed font-sans
+                      [&>h1]:font-serif [&>h1]:text-2xl [&>h1]:md:text-3xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-8 [&>h1]:mb-4
+                      [&>h2]:font-serif [&>h2]:text-xl [&>h2]:md:text-2xl [&>h2]:text-white [&>h2]:font-bold [&>h2]:border-b [&>h2]:border-[#d9b45c]/30 [&>h2]:pb-2 [&>h2]:mt-8 [&>h2]:mb-4
+                      [&_h2]:font-serif [&_h2]:text-xl [&_h2]:md:text-2xl [&_h2]:text-white [&_h2]:font-bold [&_h2]:border-b [&_h2]:border-[#d9b45c]/30 [&_h2]:pb-2 [&_h2]:mt-8 [&_h2]:mb-4
+                      [&>h3]:font-serif [&>h3]:text-lg [&>h3]:md:text-xl [&>h3]:text-[#f2d98a] [&>h3]:font-bold [&>h3]:mt-6 [&>h3]:mb-3
+                      [&_h3]:font-serif [&_h3]:text-lg [&_h3]:md:text-xl [&_h3]:text-[#f2d98a] [&_h3]:font-bold [&_h3]:mt-6 [&_h3]:mb-3
+                      [&>h4]:font-serif [&>h4]:text-base [&>h4]:md:text-lg [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-5 [&>h4]:mb-2
+                      [&_h4]:font-serif [&_h4]:text-base [&_h4]:md:text-lg [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2
+                      [&>p]:mb-4 [&>p]:leading-relaxed [&>p]:text-[#F3F4F6] [&_p]:mb-4 [&_p]:leading-relaxed [&_p]:text-[#F3F4F6]
+                      [&>ul]:my-4 [&>ul]:pl-5 [&>ul]:space-y-1.5 [&>ul>li]:list-disc [&>ul>li]:marker:text-[#d9b45c] [&>ul>li]:text-[#F3F4F6]
+                      [&>ol]:my-4 [&>ol]:pl-5 [&>ol]:space-y-1.5 [&>ol>li]:list-decimal [&>ol>li]:marker:text-[#d9b45c] [&>ol>li]:text-[#F3F4F6]
+                      [&>blockquote]:my-6 [&>blockquote]:p-4 [&>blockquote]:bg-[#12141b] [&>blockquote]:border-l-4 [&>blockquote]:border-[#d9b45c] [&>blockquote]:italic [&>blockquote]:text-[#f2d98a] [&>blockquote]:rounded-r-xl
+                      [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:border [&_table]:border-[#d9b45c]/30 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:text-xs [&_table]:md:text-sm [&_table]:bg-[#12141b]/90 [&_table]:text-left [&_table]:shadow-lg
+                      [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-3.5 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10 [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs
+                      [&_td]:p-3.5 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
+                      [&_tr:hover]:bg-white/[0.04] [&_tr:hover]:transition-colors
+                      [&_.cta-button-block]:my-8 [&_.cta-button-block_a]:no-underline [&_.cta-button-block_a]:hover:no-underline
+                      [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#EAB308] [&>a]:font-semibold
+                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#EAB308] [&_a]:font-semibold"
+                    dangerouslySetInnerHTML={{ __html: formatContentForPreview(currentPost.content) }}
+                  />
+                </div>
+              ) : viewLayoutMode === "split" ? (
+                /* SIDE-BY-SIDE SPLIT PREVIEW */
+                <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/10 bg-[#07080b]">
+                  {/* LEFT: TEXTAREA EDITOR */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingOver(true);
+                    }}
+                    onDragLeave={() => setIsDraggingOver(false)}
+                    onDrop={handleFileDrop}
+                    className={`relative p-4 transition-all ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : ""}`}
+                  >
+                    {isDraggingOver && (
+                      <div className="absolute inset-0 z-30 bg-[#0e1017]/90 backdrop-blur-sm flex flex-col items-center justify-center border-2 border-dashed border-[#d9b45c] rounded-xl text-[#f2d98a]">
+                        <Upload size={36} className="animate-bounce" />
+                        <p className="mt-2 text-sm font-bold">Drop Image to Upload & Insert</p>
+                      </div>
+                    )}
+                    <textarea
+                      id="gutenberg-content-textarea"
+                      value={currentPost.content}
+                      onChange={handleContentChange}
+                      onKeyDown={handleContentKeyDown}
+                      onPaste={handleContentPaste}
+                      placeholder="Write article content in English or HTML... Type / for image and block options"
+                      rows={22}
+                      className="w-full bg-transparent text-xs md:text-sm text-white font-mono leading-relaxed p-2 outline-none resize-y"
+                    ></textarea>
+                  </div>
+
+                  {/* RIGHT: REAL-TIME LIVE RENDERED PREVIEW */}
+                  <div className="p-4 bg-[#0e1017]/80 overflow-y-auto max-h-[580px] space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#d9b45c]">Real-time Live Preview</span>
+                      <span className="text-[10px] font-mono text-[#c9c2ab]">Truth Quran Theme</span>
+                    </div>
+                    <h2 className="text-lg font-serif font-bold text-white">{currentPost.title || "Article Title Preview"}</h2>
+                    {(currentPost.coverImage || currentPost.featuredImage) && (
+                      <img
+                        src={currentPost.coverImage || currentPost.featuredImage}
+                        alt="Featured"
+                        className="w-full h-36 object-cover rounded-xl border border-white/10"
+                      />
+                    )}
+                    <div
+                      className="prose prose-invert max-w-none text-xs text-[#F3F4F6] leading-relaxed font-sans
+                        [&>h1]:font-serif [&>h1]:text-xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-5 [&>h1]:mb-2
+                        [&>h2]:font-serif [&>h2]:text-base [&>h2]:text-white [&>h2]:font-bold [&>h2]:border-b [&>h2]:border-[#d9b45c]/25 [&>h2]:pb-1 [&>h2]:mt-5 [&>h2]:mb-2
+                        [&_h2]:font-serif [&_h2]:text-base [&_h2]:text-white [&_h2]:font-bold [&_h2]:border-b [&_h2]:border-[#d9b45c]/25 [&_h2]:pb-1 [&_h2]:mt-5 [&_h2]:mb-2
+                        [&>h3]:font-serif [&>h3]:text-sm [&>h3]:text-[#f2d98a] [&>h3]:font-bold [&>h3]:mt-4 [&>h3]:mb-2
+                        [&_h3]:font-serif [&_h3]:text-sm [&_h3]:text-[#f2d98a] [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2
+                        [&>h4]:font-serif [&>h4]:text-xs [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-3 [&>h4]:mb-1
+                        [&_h4]:font-serif [&_h4]:text-xs [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-3 [&_h4]:mb-1
+                        [&>p]:mb-3 [&>p]:text-[#F3F4F6] [&_p]:mb-3 [&_p]:text-[#F3F4F6]
+                        [&>ul]:my-3 [&>ul]:pl-4 [&>ul>li]:list-disc [&>ul>li]:marker:text-[#d9b45c] [&>ul>li]:text-[#F3F4F6]
+                        [&>ol]:my-3 [&>ol]:pl-4 [&>ol>li]:list-decimal [&>ol>li]:marker:text-[#d9b45c] [&>ol>li]:text-[#F3F4F6]
+                        [&>blockquote]:my-4 [&>blockquote]:p-3 [&>blockquote]:bg-[#12141b] [&>blockquote]:border-l-2 [&>blockquote]:border-[#d9b45c] [&>blockquote]:italic [&>blockquote]:text-[#f2d98a]
+                        [&_table]:w-full [&_table]:my-4 [&_table]:border-collapse [&_table]:border [&_table]:border-[#d9b45c]/30 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:text-xs [&_table]:bg-[#12141b]/90 [&_table]:text-left
+                        [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-2.5 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10 [&_th]:text-xs
+                        [&_td]:p-2.5 [&_td]:text-xs [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
+                        [&_.cta-button-block]:my-4 [&_.cta-button-block_a]:no-underline
+                        [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#EAB308] [&>a]:font-semibold
+                        [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#EAB308] [&_a]:font-semibold"
+                      dangerouslySetInnerHTML={{ __html: formatContentForPreview(currentPost.content) }}
+                    />
+                  </div>
+                </div>
+              ) : editorMode === "code" ? (
+                /* RAW HTML CODE EDITOR MODE */
                 <div
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -1488,131 +2132,63 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                   }}
                   onDragLeave={() => setIsDraggingOver(false)}
                   onDrop={handleFileDrop}
-                  className={`relative p-4 transition-all ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : ""}`}
+                  className={`relative p-4 transition-all ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : "bg-[#07080b]"}`}
                 >
                   {isDraggingOver && (
                     <div className="absolute inset-0 z-30 bg-[#0e1017]/90 backdrop-blur-sm flex flex-col items-center justify-center border-2 border-dashed border-[#d9b45c] rounded-xl text-[#f2d98a]">
                       <Upload size={36} className="animate-bounce" />
-                      <p className="mt-2 text-sm font-bold">Drop Image to Upload & Insert</p>
+                      <p className="mt-2 text-sm font-bold">Drop Image to Upload & Insert into Article</p>
                     </div>
                   )}
+
+                  <div className="flex items-center justify-between text-[10px] text-[#d9b45c] font-mono pb-2 border-b border-white/5">
+                    <span>HTML Source Editor (Preserves All Tags)</span>
+                    <span className="text-white/40">UTF-8 / Raw Markup</span>
+                  </div>
+
                   <textarea
                     id="gutenberg-content-textarea"
                     value={currentPost.content}
-                    onChange={(e) => {
-                      handleUpdateField("content", e.target.value);
-                      pushHistory(e.target.value);
-                    }}
-                    placeholder="Write article content in English or HTML..."
-                    rows={22}
-                    className="w-full bg-transparent text-xs md:text-sm text-white font-mono leading-relaxed p-2 outline-none resize-y"
+                    onChange={handleContentChange}
+                    onKeyDown={handleContentKeyDown}
+                    onPaste={handleContentPaste}
+                    placeholder="<h2>Article Subheading</h2><p>Write your HTML or formatted English article here...</p>"
+                    rows={20}
+                    className="w-full bg-transparent text-xs md:text-sm text-emerald-300 font-mono leading-relaxed p-2 outline-none resize-y"
                   ></textarea>
                 </div>
-
-                {/* RIGHT: REAL-TIME LIVE RENDERED PREVIEW */}
-                <div className="p-4 bg-[#0e1017]/80 overflow-y-auto max-h-[580px] space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#d9b45c]">Real-time Live Preview</span>
-                    <span className="text-[10px] font-mono text-[#c9c2ab]">Truth Quran Theme</span>
-                  </div>
-                  <h2 className="text-lg font-serif font-bold text-white">{currentPost.title || "Article Title Preview"}</h2>
-                  {(currentPost.coverImage || currentPost.featuredImage) && (
-                    <img
-                      src={currentPost.coverImage || currentPost.featuredImage}
-                      alt="Featured"
-                      className="w-full h-36 object-cover rounded-xl border border-white/10"
-                    />
+              ) : (
+                /* VISUAL EDITOR MODE */
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingOver(true);
+                  }}
+                  onDragLeave={() => setIsDraggingOver(false)}
+                  onDrop={handleFileDrop}
+                  className={`relative p-5 transition-all ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : "bg-[#07080b]"}`}
+                >
+                  {isDraggingOver && (
+                    <div className="absolute inset-0 z-30 bg-[#0e1017]/90 backdrop-blur-sm flex flex-col items-center justify-center border-2 border-dashed border-[#d9b45c] rounded-xl text-[#f2d98a]">
+                      <Upload size={36} className="animate-bounce" />
+                      <p className="mt-2 text-sm font-bold">Drop Image to Upload & Insert into Article</p>
+                    </div>
                   )}
-                  <div
-                    className="prose prose-invert max-w-none text-xs text-[#F3F4F6] leading-relaxed font-sans
-                      [&>h1]:font-serif [&>h1]:text-xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-5 [&>h1]:mb-2
-                      [&>h2]:font-serif [&>h2]:text-base [&>h2]:text-white [&>h2]:font-bold [&>h2]:border-b [&>h2]:border-[#d9b45c]/25 [&>h2]:pb-1 [&>h2]:mt-5 [&>h2]:mb-2
-                      [&_h2]:font-serif [&_h2]:text-base [&_h2]:text-white [&_h2]:font-bold [&_h2]:border-b [&_h2]:border-[#d9b45c]/25 [&_h2]:pb-1 [&_h2]:mt-5 [&_h2]:mb-2
-                      [&>h3]:font-serif [&>h3]:text-sm [&>h3]:text-[#f2d98a] [&>h3]:font-bold [&>h3]:mt-4 [&>h3]:mb-2
-                      [&_h3]:font-serif [&_h3]:text-sm [&_h3]:text-[#f2d98a] [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2
-                      [&>h4]:font-serif [&>h4]:text-xs [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-3 [&>h4]:mb-1
-                      [&_h4]:font-serif [&_h4]:text-xs [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-3 [&_h4]:mb-1
-                      [&>p]:mb-3 [&>p]:text-[#F3F4F6] [&_p]:mb-3 [&_p]:text-[#F3F4F6]
-                      [&>ul]:my-3 [&>ul]:pl-4 [&>ul>li]:list-disc [&>ul>li]:marker:text-[#d9b45c] [&>ul>li]:text-[#F3F4F6]
-                      [&>ol]:my-3 [&>ol]:pl-4 [&>ol>li]:list-decimal [&>ol>li]:marker:text-[#d9b45c] [&>ol>li]:text-[#F3F4F6]
-                      [&>blockquote]:my-4 [&>blockquote]:p-3 [&>blockquote]:bg-[#12141b] [&>blockquote]:border-l-2 [&>blockquote]:border-[#d9b45c] [&>blockquote]:italic [&>blockquote]:text-[#f2d98a]
-                      [&_table]:w-full [&_table]:my-4 [&_table]:border-collapse [&_table]:border [&_table]:border-[#d9b45c]/30 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:text-xs [&_table]:bg-[#12141b]/90 [&_table]:text-left
-                      [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-2.5 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10 [&_th]:text-xs
-                      [&_td]:p-2.5 [&_td]:text-xs [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
-                      [&_.cta-button-block]:my-4 [&_.cta-button-block_a]:no-underline
-                      [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#EAB308] [&>a]:font-semibold
-                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#EAB308] [&_a]:font-semibold"
-                    dangerouslySetInnerHTML={{ __html: formatContentForPreview(currentPost.content) }}
-                  />
+
+                  {/* TEXTAREA WITH DYNAMIC TYPOGRAPHY */}
+                  <textarea
+                    id="gutenberg-content-textarea"
+                    value={currentPost.content}
+                    onChange={handleContentChange}
+                    onKeyDown={handleContentKeyDown}
+                    onPaste={handleContentPaste}
+                    placeholder="Start writing your article here... Type / for image and block options"
+                    rows={20}
+                    className="w-full bg-transparent text-xs md:text-sm text-[#F3F4F6] font-sans leading-relaxed p-2 outline-none resize-y"
+                  ></textarea>
                 </div>
-              </div>
-            ) : editorMode === "code" ? (
-              /* RAW HTML CODE EDITOR MODE */
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDraggingOver(true);
-                }}
-                onDragLeave={() => setIsDraggingOver(false)}
-                onDrop={handleFileDrop}
-                className={`relative p-4 transition-all ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : "bg-[#07080b]"}`}
-              >
-                {isDraggingOver && (
-                  <div className="absolute inset-0 z-30 bg-[#0e1017]/90 backdrop-blur-sm flex flex-col items-center justify-center border-2 border-dashed border-[#d9b45c] rounded-xl text-[#f2d98a]">
-                    <Upload size={36} className="animate-bounce" />
-                    <p className="mt-2 text-sm font-bold">Drop Image to Upload & Insert into Article</p>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between text-[10px] text-[#d9b45c] font-mono pb-2 border-b border-white/5">
-                  <span>HTML Source Editor (Preserves All Tags)</span>
-                  <span className="text-white/40">UTF-8 / Raw Markup</span>
-                </div>
-
-                <textarea
-                  id="gutenberg-content-textarea"
-                  value={currentPost.content}
-                  onChange={(e) => {
-                    handleUpdateField("content", e.target.value);
-                    pushHistory(e.target.value);
-                  }}
-                  placeholder="<h2>Article Subheading</h2><p>Write your HTML or formatted English article here...</p>"
-                  rows={20}
-                  className="w-full bg-transparent text-xs md:text-sm text-emerald-300 font-mono leading-relaxed p-2 outline-none resize-y"
-                ></textarea>
-              </div>
-            ) : (
-              /* VISUAL EDITOR MODE */
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDraggingOver(true);
-                }}
-                onDragLeave={() => setIsDraggingOver(false)}
-                onDrop={handleFileDrop}
-                className={`relative p-5 transition-all ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : "bg-[#07080b]"}`}
-              >
-                {isDraggingOver && (
-                  <div className="absolute inset-0 z-30 bg-[#0e1017]/90 backdrop-blur-sm flex flex-col items-center justify-center border-2 border-dashed border-[#d9b45c] rounded-xl text-[#f2d98a]">
-                    <Upload size={36} className="animate-bounce" />
-                    <p className="mt-2 text-sm font-bold">Drop Image to Upload & Insert into Article</p>
-                  </div>
-                )}
-
-                {/* TEXTAREA WITH DYNAMIC TYPOGRAPHY */}
-                <textarea
-                  id="gutenberg-content-textarea"
-                  value={currentPost.content}
-                  onChange={(e) => {
-                    handleUpdateField("content", e.target.value);
-                    pushHistory(e.target.value);
-                  }}
-                  placeholder="Start writing your article here..."
-                  rows={20}
-                  className="w-full bg-transparent text-xs md:text-sm text-[#F3F4F6] font-sans leading-relaxed p-2 outline-none resize-y"
-                ></textarea>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* STATS BAR BELOW CANVAS */}
             <div className="bg-[#0e1017] border-t border-white/10 px-4 py-2.5 flex flex-wrap items-center justify-between text-[11px] text-[#c9c2ab]/80 font-mono">
@@ -2647,6 +3223,20 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
           </div>
         </div>
       )}
+
+      {/* 7. WORDPRESS MEDIA LIBRARY MODAL FOR FEATURED & INLINE IMAGES */}
+      <WPMediaLibraryModal
+        isOpen={showMediaLibraryModal}
+        onClose={() => setShowMediaLibraryModal(false)}
+        mediaLibrary={cmsData.mediaLibrary || []}
+        onSelect={handleMediaSelect}
+        onSaveMediaLibrary={(updatedMedia, msg) => {
+          onSave({ ...cmsData, mediaLibrary: updatedMedia });
+          if (msg) showToast(msg);
+        }}
+        title={mediaTargetField === "featured" ? "Select or Upload Featured Cover Image" : "Insert Inline Article Image"}
+        defaultCropAspect={mediaTargetField === "featured" ? "16:9" : "free"}
+      />
 
     </div>
   );
