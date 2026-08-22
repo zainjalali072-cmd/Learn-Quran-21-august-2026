@@ -289,6 +289,19 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
   const featuredFileInputRef = useRef<HTMLInputElement>(null);
   const internalFileInputRef = useRef<HTMLInputElement>(null);
+  const visualEditorRef = useRef<HTMLDivElement>(null);
+  const isTypingInVisual = useRef(false);
+
+  // Synchronize visual contentEditable editor with currentPost.content
+  useEffect(() => {
+    if (visualEditorRef.current && !isTypingInVisual.current) {
+      const currentHtml = visualEditorRef.current.innerHTML;
+      const targetHtml = currentPost?.content || "";
+      if (currentHtml !== targetHtml) {
+        visualEditorRef.current.innerHTML = targetHtml;
+      }
+    }
+  }, [currentPost?.content, currentPost?.id, editorMode, viewLayoutMode]);
 
   // Field updater
   const handleUpdateField = (field: keyof BlogPost, value: any) => {
@@ -694,8 +707,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       return "h3";
     }
 
-    // Short question sub-topics (< 45 chars): "How to Pronounce Al-Halq?", "Where is Al-Jauf?"
-    if (trimmed.endsWith("?") && trimmed.length <= 45) {
+    // Short question sub-topics (<= 65 chars): "What Is an Online Quran Academy?", "How to Pronounce Al-Halq?", "Where is Al-Jauf?"
+    if (trimmed.endsWith("?") && trimmed.length <= 65) {
       return "h3";
     }
 
@@ -722,7 +735,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       return "h2";
     }
 
-    // Major broad questions (> 40 chars or standard H2 queries):
+    // Major broad questions (> 65 chars):
     if (trimmed.endsWith("?") && /^(what|why|how|who|where|when|can|which|is|are|do|does|should|could|would)\b/i.test(trimmed)) {
       return "h2";
     }
@@ -743,8 +756,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       const isAllCaps = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
       if (isAllCaps && trimmed.length <= 50) return "h2";
       if (sigCount > 0 && (capCount / sigCount) >= 0.65) {
-        // Shorter subtitles (<= 4 words or <= 35 chars) classify as H3
-        if (words.length <= 4 && trimmed.length <= 35) {
+        // Subtitles and short sections (<= 6 words or <= 50 chars) classify as H3
+        if (words.length <= 6 && trimmed.length <= 50) {
           return "h3";
         }
         return "h2";
@@ -1234,9 +1247,78 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     }
   };
 
+  // Visual Editor Event Handlers (WYSIWYG Rich Visual Canvas)
+  const handleVisualInput = (e: React.FormEvent<HTMLDivElement>) => {
+    isTypingInVisual.current = true;
+    const html = e.currentTarget.innerHTML;
+    handleUpdateField("content", html);
+    pushHistory(html);
+    setTimeout(() => {
+      isTypingInVisual.current = false;
+    }, 100);
+  };
+
+  const handleVisualPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData("text/plain");
+    if (!pastedText || !pastedText.trim()) return;
+
+    const cleanHtml = convertMarkdownAndHtmlToCleanHtml(pastedText);
+    document.execCommand("insertHTML", false, cleanHtml);
+
+    if (visualEditorRef.current) {
+      const html = visualEditorRef.current.innerHTML;
+      handleUpdateField("content", html);
+      pushHistory(html);
+    }
+    showToast("✨ Converted pasted article into clean visual paragraphs & headings!");
+  };
+
+  const handleVisualKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      document.execCommand("bold");
+      if (visualEditorRef.current) {
+        handleUpdateField("content", visualEditorRef.current.innerHTML);
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+      e.preventDefault();
+      document.execCommand("italic");
+      if (visualEditorRef.current) {
+        handleUpdateField("content", visualEditorRef.current.innerHTML);
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "u") {
+      e.preventDefault();
+      document.execCommand("underline");
+      if (visualEditorRef.current) {
+        handleUpdateField("content", visualEditorRef.current.innerHTML);
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      handleUndo();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      handleRedo();
+    }
+  };
+
   // Robust Heading Formatter & Manual Override Tool
   const applyHeading = (level: "h2" | "h3" | "h4" | "p") => {
     if (!currentPost) return;
+
+    if (editorMode === "visual" && viewLayoutMode === "editor") {
+      if (visualEditorRef.current) {
+        visualEditorRef.current.focus();
+        const blockTag = level === "p" ? "<p>" : `<${level}>`;
+        document.execCommand("formatBlock", false, blockTag);
+        const newHtml = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", newHtml);
+        pushHistory(newHtml);
+        showToast(`✅ Selection formatted as <${level.toUpperCase()}>`);
+        return;
+      }
+    }
+
     const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
     const content = currentPost.content || "";
 
@@ -1419,6 +1501,28 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   // Formatting tools
   const applyFormattingToSelection = (openTag: string, closeTag: string, defaultText = "formatted text") => {
     if (!currentPost) return;
+
+    if (editorMode === "visual" && viewLayoutMode === "editor") {
+      if (visualEditorRef.current) {
+        visualEditorRef.current.focus();
+        if (openTag === "<strong>") {
+          document.execCommand("bold");
+        } else if (openTag === "<em>") {
+          document.execCommand("italic");
+        } else if (openTag === "<u>") {
+          document.execCommand("underline");
+        } else {
+          const selection = window.getSelection();
+          const selectedText = selection?.toString() || defaultText;
+          document.execCommand("insertHTML", false, `${openTag}${selectedText}${closeTag}`);
+        }
+        const newHtml = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", newHtml);
+        pushHistory(newHtml);
+        return;
+      }
+    }
+
     const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
     const content = currentPost.content || "";
 
@@ -1433,6 +1537,55 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       const newContent = content + `\n${openTag}${defaultText}${closeTag}`;
       handleUpdateField("content", newContent);
       pushHistory(newContent);
+    }
+  };
+
+  // Dedicated Hyperlink Inserter with Yellow (#FACC15) Anchor Text
+  const handleInsertLink = () => {
+    if (!currentPost) return;
+
+    let selectedText = "";
+    if (editorMode === "visual" && viewLayoutMode === "editor") {
+      selectedText = window.getSelection()?.toString()?.trim() || "";
+    } else {
+      const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+      if (textarea && textarea.selectionStart !== textarea.selectionEnd) {
+        selectedText = (currentPost.content || "").substring(textarea.selectionStart, textarea.selectionEnd).trim();
+      }
+    }
+
+    const linkText = selectedText || prompt("Enter Hyperlink Anchor Text:", "Learn Quran Online")?.trim();
+    if (!linkText) return;
+
+    const url = prompt("Enter Target URL (e.g. /programs/tajweed or https://truthquranacademy.com):", "https://truthquranacademy.com/")?.trim();
+    if (!url) return;
+
+    const linkHtml = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">${linkText}</a>`;
+
+    if (editorMode === "visual" && viewLayoutMode === "editor") {
+      if (visualEditorRef.current) {
+        visualEditorRef.current.focus();
+        document.execCommand("insertHTML", false, linkHtml);
+        const newHtml = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", newHtml);
+        pushHistory(newHtml);
+        showToast("✅ Hyperlink added with Yellow (#FACC15) anchor text!");
+      }
+    } else {
+      const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+      const content = currentPost.content || "";
+      if (textarea && textarea.selectionStart !== undefined) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newContent = content.substring(0, start) + linkHtml + content.substring(end);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+      } else {
+        const newContent = content + `\n${linkHtml}\n`;
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+      }
+      showToast("✅ Hyperlink added with Yellow (#FACC15) anchor text!");
     }
   };
 
@@ -1870,14 +2023,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                 {/* Hyperlink */}
                 <button
                   type="button"
-                  onClick={() => {
-                    const url = prompt("Enter Link URL:", "https://");
-                    if (url) {
-                      applyFormattingToSelection(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#EAB308] font-semibold">`, "</a>");
-                    }
-                  }}
-                  className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-[#f2d98a] rounded-lg transition-colors"
-                  title="Insert Hyperlink (Gold #FACC15)"
+                  onClick={handleInsertLink}
+                  className="p-1.5 bg-white/5 hover:bg-[#FACC15]/20 text-[#FACC15] hover:text-[#FEF08A] rounded-lg transition-colors border border-[#FACC15]/30"
+                  title="Insert / Format Hyperlink (Yellow #FACC15 Anchor Text)"
                 >
                   <Link2 size={14} />
                 </button>
@@ -2257,8 +2405,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       [&>h1]:font-serif [&>h1]:text-2xl [&>h1]:md:text-3xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-8 [&>h1]:mb-4
                       [&>h2]:font-serif [&>h2]:text-xl [&>h2]:md:text-2xl [&>h2]:text-white [&>h2]:font-bold [&>h2]:border-b [&>h2]:border-[#d9b45c]/30 [&>h2]:pb-2 [&>h2]:mt-8 [&>h2]:mb-4
                       [&_h2]:font-serif [&_h2]:text-xl [&_h2]:md:text-2xl [&_h2]:text-white [&_h2]:font-bold [&_h2]:border-b [&_h2]:border-[#d9b45c]/30 [&_h2]:pb-2 [&_h2]:mt-8 [&_h2]:mb-4
-                      [&>h3]:font-serif [&>h3]:text-lg [&>h3]:md:text-xl [&>h3]:text-[#f2d98a] [&>h3]:font-bold [&>h3]:mt-6 [&>h3]:mb-3
-                      [&_h3]:font-serif [&_h3]:text-lg [&_h3]:md:text-xl [&_h3]:text-[#f2d98a] [&_h3]:font-bold [&_h3]:mt-6 [&_h3]:mb-3
+                      [&>h3]:font-serif [&>h3]:text-lg [&>h3]:md:text-xl [&>h3]:text-white [&>h3]:font-bold [&>h3]:mt-6 [&>h3]:mb-3
+                      [&_h3]:font-serif [&_h3]:text-lg [&_h3]:md:text-xl [&_h3]:text-white [&_h3]:font-bold [&_h3]:mt-6 [&_h3]:mb-3
                       [&>h4]:font-serif [&>h4]:text-base [&>h4]:md:text-lg [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-5 [&>h4]:mb-2
                       [&_h4]:font-serif [&_h4]:text-base [&_h4]:md:text-lg [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2
                       [&>p]:mb-4 [&>p]:leading-relaxed [&>p]:text-[#F3F4F6] [&_p]:mb-4 [&_p]:leading-relaxed [&_p]:text-[#F3F4F6]
@@ -2270,8 +2418,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       [&_td]:p-3.5 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
                       [&_tr:hover]:bg-white/[0.04] [&_tr:hover]:transition-colors
                       [&_.cta-button-block]:my-8 [&_.cta-button-block_a]:no-underline [&_.cta-button-block_a]:hover:no-underline
-                      [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#EAB308] [&>a]:font-semibold
-                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#EAB308] [&_a]:font-semibold"
+                      [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold
+                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold"
                     dangerouslySetInnerHTML={{ __html: formatContentForPreview(currentPost.content) }}
                   />
                 </div>
@@ -2325,8 +2473,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                         [&>h1]:font-serif [&>h1]:text-xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-5 [&>h1]:mb-2
                         [&>h2]:font-serif [&>h2]:text-base [&>h2]:text-white [&>h2]:font-bold [&>h2]:border-b [&>h2]:border-[#d9b45c]/25 [&>h2]:pb-1 [&>h2]:mt-5 [&>h2]:mb-2
                         [&_h2]:font-serif [&_h2]:text-base [&_h2]:text-white [&_h2]:font-bold [&_h2]:border-b [&_h2]:border-[#d9b45c]/25 [&_h2]:pb-1 [&_h2]:mt-5 [&_h2]:mb-2
-                        [&>h3]:font-serif [&>h3]:text-sm [&>h3]:text-[#f2d98a] [&>h3]:font-bold [&>h3]:mt-4 [&>h3]:mb-2
-                        [&_h3]:font-serif [&_h3]:text-sm [&_h3]:text-[#f2d98a] [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2
+                        [&>h3]:font-serif [&>h3]:text-sm [&>h3]:text-white [&>h3]:font-bold [&>h3]:mt-4 [&>h3]:mb-2
+                        [&_h3]:font-serif [&_h3]:text-sm [&_h3]:text-white [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2
                         [&>h4]:font-serif [&>h4]:text-xs [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-3 [&>h4]:mb-1
                         [&_h4]:font-serif [&_h4]:text-xs [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-3 [&_h4]:mb-1
                         [&>p]:mb-3 [&>p]:text-[#F3F4F6] [&_p]:mb-3 [&_p]:text-[#F3F4F6]
@@ -2337,8 +2485,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                         [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-2.5 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10 [&_th]:text-xs
                         [&_td]:p-2.5 [&_td]:text-xs [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
                         [&_.cta-button-block]:my-4 [&_.cta-button-block_a]:no-underline
-                        [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#EAB308] [&>a]:font-semibold
-                        [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#EAB308] [&_a]:font-semibold"
+                        [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold
+                        [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold"
                       dangerouslySetInnerHTML={{ __html: formatContentForPreview(currentPost.content) }}
                     />
                   </div>
@@ -2378,7 +2526,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                   ></textarea>
                 </div>
               ) : (
-                /* VISUAL EDITOR MODE */
+                /* VISUAL WYSIWYG RICH EDITOR MODE */
                 <div
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -2386,7 +2534,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                   }}
                   onDragLeave={() => setIsDraggingOver(false)}
                   onDrop={handleFileDrop}
-                  className={`relative p-5 transition-all ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : "bg-[#07080b]"}`}
+                  className={`relative p-5 sm:p-6 transition-all min-h-[450px] ${isDraggingOver ? "bg-[#d9b45c]/10 ring-2 ring-[#d9b45c]" : "bg-[#07080b]"}`}
                 >
                   {isDraggingOver && (
                     <div className="absolute inset-0 z-30 bg-[#0e1017]/90 backdrop-blur-sm flex flex-col items-center justify-center border-2 border-dashed border-[#d9b45c] rounded-xl text-[#f2d98a]">
@@ -2395,16 +2543,40 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     </div>
                   )}
 
-                  {/* TEXTAREA WITH DYNAMIC TYPOGRAPHY */}
+                  {/* WYSIWYG Rich Visual Canvas */}
+                  <div
+                    ref={visualEditorRef}
+                    id="visual-editor-canvas"
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={handleVisualInput}
+                    onPaste={handleVisualPaste}
+                    onKeyDown={handleVisualKeyDown}
+                    data-placeholder="Start typing your English article here, or paste any text for automatic heading and paragraph detection..."
+                    className="prose prose-invert max-w-none min-h-[400px] outline-none text-[#F3F4F6] font-sans text-sm md:text-base leading-relaxed
+                      [&>h1]:font-serif [&>h1]:text-2xl [&>h1]:md:text-3xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-6 [&>h1]:mb-3
+                      [&>h2]:font-serif [&>h2]:text-xl [&>h2]:md:text-2xl [&>h2]:text-white [&>h2]:font-bold [&>h2]:border-b [&>h2]:border-[#d9b45c]/30 [&>h2]:pb-2 [&>h2]:mt-6 [&>h2]:mb-3
+                      [&_h2]:font-serif [&_h2]:text-xl [&_h2]:md:text-2xl [&_h2]:text-white [&_h2]:font-bold [&_h2]:border-b [&_h2]:border-[#d9b45c]/30 [&_h2]:pb-2 [&_h2]:mt-6 [&_h2]:mb-3
+                      [&>h3]:font-serif [&>h3]:text-lg [&>h3]:md:text-xl [&>h3]:text-white [&>h3]:font-bold [&>h3]:mt-5 [&>h3]:mb-2.5
+                      [&_h3]:font-serif [&_h3]:text-lg [&_h3]:md:text-xl [&_h3]:text-white [&_h3]:font-bold [&_h3]:mt-5 [&_h3]:mb-2.5
+                      [&>h4]:font-serif [&>h4]:text-base [&>h4]:md:text-lg [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-4 [&>h4]:mb-2
+                      [&_h4]:font-serif [&_h4]:text-base [&_h4]:md:text-lg [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-4 [&_h4]:mb-2
+                      [&>p]:my-3.5 [&>p]:leading-relaxed [&>p]:text-[#F3F4F6] [&_p]:my-3.5 [&_p]:leading-relaxed [&_p]:text-[#F3F4F6]
+                      [&>ul]:my-4 [&>ul]:pl-5 [&>ul]:space-y-1.5 [&>ul>li]:list-disc [&>ul>li]:marker:text-[#d9b45c] [&>ul>li]:text-[#F3F4F6]
+                      [&>ol]:my-4 [&>ol]:pl-5 [&>ol]:space-y-1.5 [&>ol>li]:list-decimal [&>ol>li]:marker:text-[#d9b45c] [&>ol>li]:text-[#F3F4F6]
+                      [&>blockquote]:my-6 [&>blockquote]:p-4 [&>blockquote]:bg-[#12141b] [&>blockquote]:border-l-4 [&>blockquote]:border-[#d9b45c] [&>blockquote]:italic [&>blockquote]:text-[#f2d98a] [&>blockquote]:rounded-r-xl
+                      [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:border [&_table]:border-[#d9b45c]/30 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:text-xs [&_table]:md:text-sm [&_table]:bg-[#12141b]/90 [&_table]:text-left
+                      [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-3 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10
+                      [&_td]:p-3 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
+                      [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold
+                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold"
+                  />
+                  {/* Hidden textarea reference for seamless fallback and compatibility */}
                   <textarea
                     id="gutenberg-content-textarea"
                     value={currentPost.content}
                     onChange={handleContentChange}
-                    onKeyDown={handleContentKeyDown}
-                    onPaste={handleContentPaste}
-                    placeholder="Start writing your article here... Type / for image and block options"
-                    rows={20}
-                    className="w-full bg-transparent text-xs md:text-sm text-[#F3F4F6] font-sans leading-relaxed p-2 outline-none resize-y"
+                    className="hidden"
                   ></textarea>
                 </div>
               )}

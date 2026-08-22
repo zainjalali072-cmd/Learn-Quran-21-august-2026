@@ -506,22 +506,22 @@ export default function BlogSection({
               [&>h1]:font-serif [&>h1]:text-3xl [&>h1]:md:text-4xl [&>h1]:text-[#FFFFFF] [&>h1]:font-bold [&>h1]:mt-10 [&>h1]:mb-4
               [&>h2]:font-serif [&>h2]:text-2xl [&>h2]:md:text-3xl [&>h2]:text-[#FFFFFF] [&>h2]:font-bold [&>h2]:mt-10 [&>h2]:mb-4 [&>h2]:border-b [&>h2]:border-[#d9b45c]/30 [&>h2]:pb-2
               [&_h2]:font-serif [&_h2]:text-2xl [&_h2]:md:text-3xl [&_h2]:text-[#FFFFFF] [&_h2]:font-bold [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:border-b [&_h2]:border-[#d9b45c]/30 [&_h2]:pb-2
-              [&>h3]:font-serif [&>h3]:text-xl [&>h3]:md:text-2xl [&>h3]:text-[#f2d98a] [&>h3]:font-bold [&>h3]:mt-8 [&>h3]:mb-3
-              [&_h3]:font-serif [&_h3]:text-xl [&_h3]:md:text-2xl [&_h3]:text-[#f2d98a] [&_h3]:font-bold [&_h3]:mt-8 [&_h3]:mb-3
+              [&>h3]:font-serif [&>h3]:text-xl [&>h3]:md:text-2xl [&>h3]:text-[#FFFFFF] [&>h3]:font-bold [&>h3]:mt-8 [&>h3]:mb-3
+              [&_h3]:font-serif [&_h3]:text-xl [&_h3]:md:text-2xl [&_h3]:text-[#FFFFFF] [&_h3]:font-bold [&_h3]:mt-8 [&_h3]:mb-3
               [&>h4]:font-serif [&>h4]:text-lg [&>h4]:text-[#f3ecd8] [&>h4]:font-semibold [&>h4]:mt-6 [&>h4]:mb-2
               [&_h4]:font-serif [&_h4]:text-lg [&_h4]:text-[#f3ecd8] [&_h4]:font-semibold [&_h4]:mt-6 [&_h4]:mb-2
               [&>p]:mb-6 [&>p]:leading-relaxed [&>p]:text-[#F3F4F6]
               [&_p]:mb-6 [&_p]:leading-relaxed [&_p]:text-[#F3F4F6]
               [&>ul]:my-6 [&>ul]:pl-6 [&>ul]:space-y-2 [&>ul>li]:list-disc [&>ul>li]:marker:text-[#d9b45c] [&>ul>li]:text-[#F3F4F6]
               [&>ol]:my-6 [&>ol]:pl-6 [&>ol]:space-y-2 [&>ol>li]:list-decimal [&>ol>li]:marker:text-[#d9b45c] [&>ol>li]:text-[#F3F4F6]
-              [&>blockquote]:my-8 [&>blockquote]:p-6 [&>blockquote]:bg-[#12141b] [&>blockquote]:border-l-4 [&>blockquote]:border-[#d9b45c] [&>blockquote]:italic [&>blockquote]:text-[#f2d98a] [&>blockquote]:rounded-r-2xl [&>blockquote]:font-serif
+              [&>blockquote]:my-8 [&>blockquote]:p-6 [&>blockquote]:bg-[#12141b] [&>blockquote]:border-l-4 [&>blockquote]:border-[#d9b45c] [&>blockquote]:italic [&>blockquote]:text-[#F3F4F6] [&>blockquote]:rounded-r-2xl [&>blockquote]:font-serif
               [&_table]:w-full [&_table]:my-8 [&_table]:border-collapse [&_table]:border [&_table]:border-[#d9b45c]/30 [&_table]:rounded-2xl [&_table]:overflow-hidden [&_table]:text-xs [&_table]:md:text-sm [&_table]:bg-[#12141b]/90 [&_table]:text-left [&_table]:shadow-xl
               [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-3.5 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10 [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-xs
               [&_td]:p-3.5 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
               [&_tr:hover]:bg-white/[0.04] [&_tr:hover]:transition-colors
               [&_.cta-button-block]:my-10 [&_.cta-button-block_a]:no-underline [&_.cta-button-block_a]:hover:no-underline
-              [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#EAB308] [&>a]:font-semibold
-              [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#EAB308] [&_a]:font-semibold
+              [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold
+              [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold
               [&>pre]:bg-[#07080b] [&>pre]:p-4 [&>pre]:rounded-xl [&>pre]:text-[#f2d98a] [&>pre]:font-mono [&>pre]:text-xs [&>pre]:overflow-x-auto [&>pre]:border [&>pre]:border-white/10"
             dangerouslySetInnerHTML={{ __html: post.content || "<p>No article content provided for this post.</p>" }}
           />

@@ -104,26 +104,41 @@ body {
 /* Universal Article Hyperlink & Anchor Text Yellow Styling (#FACC15) */
 .prose a,
 .article-content a,
+.visual-editor-content a,
 .wp-article-body a,
 .preview-content a,
 #gutenberg-preview-canvas a,
+#visual-editor-canvas a,
 div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]) {
   color: #FACC15 !important;
   text-decoration: underline !important;
   text-underline-offset: 3px !important;
-  text-decoration-color: rgba(250, 204, 21, 0.6) !important;
+  text-decoration-color: rgba(250, 204, 21, 0.7) !important;
   font-weight: 600 !important;
+  cursor: pointer !important;
   transition: all 0.2s ease-in-out !important;
 }
 
 .prose a:hover,
 .article-content a:hover,
+.visual-editor-content a:hover,
 .wp-article-body a:hover,
 .preview-content a:hover,
 #gutenberg-preview-canvas a:hover,
+#visual-editor-canvas a:hover,
 div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):hover {
   color: #FEF08A !important;
   text-decoration-color: #FEF08A !important;
+}
+
+/* Ensure H3 Headings Maintain Standard Clean Text Color (Not Yellow) */
+.prose h3,
+.article-content h3,
+.visual-editor-content h3,
+.wp-article-body h3,
+.preview-content h3,
+#visual-editor-canvas h3 {
+  color: #FFFFFF !important;
 }
 
 /* Custom Scrollbars */
