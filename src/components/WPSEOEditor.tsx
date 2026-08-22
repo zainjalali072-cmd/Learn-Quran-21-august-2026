@@ -49,6 +49,7 @@ import {
   Download,
   Minus,
   MoreVertical,
+  MoreHorizontal,
   CheckCircle2,
   AlertCircle,
   Wand2,
@@ -252,6 +253,21 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
   const [showMediaLibraryModal, setShowMediaLibraryModal] = useState(false);
   const [mediaTargetField, setMediaTargetField] = useState<"featured" | "internal">("featured");
+
+  // Consolidated Toolbar "More Options" Menu State
+  const [showMoreToolsMenu, setShowMoreToolsMenu] = useState(false);
+  const moreToolsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close more tools menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreToolsMenuRef.current && !moreToolsMenuRef.current.contains(e.target as Node)) {
+        setShowMoreToolsMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Slash Command State
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -636,7 +652,89 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     return formatted.join("\n\n");
   };
 
-  // Robust Markdown & HTML Auto-Detection and Sanitization Formatter
+  // Smart English Heading & Structure Pattern Analyzer (H2 & H3)
+  const detectHeadingLevel = (trimmed: string): "h2" | "h3" | "h4" | null => {
+    if (!trimmed || trimmed.length < 2) return null;
+
+    // 1. Explicit Markdown Headings
+    if (/^####\s+/.test(trimmed)) return "h4";
+    if (/^###\s+/.test(trimmed)) return "h3";
+    if (/^##?\s+/.test(trimmed)) return "h2";
+
+    // 2. Pre-existing HTML tags should not be converted
+    if (/^<[a-z0-9]+/i.test(trimmed)) return null;
+
+    // 3. Sentences ending with period, comma, or semicolon are paragraphs
+    if (/[.,;]$/.test(trimmed)) return null;
+    if (trimmed.includes(". ") || trimmed.includes("; ")) return null;
+    if (trimmed.length > 95) return null; // Standard headings are concise
+
+    // 4. Sub-heading patterns (H3):
+    // Sub-numbering: "1.1", "1.2", "2.1", "a.", "b.", "a)", "b)", "(1)", "(a)"
+    if (/^(\d+\.\d+|[a-zA-Z]\.|\([a-zA-Z0-9]+\))\s+[A-Za-z0-9]/.test(trimmed)) {
+      return "h3";
+    }
+    // Sub-rules / Sub-tips / Steps: "Rule 1:", "Tip 2:", "Step 3:", "Phase 2:", "Method 1:"
+    if (/^(Rule|Tip|Method|Factor|Reason|Point|Feature|Benefit|Level|Phase|Stage|Step|Lesson)\s+\d+[:\s]/i.test(trimmed)) {
+      return "h3";
+    }
+    // Short category subheaders ending with colon: "Makhraj Al-Halq (Throat):", "1. Izhar Halqi:"
+    if (/^[A-Z0-9][A-Za-z0-9\s()\-–—/]{2,60}:$/.test(trimmed)) {
+      return "h3";
+    }
+
+    // 5. Main Section Heading patterns (H2):
+    // Numbered top-level sections: "1. Introduction to Tajweed", "2. What is Makharij?", "Section 1: Basics"
+    if (/^(\d{1,2}\.|\b(Part|Section|Chapter|Unit)\s+\d+:?)\s+[A-Za-z0-9]/.test(trimmed)) {
+      return "h2";
+    }
+    if (/^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+[A-Za-z0-9]/.test(trimmed)) {
+      return "h2";
+    }
+
+    // Question-style major headings (Very common in SEO articles):
+    if (trimmed.endsWith("?") && /^(what|why|how|who|where|when|can|which|is|are|do|does|should|could|would)\b/i.test(trimmed)) {
+      return "h2";
+    }
+
+    // Standard SEO and Quranic article section titles
+    const cleanLower = trimmed.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+    const majorHeadings = [
+      "introduction", "overview", "conclusion", "summary", "final thoughts",
+      "key takeaways", "frequently asked questions", "faqs", "faq",
+      "table of contents", "course curriculum", "curriculum overview",
+      "why choose us", "core benefits", "step by step guide", "common mistakes",
+      "rules of tajweed", "benefits of tajweed", "types of tajweed",
+      "importance of tajweed", "about the course", "who should attend", "next steps"
+    ];
+    if (majorHeadings.some(h => cleanLower === h || cleanLower.startsWith(h + " "))) {
+      return "h2";
+    }
+
+    // Standalone Title Case & Capitalized Phrases (e.g. "The Importance Of Tajweed In Daily Recitation")
+    const words = trimmed.split(/\s+/).filter(w => /^[a-zA-Z]/.test(w));
+    if (words.length >= 2 && words.length <= 12 && trimmed.length <= 80) {
+      const stopWords = new Set(["a", "an", "the", "in", "on", "of", "for", "to", "with", "and", "or", "is", "at", "by", "from", "as", "vs", "your", "our", "its"]);
+      let capCount = 0;
+      let sigCount = 0;
+      for (const w of words) {
+        const pure = w.replace(/[^a-zA-Z]/g, "").toLowerCase();
+        if (!stopWords.has(pure)) {
+          sigCount++;
+          if (/^[A-Z]/.test(w)) capCount++;
+        }
+      }
+      const isAllCaps = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
+      if (isAllCaps && trimmed.length <= 60) return "h2";
+      if (sigCount > 0 && (capCount / sigCount) >= 0.65) {
+        return "h2";
+      }
+    }
+
+    return null;
+  };
+
+  // Robust Markdown, HTML & Smart English Heading Auto-Parsing Formatter
   const convertMarkdownAndHtmlToCleanHtml = (text: string): string => {
     if (!text || !text.trim()) return text;
     const lines = text.split(/\r?\n/);
@@ -676,42 +774,34 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         .replace(/_(.*?)_/g, '<em>$1</em>')
         .replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#EAB308] font-semibold">$1</a>');
 
-      // Markdown H4 (####)
-      if (/^####\s+(.*)$/.test(trimmed)) {
-        flushLists();
-        resultBlocks.push(`<h4>${trimmed.replace(/^####\s+/, "")}</h4>`);
-        continue;
-      }
-
-      // Markdown H3 (###)
-      if (/^###\s+(.*)$/.test(trimmed)) {
-        flushLists();
-        resultBlocks.push(`<h3>${trimmed.replace(/^###\s+/, "")}</h3>`);
-        continue;
-      }
-
-      // Markdown H2 (##)
-      if (/^##\s+(.*)$/.test(trimmed)) {
-        flushLists();
-        resultBlocks.push(`<h2>${trimmed.replace(/^##\s+/, "")}</h2>`);
-        continue;
-      }
-
-      // Markdown H1 (#) -> map to H2 for article hierarchy
-      if (/^#\s+(.*)$/.test(trimmed)) {
-        flushLists();
-        resultBlocks.push(`<h2>${trimmed.replace(/^#\s+/, "")}</h2>`);
-        continue;
-      }
-
-      // Existing HTML headings
-      if (/^<h[1-6][^>]*>(.*?)<\/h[1-6]>/i.test(trimmed)) {
+      // Pre-existing HTML block elements (preserve directly without re-wrapping)
+      if (/^<h[1-6][^>]*>(.*?)<\/h[1-6]>/i.test(trimmed) || /^<(table|div|hr|ul|ol|blockquote|p|img|iframe|section)/i.test(trimmed)) {
         flushLists();
         resultBlocks.push(trimmed);
         continue;
       }
 
-      // Blockquote
+      // Smart Heading Recognition (H2, H3, H4)
+      const detectedHeading = detectHeadingLevel(trimmed);
+      if (detectedHeading) {
+        flushLists();
+        const cleanHeadingText = trimmed
+          .replace(/^#{1,6}\s+/, "")
+          .replace(/:\s*$/, "")
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+          .trim();
+
+        if (detectedHeading === "h2") {
+          resultBlocks.push(`<h2>${cleanHeadingText}</h2>`);
+        } else if (detectedHeading === "h3") {
+          resultBlocks.push(`<h3>${cleanHeadingText}</h3>`);
+        } else if (detectedHeading === "h4") {
+          resultBlocks.push(`<h4>${cleanHeadingText}</h4>`);
+        }
+        continue;
+      }
+
+      // Blockquote (> or standard quote callout)
       if (/^>\s*(.*)$/.test(trimmed)) {
         flushLists();
         const quoteText = trimmed.replace(/^>\s*/, "");
@@ -719,15 +809,15 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         continue;
       }
 
-      // Bullet list item (- or * or •)
-      if (/^[-*•]\s+(.*)$/.test(trimmed)) {
+      // Bullet list item (- or * or • or ▪ or ▫)
+      if (/^[-*•▪▫–—]\s+(.*)$/.test(trimmed)) {
         if (inNumberedList) flushLists();
         inBulletList = true;
-        bulletItems.push(trimmed.replace(/^[-*•]\s+/, ""));
+        bulletItems.push(trimmed.replace(/^[-*•▪▫–—]\s+/, ""));
         continue;
       }
 
-      // Numbered list item
+      // Numbered list item (e.g. "1. Item", "2. Item" that wasn't classified as an H2 heading)
       if (/^\d+[.)]\s+(.*)$/.test(trimmed)) {
         if (inBulletList) flushLists();
         inNumberedList = true;
@@ -735,16 +825,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         continue;
       }
 
-      // Pre-existing HTML block elements (table, div, hr, ul, ol, blockquote, img, p)
-      if (/^<(table|div|hr|ul|ol|blockquote|p|img|iframe|section)/i.test(trimmed)) {
-        flushLists();
-        resultBlocks.push(trimmed);
-        continue;
-      }
-
       // Standard paragraph
       flushLists();
-      resultBlocks.push(`<p>${formattedInline}</p>`);
+      resultBlocks.push(`<p class="my-4 leading-relaxed text-[#F3F4F6]">${formattedInline}</p>`);
     }
 
     flushLists();
@@ -967,18 +1050,17 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     showToast("✅ Inline image inserted smoothly!");
   };
 
-  // Content Input Handlers for Slash Commands, Markdown Headings, and Pasting
+  // Content Input Handlers for Slash Commands, Smart Auto-Headings, and Pasting
   const handleContentPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData("text/plain");
-    if (!pastedText) return;
+    if (!pastedText || !pastedText.trim()) return;
 
-    // Check if pasted text contains markdown headings (#, ##, ###, ####), lists, or formatting
-    const hasMarkdownHeading = /^#{1,4}\s+/m.test(pastedText);
-    const hasHtmlTags = /<\/?(h[1-6]|p|ul|ol|blockquote|table|div)[^>]*>/i.test(pastedText);
-    const hasMarkdownList = /^[-*•]\s+|\d+[.)]\s+/m.test(pastedText);
-    const hasMarkdownFormatting = /\*\*.*?\*\*|\[.*?\]\(https?:\/\//.test(pastedText);
+    // Auto-parse any pasted text that is multi-line, long, or has markdown/HTML/structural patterns
+    const isMultiLine = pastedText.includes("\n");
+    const isLongText = pastedText.trim().length > 40;
+    const hasMarkdownOrTags = /[#*•<\-_\[\]\d.]/.test(pastedText);
 
-    if (hasMarkdownHeading || hasHtmlTags || hasMarkdownList || hasMarkdownFormatting) {
+    if (isMultiLine || isLongText || hasMarkdownOrTags) {
       e.preventDefault();
       const converted = convertMarkdownAndHtmlToCleanHtml(pastedText);
       const textarea = e.currentTarget;
@@ -989,7 +1071,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       const newContent = content.substring(0, start) + converted + content.substring(end);
       handleUpdateField("content", newContent);
       pushHistory(newContent);
-      showToast("✨ Auto-detected and formatted H2/H3 headings & markdown structure!");
+      showToast("✨ Smart Auto-Heading: Formatted pasted article into H2/H3 headings & structured HTML!");
     }
   };
 
@@ -1630,329 +1712,380 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
           <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl shadow-2xl overflow-hidden">
             
             {/* TOOLBAR */}
-            <div className="bg-[#0e1017] border-b border-[#d9b45c]/20 p-3 flex flex-wrap items-center gap-2">
-              
-              {/* Heading Dropdown */}
-              <select
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "p") applyFormattingToSelection("<p class='my-4 leading-relaxed text-[#F3F4F6]'>", "</p>");
-                  else if (val === "h1") applyHeading("p");
-                  else if (val === "h2") applyHeading("h2");
-                  else if (val === "h3") applyHeading("h3");
-                  else if (val === "h4") applyHeading("h4");
-                }}
-                className="bg-[#12141b] text-xs font-bold text-[#f2d98a] border border-[#d9b45c]/30 rounded-lg px-2.5 py-1.5 outline-none cursor-pointer hover:border-[#d9b45c]"
-              >
-                <option value="p">¶ Paragraph</option>
-                <option value="h2">H2 — Main Heading</option>
-                <option value="h3">H3 — Sub Heading</option>
-                <option value="h4">H4 — Small Topic</option>
-              </select>
-
-              {/* Direct Quick Heading 2 & Heading 3 Buttons */}
-              <button
-                type="button"
-                onClick={() => applyHeading("h2")}
-                className="px-2 py-1 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-serif font-bold transition-all"
-                title="Heading 2 (H2) - Large Bold Section Title"
-              >
-                H2
-              </button>
-              <button
-                type="button"
-                onClick={() => applyHeading("h3")}
-                className="px-2 py-1 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-serif font-bold transition-all"
-                title="Heading 3 (H3) - Subsection Title"
-              >
-                H3
-              </button>
-
-              <div className="h-5 w-[1px] bg-white/10 my-auto"></div>
-
-              {/* Formatting Buttons */}
-              <button
-                type="button"
-                onClick={() => applyFormattingToSelection("<strong>", "</strong>")}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Bold (Ctrl+B)"
-              >
-                <Bold size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormattingToSelection("<em>", "</em>")}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Italic (Ctrl+I)"
-              >
-                <Italic size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormattingToSelection("<u>", "</u>")}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Underline (Ctrl+U)"
-              >
-                <Underline size={14} />
-              </button>
-
-              <div className="h-5 w-[1px] bg-white/10 my-auto"></div>
-
-              {/* Lists & Quotes */}
-              <button
-                type="button"
-                onClick={() => applyFormattingToSelection("<ul class='list-disc pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]'><li>", "</li></ul>")}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Bullet List"
-              >
-                <List size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormattingToSelection("<ol class='list-decimal pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]'><li>", "</li></ol>")}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Numbered List"
-              >
-                <ListOrdered size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormattingToSelection("<blockquote class='border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]'>", "</blockquote>")}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Quote Block"
-              >
-                <Quote size={14} />
-              </button>
-
-              <div className="h-5 w-[1px] bg-white/10 my-auto"></div>
-
-              {/* Link (Golden Anchor Tag), Table, CTA Button, Image, HR */}
-              <button
-                type="button"
-                onClick={() => {
-                  const url = prompt("Enter Link URL:", "https://");
-                  if (url) {
-                    applyFormattingToSelection(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#EAB308] font-semibold">`, "</a>");
-                  }
-                }}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Insert Hyperlink (Gold #FACC15)"
-              >
-                <Link2 size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowTableModal(true)}
-                className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-bold flex items-center space-x-1 transition-all"
-                title="Insert Comparison or Data Table"
-              >
-                <TableIcon size={14} />
-                <span>Table</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCtaModal(true)}
-                className="px-2.5 py-1 bg-gradient-to-r from-[#d9b45c]/20 to-[#f2d98a]/20 hover:from-[#d9b45c]/30 hover:to-[#f2d98a]/30 text-[#f2d98a] hover:text-white border border-[#d9b45c]/50 hover:border-[#d9b45c] rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all"
-                title="Insert Call-to-Action (CTA) Button"
-              >
-                <MousePointerClick size={14} className="text-[#d9b45c]" />
-                <span>CTA Button</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleAutoFormatText}
-                className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-[#f2d98a] border border-white/10 hover:border-[#d9b45c]/40 rounded-lg text-xs font-medium flex items-center space-x-1 transition-all"
-                title="Auto-format plain text into structured HTML paragraphs & headings"
-              >
-                <Sparkles size={13} className="text-[#d9b45c]" />
-                <span>Auto-Format</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMediaTargetField("internal");
-                  setShowMediaLibraryModal(true);
-                }}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Insert Image"
-              >
-                <ImageIcon size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormattingToSelection("<hr class='border-[#d9b45c]/30 my-8' />", "")}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg"
-                title="Horizontal Rule"
-              >
-                <Minus size={14} />
-              </button>
-
-              <div className="h-5 w-[1px] bg-white/10 my-auto"></div>
-
-              {/* Undo / Redo */}
-              <button
-                type="button"
-                onClick={handleUndo}
-                disabled={historyIndex <= 0}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] disabled:opacity-30 rounded-lg"
-                title="Undo"
-              >
-                <RotateCcw size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={handleRedo}
-                disabled={historyIndex >= history.length - 1}
-                className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] disabled:opacity-30 rounded-lg"
-                title="Redo"
-              >
-                <RefreshCw size={14} />
-              </button>
-
-              <div className="flex-1"></div>
-
-              {/* DIRECT VISUAL / CODE (HTML) / SPLIT / PREVIEW SWITCHERS */}
-              <div className="flex items-center space-x-1 bg-[#12141b] border border-[#d9b45c]/30 rounded-xl p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewLayoutMode("editor");
-                    setEditorMode("visual");
-                  }}
-                  className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
-                    viewLayoutMode === "editor" && editorMode === "visual"
-                      ? "bg-[#d9b45c] text-black shadow-sm"
-                      : "text-[#c9c2ab] hover:text-white"
-                  }`}
-                  title="Visual WYSIWYG Editor"
-                >
-                  <Eye size={12} />
-                  <span>Visual</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewLayoutMode("editor");
-                    setEditorMode("code");
-                  }}
-                  className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
-                    viewLayoutMode === "editor" && editorMode === "code"
-                      ? "bg-[#d9b45c] text-black shadow-sm"
-                      : "text-[#c9c2ab] hover:text-white"
-                  }`}
-                  title="Raw HTML Code Editor"
-                >
-                  <FileCode size={12} />
-                  <span>Code (HTML)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewLayoutMode("split")}
-                  className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
-                    viewLayoutMode === "split" ? "bg-[#d9b45c] text-black shadow-sm" : "text-[#c9c2ab] hover:text-white"
-                  }`}
-                  title="Side-by-Side Live Preview"
-                >
-                  <Columns size={12} />
-                  <span>Split</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewLayoutMode("preview")}
-                  className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
-                    viewLayoutMode === "preview" ? "bg-[#d9b45c] text-black shadow-sm" : "text-[#c9c2ab] hover:text-white"
-                  }`}
-                  title="Full Live Article Preview"
-                >
-                  <Globe size={12} />
-                  <span>Live View</span>
-                </button>
-              </div>
-
-              {/* AI WRITING ASSISTANT BUTTON */}
-              <button
-                type="button"
-                onClick={() => setShowAiModal(true)}
-                className="px-3 py-1.5 bg-gradient-to-r from-[#d9b45c]/20 to-[#f2d98a]/20 border border-[#d9b45c]/50 hover:border-[#d9b45c] text-[#f2d98a] font-bold text-xs rounded-xl flex items-center space-x-1.5 shadow-md hover:scale-105 transition-all"
-              >
-                <Sparkles size={14} className="text-[#d9b45c] animate-spin" />
-                <span>AI Assistant ✨</span>
-              </button>
-
-            </div>
-
-            {/* QUICK SLASH COMMANDS & BLOCK SELECTOR HELPER BAR */}
-            <div className="px-4 py-2 bg-[#0e1017] border-y border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#c9c2ab]">
+            <div className="bg-[#0e1017] border-b border-[#d9b45c]/20 p-2.5 px-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-mono text-[#d9b45c] font-bold flex items-center mr-1">
-                  <span className="bg-[#d9b45c]/20 text-[#f2d98a] px-1.5 py-0.5 rounded border border-[#d9b45c]/30 font-extrabold mr-1.5">/</span> Slash Blocks:
-                </span>
+                {/* Heading Dropdown */}
+                <select
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "p") applyFormattingToSelection("<p class='my-4 leading-relaxed text-[#F3F4F6]'>", "</p>");
+                    else if (val === "h1") applyHeading("p");
+                    else if (val === "h2") applyHeading("h2");
+                    else if (val === "h3") applyHeading("h3");
+                    else if (val === "h4") applyHeading("h4");
+                  }}
+                  className="bg-[#12141b] text-xs font-bold text-[#f2d98a] border border-[#d9b45c]/30 rounded-lg px-2.5 py-1.5 outline-none cursor-pointer hover:border-[#d9b45c]"
+                >
+                  <option value="p">¶ Paragraph</option>
+                  <option value="h2">H2 — Main Heading</option>
+                  <option value="h3">H3 — Sub Heading</option>
+                  <option value="h4">H4 — Small Topic</option>
+                </select>
+
+                {/* Direct Quick Heading 2 & Heading 3 Buttons */}
+                <button
+                  type="button"
+                  onClick={() => applyHeading("h2")}
+                  className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-serif font-bold transition-all flex items-center space-x-1"
+                  title="Heading 2 (H2) - Large Bold Section Title"
+                >
+                  <Heading2 size={13} className="text-[#d9b45c]" />
+                  <span>H2</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyHeading("h3")}
+                  className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-serif font-bold transition-all flex items-center space-x-1"
+                  title="Heading 3 (H3) - Subsection Title"
+                >
+                  <Heading3 size={13} className="text-[#d9b45c]" />
+                  <span>H3</span>
+                </button>
+
+                <div className="h-5 w-[1px] bg-white/10 my-auto mx-0.5"></div>
+
+                {/* Core Formatting Buttons: Bold, Italic, Underline */}
+                <button
+                  type="button"
+                  onClick={() => applyFormattingToSelection("<strong>", "</strong>")}
+                  className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg transition-colors"
+                  title="Bold (Ctrl+B)"
+                >
+                  <Bold size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormattingToSelection("<em>", "</em>")}
+                  className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg transition-colors"
+                  title="Italic (Ctrl+I)"
+                >
+                  <Italic size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormattingToSelection("<u>", "</u>")}
+                  className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white rounded-lg transition-colors"
+                  title="Underline (Ctrl+U)"
+                >
+                  <Underline size={14} />
+                </button>
+
+                {/* Hyperlink */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = prompt("Enter Link URL:", "https://");
+                    if (url) {
+                      applyFormattingToSelection(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#EAB308] font-semibold">`, "</a>");
+                    }
+                  }}
+                  className="p-1.5 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-[#f2d98a] rounded-lg transition-colors"
+                  title="Insert Hyperlink (Gold #FACC15)"
+                >
+                  <Link2 size={14} />
+                </button>
+
+                <div className="h-5 w-[1px] bg-white/10 my-auto mx-0.5"></div>
+
+                {/* Insert Image / Media Button */}
                 <button
                   type="button"
                   onClick={() => {
                     setMediaTargetField("internal");
                     setShowMediaLibraryModal(true);
                   }}
-                  className="px-2.5 py-1 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-[#d9b45c]/40 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition-all shadow-sm"
-                  title="Upload & Insert Inline Image"
+                  className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm"
+                  title="Insert Media / Internal Image"
                 >
-                  <ImageIcon size={12} className="text-[#d9b45c]" />
-                  <span>/image (Media)</span>
+                  <ImageIcon size={14} className="text-[#d9b45c]" />
+                  <span>Media</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => applyHeading("h2")}
-                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
-                  title="Insert H2 Heading (or type ## + Enter)"
-                >
-                  <Heading2 size={11} className="text-[#d9b45c]" />
-                  <span>/h2 (##)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyHeading("h3")}
-                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
-                  title="Insert H3 Subheading (or type ### + Enter)"
-                >
-                  <Heading3 size={11} className="text-[#d9b45c]" />
-                  <span>/h3 (###)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyFormattingToSelection("<ul class='list-disc pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]'><li>", "</li></ul>")}
-                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
-                >
-                  <List size={11} className="text-[#d9b45c]" />
-                  <span>/bullet</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyFormattingToSelection("<blockquote class='border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]'>", "</blockquote>")}
-                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
-                >
-                  <Quote size={11} className="text-[#d9b45c]" />
-                  <span>/quote</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowTableModal(true)}
-                  className="px-2 py-0.5 bg-white/5 hover:bg-[#d9b45c]/20 hover:text-[#f2d98a] border border-white/10 rounded-md text-[10px] font-medium flex items-center space-x-1 transition-all"
-                >
-                  <TableIcon size={11} className="text-[#d9b45c]" />
-                  <span>/table</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCtaModal(true)}
-                  className="px-2 py-0.5 bg-gradient-to-r from-[#d9b45c]/20 to-[#f2d98a]/20 hover:from-[#d9b45c]/30 text-[#f2d98a] border border-[#d9b45c]/40 rounded-md text-[10px] font-bold flex items-center space-x-1 transition-all"
-                >
-                  <MousePointerClick size={11} />
-                  <span>/cta</span>
-                </button>
+
+                <div className="h-5 w-[1px] bg-white/10 my-auto mx-0.5"></div>
+
+                {/* CONSOLIDATED "MORE TOOLS" DROPDOWN */}
+                <div className="relative" ref={moreToolsMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreToolsMenu((prev) => !prev)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border flex items-center space-x-1.5 transition-all shadow-sm ${
+                      showMoreToolsMenu
+                        ? "bg-[#d9b45c] text-black border-[#d9b45c]"
+                        : "bg-white/5 hover:bg-white/10 text-[#f2d98a] hover:text-white border-[#d9b45c]/40 hover:border-[#d9b45c]"
+                    }`}
+                    title="More Formatting Tools & Options"
+                  >
+                    <MoreHorizontal size={14} />
+                    <span>More Options</span>
+                    <ChevronDown size={12} className={`transition-transform duration-200 ${showMoreToolsMenu ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {/* Popover Menu */}
+                  {showMoreToolsMenu && (
+                    <div className="absolute top-full left-0 mt-2 w-72 bg-[#12141b] border-2 border-[#d9b45c]/50 rounded-2xl shadow-2xl p-2 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black">
+                      <div className="px-3 py-1.5 border-b border-white/10 flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-bold text-[#f2d98a] uppercase tracking-wider">Extended Tools</span>
+                        <span className="text-[10px] text-[#c9c2ab]/50 font-mono">/ Slash blocks</span>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        {/* Auto-Format & Parse */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            handleAutoFormatText();
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <Sparkles size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#f2d98a]">Auto-Format Article</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Convert text to H2/H3 & paragraphs</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#d9b45c] px-1.5 py-0.5 rounded font-mono">Auto</span>
+                        </button>
+
+                        {/* Table */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            setShowTableModal(true);
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <TableIcon size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Insert Table</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Structured comparison grid</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/table</span>
+                        </button>
+
+                        {/* CTA Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            setShowCtaModal(true);
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <MousePointerClick size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Call To Action (CTA)</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Gold interactive button</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/cta</span>
+                        </button>
+
+                        {/* Blockquote */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            applyFormattingToSelection("<blockquote class='border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]'>", "</blockquote>");
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <Quote size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Quote Block</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Scholarly highlighted quote</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/quote</span>
+                        </button>
+
+                        {/* Bullet List */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            applyFormattingToSelection("<ul class='list-disc pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]'><li>", "</li></ul>");
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <List size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Bullet List</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Unordered bullet items</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/bullet</span>
+                        </button>
+
+                        {/* Numbered List */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            applyFormattingToSelection("<ol class='list-decimal pl-5 space-y-1.5 my-4 text-[#F3F4F6] marker:text-[#d9b45c]'><li>", "</li></ol>");
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <ListOrdered size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Numbered List</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Ordered sequence steps</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/number</span>
+                        </button>
+
+                        {/* Divider Line */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            applyFormattingToSelection("<hr class='border-[#d9b45c]/30 my-8' />", "");
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <Minus size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Divider Line</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Horizontal gold separator</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/divider</span>
+                        </button>
+
+                        <div className="border-t border-white/10 my-1 pt-1 flex items-center justify-between px-2 text-[10px] text-[#c9c2ab]/70">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowMoreToolsMenu(false);
+                              handleUndo();
+                            }}
+                            disabled={historyIndex <= 0}
+                            className="flex items-center space-x-1 p-1 hover:text-white disabled:opacity-30"
+                          >
+                            <RotateCcw size={12} />
+                            <span>Undo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowMoreToolsMenu(false);
+                              handleRedo();
+                            }}
+                            disabled={historyIndex >= history.length - 1}
+                            className="flex items-center space-x-1 p-1 hover:text-white disabled:opacity-30"
+                          >
+                            <RefreshCw size={12} />
+                            <span>Redo</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="hidden lg:flex items-center space-x-2 text-[10px] text-[#c9c2ab]/60">
-                <span>✨ Auto-detects <strong>## H2</strong> & <strong>### H3</strong> on Enter & Paste</span>
+              {/* RIGHT SIDE: VIEW MODE SWITCHERS & AI BUTTON */}
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 bg-[#12141b] border border-[#d9b45c]/30 rounded-xl p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewLayoutMode("editor");
+                      setEditorMode("visual");
+                    }}
+                    className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
+                      viewLayoutMode === "editor" && editorMode === "visual"
+                        ? "bg-[#d9b45c] text-black shadow-sm"
+                        : "text-[#c9c2ab] hover:text-white"
+                    }`}
+                    title="Visual WYSIWYG Editor"
+                  >
+                    <Eye size={12} />
+                    <span>Visual</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewLayoutMode("editor");
+                      setEditorMode("code");
+                    }}
+                    className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
+                      viewLayoutMode === "editor" && editorMode === "code"
+                        ? "bg-[#d9b45c] text-black shadow-sm"
+                        : "text-[#c9c2ab] hover:text-white"
+                    }`}
+                    title="Raw HTML Code Editor"
+                  >
+                    <FileCode size={12} />
+                    <span>Code (HTML)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewLayoutMode("split")}
+                    className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
+                      viewLayoutMode === "split" ? "bg-[#d9b45c] text-black shadow-sm" : "text-[#c9c2ab] hover:text-white"
+                    }`}
+                    title="Side-by-Side Live Preview"
+                  >
+                    <Columns size={12} />
+                    <span>Split</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewLayoutMode("preview")}
+                    className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
+                      viewLayoutMode === "preview" ? "bg-[#d9b45c] text-black shadow-sm" : "text-[#c9c2ab] hover:text-white"
+                    }`}
+                    title="Full Live Article Preview"
+                  >
+                    <Globe size={12} />
+                    <span>Live View</span>
+                  </button>
+                </div>
+
+                {/* AI WRITING ASSISTANT BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setShowAiModal(true)}
+                  className="px-3 py-1.5 bg-gradient-to-r from-[#d9b45c]/20 to-[#f2d98a]/20 border border-[#d9b45c]/50 hover:border-[#d9b45c] text-[#f2d98a] font-bold text-xs rounded-xl flex items-center space-x-1.5 shadow-md hover:scale-105 transition-all"
+                >
+                  <Sparkles size={14} className="text-[#d9b45c] animate-spin" />
+                  <span className="hidden sm:inline">AI Assistant ✨</span>
+                </button>
               </div>
             </div>
 
