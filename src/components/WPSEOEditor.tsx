@@ -60,7 +60,8 @@ import {
   MousePointerClick,
   ArrowRight,
   HelpCircle,
-  Type
+  Type,
+  Unlink
 } from "lucide-react";
 
 interface WPSEOEditorProps {
@@ -250,6 +251,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   const [ctaAlignment, setCtaAlignment] = useState<"center" | "left" | "right" | "full">("center");
   const [ctaOpenNewTab, setCtaOpenNewTab] = useState(true);
   const [ctaIcon, setCtaIcon] = useState<"arrow" | "whatsapp" | "phone" | "sparkles" | "book" | "none">("arrow");
+
+  // Hyperlink / Anchor Text Modal State
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkAnchorText, setLinkAnchorText] = useState("");
+  const [linkUrl, setLinkUrl] = useState("https://truthquranacademy.com/");
+  const [linkOpenNewTab, setLinkOpenNewTab] = useState(true);
+  const [savedRange, setSavedRange] = useState<Range | null>(null);
+  const [savedTextareaSelection, setSavedTextareaSelection] = useState<{ start: number; end: number } | null>(null);
 
   const [showMediaLibraryModal, setShowMediaLibraryModal] = useState(false);
   const [mediaTargetField, setMediaTargetField] = useState<"featured" | "internal">("featured");
@@ -767,6 +776,74 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     return null;
   };
 
+  // Smart DOM Sanitizer that strictly preserves all <a> Hyperlinks, Anchor Text & Document Structure
+  const sanitizeAndCleanPastedHtml = (rawHtml: string): string => {
+    if (!rawHtml || !rawHtml.trim()) return "";
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawHtml, "text/html");
+
+      // Remove unwanted foreign scripts, styles, meta, noscript, tracking elements
+      const unwanted = doc.querySelectorAll("script, style, meta, link, noscript, svg, form, input, button");
+      unwanted.forEach((el) => el.remove());
+
+      // 1. Process & Safeguard all Hyperlink <a> tags with Vibrant Yellow Styling (#FACC15)
+      const allLinks = doc.querySelectorAll("a");
+      allLinks.forEach((link) => {
+        const href = link.getAttribute("href");
+        if (href) {
+          link.setAttribute("target", "_blank");
+          link.setAttribute("rel", "noopener noreferrer");
+          const existingClass = link.getAttribute("class") || "";
+          if (!existingClass.includes("text-[#FACC15]")) {
+            link.setAttribute("class", `${existingClass} text-[#FACC15] underline hover:text-[#FEF08A] font-semibold`.trim());
+          }
+        }
+      });
+
+      // 2. Convert H1 to H2 to protect main article title hierarchy
+      const h1s = doc.querySelectorAll("h1");
+      h1s.forEach((h1) => {
+        const h2 = doc.createElement("h2");
+        h2.innerHTML = h1.innerHTML;
+        h1.parentNode?.replaceChild(h2, h1);
+      });
+
+      // 3. Unwrap unwanted external code wrappers from non-code pasted text
+      const preBlocks = doc.querySelectorAll("pre, code");
+      preBlocks.forEach((el) => {
+        const hasLang = el.className.includes("language-");
+        if (!hasLang) {
+          const span = doc.createElement("span");
+          span.innerHTML = el.innerHTML;
+          el.parentNode?.replaceChild(span, el);
+        }
+      });
+
+      // 4. Strip intrusive inline font-family, font-size, background colors from external sites
+      const allElements = doc.querySelectorAll("*");
+      allElements.forEach((el) => {
+        if (el.tagName !== "TABLE" && el.tagName !== "TH" && el.tagName !== "TD" && el.tagName !== "IMG") {
+          el.removeAttribute("style");
+        }
+        const idAttr = el.getAttribute("id");
+        if (idAttr && idAttr.startsWith("docs-internal-guid")) {
+          el.removeAttribute("id");
+        }
+      });
+
+      const cleaned = doc.body.innerHTML;
+      if (cleaned && cleaned.trim()) {
+        return cleaned.trim();
+      }
+    } catch (err) {
+      console.warn("DOMParser error during paste sanitization:", err);
+    }
+
+    return "";
+  };
+
   // Robust Markdown, HTML & Smart English Heading Auto-Parsing Formatter
   const convertMarkdownAndHtmlToCleanHtml = (text: string): string => {
     if (!text || !text.trim()) return text;
@@ -811,13 +888,13 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         continue;
       }
 
-      // Convert inline markdown: bold, italic, links (Gold Anchor Text #FACC15)
+      // Convert inline markdown: bold, italic, links (Yellow Anchor Text #FACC15)
       const formattedInline = trimmed
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/__(.*?)__/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/_(.*?)_/g, '<em>$1</em>')
-        .replace(/\[(.*?)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">$1</a>');
+        .replace(/\[(.*?)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">$1</a>');
 
       // Pre-existing HTML block elements (preserve directly without re-wrapping)
       if (/^<h[1-6][^>]*>(.*?)<\/h[1-6]>/i.test(trimmed) || /^<(table|div|hr|ul|ol|blockquote|p|img|iframe|section)/i.test(trimmed)) {
@@ -971,6 +1048,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         keywords: ["table", "grid", "comparison", "pricing", "data"]
       },
       {
+        id: "link",
+        label: "Hyperlink / Anchor Link",
+        desc: "Insert internal/external link with Yellow (#FACC15) anchor styling",
+        badge: "Link",
+        icon: Link2,
+        keywords: ["link", "hyperlink", "url", "anchor", "href", "internal", "external"]
+      },
+      {
         id: "cta",
         label: "CTA Booking Button",
         desc: "Insert Trial Class booking or WhatsApp Contact button",
@@ -1032,6 +1117,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       replacement = `\n<blockquote class="border-l-4 border-[#d9b45c] bg-[#12141b] p-4 my-6 rounded-r-xl italic text-[#f2d98a]">"The best amongst you are those who learn the Quran and teach it." — Sahih Bukhari</blockquote>\n\n`;
     } else if (item.id === "table") {
       setShowTableModal(true);
+      replacement = ``;
+    } else if (item.id === "link") {
+      openLinkModal();
       replacement = ``;
     } else if (item.id === "cta") {
       setShowCtaModal(true);
@@ -1095,19 +1183,30 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     showToast("✅ Inline image inserted smoothly!");
   };
 
-  // Content Input Handlers for Slash Commands, Smart Auto-Headings, and Pasting
+  // Content Input Handlers for Slash Commands, Smart Auto-Headings, Hyperlink Preservation, and Pasting
   const handleContentPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const htmlData = e.clipboardData.getData("text/html");
     const pastedText = e.clipboardData.getData("text/plain");
-    if (!pastedText || !pastedText.trim()) return;
+    if (!pastedText && !htmlData) return;
 
     // Auto-parse any pasted text that is multi-line, long, or has markdown/HTML/structural patterns
-    const isMultiLine = pastedText.includes("\n");
-    const isLongText = pastedText.trim().length > 40;
-    const hasMarkdownOrTags = /[#*•<\-_\[\]\d.]/.test(pastedText);
+    const isMultiLine = (pastedText || "").includes("\n");
+    const isLongText = (pastedText || "").trim().length > 40;
+    const hasMarkdownOrTags = /[#*•<\-_\[\]\d.]/.test(pastedText || "");
+    const hasHtmlLinks = Boolean(htmlData && (htmlData.includes("<a") || htmlData.includes("<h") || htmlData.includes("<p") || htmlData.includes("<table")));
 
-    if (isMultiLine || isLongText || hasMarkdownOrTags) {
+    if (isMultiLine || isLongText || hasMarkdownOrTags || hasHtmlLinks) {
       e.preventDefault();
-      const converted = convertMarkdownAndHtmlToCleanHtml(pastedText);
+      let converted = "";
+      if (hasHtmlLinks && htmlData) {
+        converted = sanitizeAndCleanPastedHtml(htmlData);
+      }
+      if (!converted && pastedText) {
+        converted = convertMarkdownAndHtmlToCleanHtml(pastedText);
+      }
+
+      if (!converted) return;
+
       const textarea = e.currentTarget;
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
@@ -1116,11 +1215,18 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       const newContent = content.substring(0, start) + converted + content.substring(end);
       handleUpdateField("content", newContent);
       pushHistory(newContent);
-      showToast("✨ Smart Auto-Heading: Formatted pasted article into H2/H3 headings & structured HTML!");
+      showToast("✨ Preserved hyperlinks & formatted article into structured paragraphs/headings!");
     }
   };
 
   const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Hyperlink Shortcut: Ctrl+K / Cmd+K
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      openLinkModal();
+      return;
+    }
+
     // If slash menu is active, handle keyboard navigation
     if (showSlashMenu) {
       if (e.key === "ArrowDown") {
@@ -1260,22 +1366,37 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
   const handleVisualPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const pastedText = e.clipboardData.getData("text/plain");
-    if (!pastedText || !pastedText.trim()) return;
+    const htmlData = e.clipboardData.getData("text/html");
+    const plainText = e.clipboardData.getData("text/plain");
 
-    const cleanHtml = convertMarkdownAndHtmlToCleanHtml(pastedText);
-    document.execCommand("insertHTML", false, cleanHtml);
-
-    if (visualEditorRef.current) {
-      const html = visualEditorRef.current.innerHTML;
-      handleUpdateField("content", html);
-      pushHistory(html);
+    let cleanHtml = "";
+    // If rich HTML contains links, headings, paragraphs, or tables, clean and preserve them
+    if (htmlData && (htmlData.includes("<a") || htmlData.includes("<p") || htmlData.includes("<h") || htmlData.includes("<table") || htmlData.includes("<ul") || htmlData.includes("<ol"))) {
+      cleanHtml = sanitizeAndCleanPastedHtml(htmlData);
     }
-    showToast("✨ Converted pasted article into clean visual paragraphs & headings!");
+
+    if (!cleanHtml || !cleanHtml.trim()) {
+      if (plainText && plainText.trim()) {
+        cleanHtml = convertMarkdownAndHtmlToCleanHtml(plainText);
+      }
+    }
+
+    if (cleanHtml) {
+      document.execCommand("insertHTML", false, cleanHtml);
+      if (visualEditorRef.current) {
+        const html = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", html);
+        pushHistory(html);
+      }
+      showToast("✨ Article pasted with preserved hyperlinks, headings & clean paragraphs!");
+    }
   };
 
   const handleVisualKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      openLinkModal();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
       e.preventDefault();
       document.execCommand("bold");
       if (visualEditorRef.current) {
@@ -1540,53 +1661,123 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     }
   };
 
-  // Dedicated Hyperlink Inserter with Yellow (#FACC15) Anchor Text
-  const handleInsertLink = () => {
+  // Dedicated Hyperlink Inserter with Yellow (#FACC15) Anchor Text & Presets
+  const openLinkModal = () => {
     if (!currentPost) return;
 
     let selectedText = "";
+    let currentHref = "";
+
     if (editorMode === "visual" && viewLayoutMode === "editor") {
-      selectedText = window.getSelection()?.toString()?.trim() || "";
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        setSavedRange(range.cloneRange());
+        selectedText = range.toString().trim();
+
+        // Check if selection / cursor is inside an existing <a> tag
+        let node: Node | null = range.commonAncestorContainer;
+        if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+        if (node && (node as HTMLElement).tagName === "A") {
+          currentHref = (node as HTMLAnchorElement).getAttribute("href") || "";
+          if (!selectedText) selectedText = (node as HTMLElement).textContent || "";
+        }
+      }
     } else {
       const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
-      if (textarea && textarea.selectionStart !== textarea.selectionEnd) {
-        selectedText = (currentPost.content || "").substring(textarea.selectionStart, textarea.selectionEnd).trim();
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        setSavedTextareaSelection({ start, end });
+        if (start !== end) {
+          selectedText = (currentPost.content || "").substring(start, end).trim();
+        }
       }
     }
 
-    const linkText = selectedText || prompt("Enter Hyperlink Anchor Text:", "Learn Quran Online")?.trim();
-    if (!linkText) return;
+    setLinkAnchorText(selectedText || "");
+    setLinkUrl(currentHref || "https://truthquranacademy.com/");
+    setLinkOpenNewTab(true);
+    setShowLinkModal(true);
+  };
 
-    const url = prompt("Enter Target URL (e.g. /programs/tajweed or https://truthquranacademy.com):", "https://truthquranacademy.com/")?.trim();
-    if (!url) return;
+  const handleApplyLink = () => {
+    if (!currentPost) return;
+    const text = (linkAnchorText || "").trim() || "Truth Quran Academy";
+    const url = (linkUrl || "").trim() || "/";
 
-    const linkHtml = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">${linkText}</a>`;
+    const targetAttr = linkOpenNewTab ? ' target="_blank" rel="noopener noreferrer"' : '';
+    const linkHtml = `<a href="${url}"${targetAttr} class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">${text}</a>`;
 
     if (editorMode === "visual" && viewLayoutMode === "editor") {
       if (visualEditorRef.current) {
         visualEditorRef.current.focus();
+        if (savedRange) {
+          const selection = window.getSelection();
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(savedRange);
+          }
+        }
         document.execCommand("insertHTML", false, linkHtml);
         const newHtml = visualEditorRef.current.innerHTML;
         handleUpdateField("content", newHtml);
         pushHistory(newHtml);
-        showToast("✅ Hyperlink added with Yellow (#FACC15) anchor text!");
       }
     } else {
       const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
       const content = currentPost.content || "";
-      if (textarea && textarea.selectionStart !== undefined) {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
+      if (savedTextareaSelection && textarea) {
+        const { start, end } = savedTextareaSelection;
         const newContent = content.substring(0, start) + linkHtml + content.substring(end);
         handleUpdateField("content", newContent);
         pushHistory(newContent);
       } else {
-        const newContent = content + `\n${linkHtml}\n`;
+        const newContent = content ? `${content}\n${linkHtml}\n` : linkHtml;
         handleUpdateField("content", newContent);
         pushHistory(newContent);
       }
-      showToast("✅ Hyperlink added with Yellow (#FACC15) anchor text!");
     }
+
+    setShowLinkModal(false);
+    showToast(`✅ Hyperlink applied to "${text}" with Yellow (#FACC15) anchor styling!`);
+  };
+
+  const handleRemoveLink = () => {
+    if (!currentPost) return;
+    if (editorMode === "visual" && viewLayoutMode === "editor") {
+      if (visualEditorRef.current) {
+        visualEditorRef.current.focus();
+        if (savedRange) {
+          const selection = window.getSelection();
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(savedRange);
+          }
+        }
+        document.execCommand("unlink");
+        const newHtml = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", newHtml);
+        pushHistory(newHtml);
+      }
+    } else {
+      const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+      if (savedTextareaSelection && textarea) {
+        const { start, end } = savedTextareaSelection;
+        const content = currentPost.content || "";
+        const sel = content.substring(start, end);
+        const unlinked = sel.replace(/<a[^>]*>(.*?)<\/a>/gi, "$1");
+        const newContent = content.substring(0, start) + unlinked + content.substring(end);
+        handleUpdateField("content", newContent);
+        pushHistory(newContent);
+      }
+    }
+    setShowLinkModal(false);
+    showToast("Link removed from anchor text.");
+  };
+
+  const handleInsertLink = () => {
+    openLinkModal();
   };
 
   // Drag and drop image file handling
@@ -3629,6 +3820,155 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         title={mediaTargetField === "featured" ? "Select or Upload Featured Cover Image" : "Insert Inline Article Image"}
         defaultCropAspect={mediaTargetField === "featured" ? "16:9" : "free"}
       />
+
+      {/* 8. DEDICATED HYPERLINK & ANCHOR TEXT STUDIO MODAL */}
+      {showLinkModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#12141b] border-2 border-[#d9b45c]/40 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FACC15]/20 text-[#FACC15] flex items-center justify-center">
+                  <Link2 size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">Insert / Edit Hyperlink</h3>
+                  <p className="text-[11px] text-[#c9c2ab]">Styled with highlighted Yellow (#FACC15) Anchor Text</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLinkModal(false)}
+                className="p-1.5 text-[#c9c2ab] hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Anchor Text Input */}
+              <div>
+                <label className="text-[#f2d98a] font-bold block mb-1">
+                  Anchor Text (The text reader clicks on)
+                </label>
+                <input
+                  type="text"
+                  value={linkAnchorText}
+                  onChange={(e) => setLinkAnchorText(e.target.value)}
+                  placeholder="e.g. Learn Quran Online with Tajweed"
+                  className="w-full bg-[#07080b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#FACC15] transition-colors"
+                />
+              </div>
+
+              {/* Destination URL Input */}
+              <div>
+                <label className="text-[#f2d98a] font-bold block mb-1">
+                  Target Destination URL / Link
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://truthquranacademy.com/ or /programs/tajweed"
+                    className="w-full bg-[#07080b] border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-xs text-white outline-none focus:border-[#FACC15] font-mono transition-colors"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30">🔗</span>
+                </div>
+              </div>
+
+              {/* Quick Internal Route Presets */}
+              <div>
+                <label className="text-[10px] uppercase font-bold text-[#c9c2ab] block mb-1.5">
+                  Quick Internal Academy Links
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Homepage", url: "https://truthquranacademy.com/" },
+                    { label: "Tajweed Course", url: "/programs/tajweed" },
+                    { label: "Noorani Qaida", url: "/programs/noorani-qaida" },
+                    { label: "Hifz Program", url: "/programs/hifz" },
+                    { label: "Female Tutors", url: "/female-quran-tutors" },
+                    { label: "Fee & Pricing", url: "/pricing" },
+                    { label: "Free Trial Class", url: "/contact" }
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setLinkUrl(preset.url);
+                        if (!linkAnchorText.trim()) {
+                          setLinkAnchorText(preset.label);
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-white/5 hover:bg-[#FACC15]/20 text-[#c9c2ab] hover:text-[#FACC15] border border-white/10 hover:border-[#FACC15]/40 rounded-lg text-[10px] transition-all"
+                    >
+                      + {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Options: Open in New Tab */}
+              <div className="pt-1 flex items-center justify-between">
+                <label className="flex items-center space-x-2 cursor-pointer text-[#c9c2ab]">
+                  <input
+                    type="checkbox"
+                    checked={linkOpenNewTab}
+                    onChange={(e) => setLinkOpenNewTab(e.target.checked)}
+                    className="accent-[#FACC15] w-4 h-4 rounded"
+                  />
+                  <span>Open URL in new tab (target="_blank" rel="noopener")</span>
+                </label>
+              </div>
+
+              {/* Live Preview of Anchor Text */}
+              <div className="p-3.5 bg-[#07080b] border border-[#FACC15]/20 rounded-2xl space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-[#FACC15] block">
+                  Live Anchor Text Preview
+                </span>
+                <p className="text-xs text-[#F3F4F6] leading-relaxed">
+                  Join our certified scholars and{" "}
+                  <span className="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer">
+                    {linkAnchorText.trim() || "Learn Quran Online with Tajweed"}
+                  </span>{" "}
+                  from the comfort of your home with flexible 1-on-1 schedules.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={handleRemoveLink}
+                className="px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-xl flex items-center space-x-1 transition-colors"
+                title="Remove hyperlink and keep anchor text"
+              >
+                <Unlink size={13} />
+                <span>Remove Link</span>
+              </button>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLinkModal(false)}
+                  className="px-4 py-2 text-xs text-[#c9c2ab] hover:text-white rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyLink}
+                  className="px-5 py-2.5 bg-[#FACC15] hover:bg-[#FEF08A] text-black font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center space-x-1.5"
+                >
+                  <Link2 size={14} />
+                  <span>Apply Yellow Link</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
