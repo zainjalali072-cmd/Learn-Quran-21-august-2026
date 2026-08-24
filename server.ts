@@ -1956,13 +1956,15 @@ app.post("/api/ai/writing-assistant", async (req, res) => {
 
 // XML Escape Helper for valid Google-compliant XML
 const xmlEscape = (str: string = ""): string => {
-  return String(str)
+  return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/'/g, "&#39;");
 };
+
+const escapeHtml = xmlEscape;
 
 // Date Formatter to YYYY-MM-DD
 const formatIsoDate = (dateStr?: string): string => {
@@ -2179,14 +2181,39 @@ app.get("/course-sitemap.xml", (req, res) => {
   const db = getDatabase();
   const domain = "https://truthquranacademy.com";
   const now = new Date().toISOString().split("T")[0];
-  const courses = db.courses || [];
+  const courses = db.courses || DEFAULT_COURSES;
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
+  // Main courses hub
+  xml += `  <url>\n`;
+  xml += `    <loc>${domain}/courses</loc>\n`;
+  xml += `    <lastmod>${now}</lastmod>\n`;
+  xml += `    <changefreq>weekly</changefreq>\n`;
+  xml += `    <priority>0.9</priority>\n`;
+  xml += `  </url>\n`;
+
+  // Dedicated standalone course pathway pages
+  xml += `  <url>\n`;
+  xml += `    <loc>${domain}/noorani-qaida</loc>\n`;
+  xml += `    <lastmod>${now}</lastmod>\n`;
+  xml += `    <changefreq>weekly</changefreq>\n`;
+  xml += `    <priority>0.85</priority>\n`;
+  xml += `  </url>\n`;
+
+  xml += `  <url>\n`;
+  xml += `    <loc>${domain}/kids-classes</loc>\n`;
+  xml += `    <lastmod>${now}</lastmod>\n`;
+  xml += `    <changefreq>weekly</changefreq>\n`;
+  xml += `    <priority>0.85</priority>\n`;
+  xml += `  </url>\n`;
+
+  // Clean canonical sub-course URLs (No invalid # hash fragments in sitemaps!)
   courses.forEach((c: any) => {
+    const courseSlug = slugify(c.id || c.title);
     xml += `  <url>\n`;
-    xml += `    <loc>${domain}/courses#${xmlEscape(c.id)}</loc>\n`;
+    xml += `    <loc>${domain}/courses/${xmlEscape(courseSlug)}</loc>\n`;
     xml += `    <lastmod>${now}</lastmod>\n`;
     xml += `    <changefreq>weekly</changefreq>\n`;
     xml += `    <priority>0.8</priority>\n`;
@@ -2205,9 +2232,10 @@ app.get("/service-sitemap.xml", (req, res) => {
   const now = new Date().toISOString().split("T")[0];
 
   const services = [
-    { url: "/noorani-qaida", priority: "0.8" },
-    { url: "/kids-classes", priority: "0.8" },
-    { url: "/courses", priority: "0.9" }
+    { url: "/noorani-qaida", priority: "0.85" },
+    { url: "/kids-classes", priority: "0.85" },
+    { url: "/courses", priority: "0.9" },
+    { url: "/fees", priority: "0.8" }
   ];
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -2217,7 +2245,7 @@ app.get("/service-sitemap.xml", (req, res) => {
     xml += `  <url>\n`;
     xml += `    <loc>${domain}${s.url}</loc>\n`;
     xml += `    <lastmod>${now}</lastmod>\n`;
-    xml += `    <changefreq>monthly</changefreq>\n`;
+    xml += `    <changefreq>weekly</changefreq>\n`;
     xml += `    <priority>${s.priority}</priority>\n`;
     xml += `  </url>\n`;
   });
@@ -2237,10 +2265,17 @@ app.get("/faq-sitemap.xml", (req, res) => {
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
   xml += `  <url>\n`;
-  xml += `    <loc>${domain}/fees#faq</loc>\n`;
+  xml += `    <loc>${domain}/fees</loc>\n`;
   xml += `    <lastmod>${now}</lastmod>\n`;
   xml += `    <changefreq>monthly</changefreq>\n`;
-  xml += `    <priority>0.6</priority>\n`;
+  xml += `    <priority>0.8</priority>\n`;
+  xml += `  </url>\n`;
+
+  xml += `  <url>\n`;
+  xml += `    <loc>${domain}/about</loc>\n`;
+  xml += `    <lastmod>${now}</lastmod>\n`;
+  xml += `    <changefreq>monthly</changefreq>\n`;
+  xml += `    <priority>0.8</priority>\n`;
   xml += `  </url>\n`;
 
   xml += `</urlset>`;
@@ -2321,7 +2356,7 @@ Disallow: /api/
 
 Sitemap: https://truthquranacademy.com/sitemap.xml`;
 
-  res.header("Content-Type", "text/plain");
+  res.header("Content-Type", "text/plain; charset=utf-8");
   res.send(content);
 });
 
@@ -2337,40 +2372,790 @@ function getCleanVerificationCode(val?: string): string {
   return str;
 }
 
-// Dynamically inject SEO verification meta tags directly into HTML head
-function injectSeoMetaTags(html: string): string {
-  try {
-    const db = getDatabase();
-    const rawGsc = db.integrations?.googleSiteVerification || db.integrations?.gscId;
-    const gscCode = getCleanVerificationCode(rawGsc);
-    
-    if (gscCode && gscCode !== "TRUTH_QURAN_GSC_VERIFY_2026") {
-      const gscMetaTag = `<meta name="google-site-verification" content="${gscCode}" />`;
-      if (html.includes('name="google-site-verification"')) {
-        html = html.replace(/<meta\s+name=["']google-site-verification["']\s+content=["'][^"']*["']\s*\/?>/gi, gscMetaTag);
-      } else {
-        html = html.replace("</head>", `  ${gscMetaTag}\n</head>`);
-      }
-    }
+// Full Route SEO Metadata & Pre-rendered Crawlable Content Generator
+function generateRouteSEO(reqPath: string, db: any) {
+  const domain = "https://truthquranacademy.com";
+  let cleanPath = reqPath.split("?")[0].split("#")[0].replace(/\/$/, "");
+  if (!cleanPath) cleanPath = "/";
 
-    const rawBing = db.integrations?.bingSiteVerification;
-    const bingCode = getCleanVerificationCode(rawBing);
-    if (bingCode) {
-      const bingTag = `<meta name="msvalidate.01" content="${bingCode}" />`;
-      if (html.includes('name="msvalidate.01"')) {
-        html = html.replace(/<meta\s+name=["']msvalidate\.01["']\s+content=["'][^"']*["']\s*\/?>/gi, bingTag);
-      } else {
-        html = html.replace("</head>", `  ${bingTag}\n</head>`);
-      }
-    }
+  // Common Organization data
+  const orgName = db.siteSettings?.title || "Truth Quran Academy";
+  const orgPhone = db.contactPhone || "+92 321 9347471";
+  const orgEmail = db.contactEmail || "muhammadzain92624@gmail.com";
+  const orgAddress = db.contactAddress || "Altaf Colony, Ranjar Head Quarter, Lahore Cantt, Pakistan";
+  const orgWhatsapp = db.whatsappLink || "https://wa.me/923219347471";
+  const defaultOgImage = "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&h=630&q=80";
 
-    if (db.integrations?.customHeadScripts) {
-      html = html.replace("</head>", `  ${db.integrations.customHeadScripts}\n</head>`);
-    }
-  } catch (err) {
-    console.error("Error injecting SEO meta tags:", err);
+  let title = `${orgName} | 1-on-1 Online Quran & Tajweed Classes`;
+  let description = "Learn Holy Quran recitation, Tajweed rules, Hifz, and Arabic language with certified native scholars in private 1-on-1 virtual classrooms.";
+  let canonicalUrl = `${domain}${cleanPath === "/" ? "" : cleanPath}`;
+  let ogImage = defaultOgImage;
+  let ogType = "website";
+  let schemaJson: any = null;
+  let prerenderContent = "";
+  let statusCode = 200;
+
+  const publishedPosts = (db.blogPosts || DEFAULT_BLOGS).filter((p: any) =>
+    p && (!p.status || p.status.toLowerCase() === "published" || p.status.toLowerCase() === "approved")
+  );
+
+  const coursesList = db.courses || DEFAULT_COURSES;
+  const faqsList = db.faqs || DEFAULT_FAQS;
+
+  // ROUTE 1: HOMEPAGE (/)
+  if (cleanPath === "/") {
+    title = `${orgName} | 1-on-1 Online Quran & Tajweed Classes`;
+    description = "Learn Holy Quran recitation, Tajweed rules, Hifz, and Quranic Arabic from certified native scholars in private 1-on-1 classrooms. Structured for kids, sisters, and adults.";
+    canonicalUrl = domain;
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": orgName,
+      "url": domain,
+      "logo": `${domain}/logo.png`,
+      "image": defaultOgImage,
+      "description": description,
+      "email": orgEmail,
+      "telephone": orgPhone,
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": orgAddress,
+        "addressLocality": "Lahore",
+        "addressCountry": "PK"
+      },
+      "sameAs": [
+        db.facebookLink || "https://facebook.com/truthquranacademy",
+        db.instagramLink || "https://instagram.com/truthquranacademy",
+        db.linkedinLink
+      ].filter(Boolean)
+    };
+
+    prerenderContent = `
+      <header>
+        <nav aria-label="Main Navigation">
+          <a href="/">Home</a> | 
+          <a href="/about">About Us</a> | 
+          <a href="/courses">Courses</a> | 
+          <a href="/noorani-qaida">Noorani Qaida</a> | 
+          <a href="/kids-classes">Kids Classes</a> | 
+          <a href="/fees">Tuition & Fees</a> | 
+          <a href="/videos">Video Lessons</a> | 
+          <a href="/download">Downloads (PDF)</a> | 
+          <a href="/blog">Blog & Articles</a> | 
+          <a href="/contact">Contact</a>
+        </nav>
+      </header>
+      <main>
+        <article>
+          <h1>${escapeHtml(db.heroTitle || "Embark on a Spiritual Journey with Divine Precision")}</h1>
+          <p class="lead">${escapeHtml(db.heroDescription || description)}</p>
+          <p>Contact: <a href="tel:${escapeHtml(orgPhone)}">${escapeHtml(orgPhone)}</a> | Email: <a href="mailto:${escapeHtml(orgEmail)}">${escapeHtml(orgEmail)}</a> | WhatsApp: <a href="${escapeHtml(orgWhatsapp)}">Book Free Trial</a></p>
+          
+          <section>
+            <h2>Featured Online Quran Courses</h2>
+            <ul>
+              ${coursesList.map((c: any) => `
+                <li>
+                  <h3><a href="/courses/${slugify(c.id || c.title)}">${escapeHtml(c.title)}</a></h3>
+                  <p>${escapeHtml(c.description)}</p>
+                  <p><strong>Difficulty:</strong> ${escapeHtml(c.difficulty || "All Levels")}</p>
+                </li>
+              `).join("")}
+            </ul>
+          </section>
+
+          <section>
+            <h2>Why Choose Truth Quran Academy</h2>
+            <p>1-on-1 private attention with certified Jamia Naeemia scholars, specialized female Quran tutors for sisters and kids, flexible schedules, and comprehensive Tajweed curriculums.</p>
+          </section>
+
+          <section>
+            <h2>Monthly Tuition Fees & Pricing</h2>
+            <ul>
+              <li><strong>Basic Starter ($30/month):</strong> 2 classes/week, 1-on-1 private sessions, Tajweed essentials.</li>
+              <li><strong>Standard Premium ($45/month):</strong> 3 classes/week, custom syllabus, weekly quizzes.</li>
+              <li><strong>Elite Mastery ($60/month):</strong> 5 classes/week, intensive memorization, dedicated academic coach.</li>
+            </ul>
+            <p><a href="/fees">View Full Pricing & FAQ Details &rarr;</a></p>
+          </section>
+
+          <section>
+            <h2>Frequently Asked Questions</h2>
+            ${faqsList.map((f: any) => `
+              <div>
+                <h3>${escapeHtml(f.question)}</h3>
+                <p>${escapeHtml(f.answer)}</p>
+              </div>
+            `).join("")}
+          </section>
+
+          <section>
+            <h2>Latest Quran Insights & Articles</h2>
+            <ul>
+              ${publishedPosts.slice(0, 5).map((p: any) => `
+                <li>
+                  <a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a>
+                  <p>${escapeHtml(p.excerpt || "")}</p>
+                </li>
+              `).join("")}
+            </ul>
+          </section>
+        </article>
+      </main>
+    `;
   }
-  return html;
+
+  // ROUTE 2: ABOUT PAGE (/about)
+  else if (cleanPath === "/about") {
+    title = `About Truth Quran Academy | Certified Online Quran Scholars & Ijazah Tutors`;
+    description = "Discover Truth Quran Academy's mission, certified teachers holding traditional Ijazah credentials, 1-on-1 personalized methodology, and female Quran tutors.";
+    
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "AboutPage",
+      "name": title,
+      "description": description,
+      "url": canonicalUrl,
+      "mainEntity": {
+        "@type": "EducationalOrganization",
+        "name": orgName,
+        "telephone": orgPhone,
+        "email": orgEmail
+      }
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>About Us</span></nav>
+      </header>
+      <main>
+        <h1>About Truth Quran Academy</h1>
+        <p class="lead">Truth Quran Academy is a premier international institution dedicated to authentic Quranic education, classical Tajweed phonetics, and structured Hifz memorization.</p>
+        
+        <section>
+          <h2>Our Educational Philosophy</h2>
+          <p>Founded by certified scholars graduated from esteemed institutes such as Jamia Naeemia Lahore, our academy bridges traditional Islamic scholarship with modern interactive virtual learning environments.</p>
+          <p>Every student receives personalized 1-on-1 mentorship tailored to their pace, age, and spiritual goals.</p>
+        </section>
+
+        <section>
+          <h2>Certified Scholars & Female Tutors</h2>
+          <p>We provide verified Arab and Pakistani scholars holding authentic Sanad & Ijazah certifications. We also offer dedicated female Quran teachers for sisters and young children.</p>
+        </section>
+
+        <section>
+          <h2>Our Global Programs</h2>
+          <ul>
+            <li><a href="/noorani-qaida">Noorani Qaida for Beginners</a></li>
+            <li><a href="/courses">Tajweed Intensive Recitation</a></li>
+            <li><a href="/courses">Quran Memorization (Hifz) Pathway</a></li>
+            <li><a href="/kids-classes">Specialized Kids Quran Classes</a></li>
+            <li><a href="/download">Download Free PDF Study Materials</a></li>
+          </ul>
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 3: COURSES PAGE (/courses)
+  else if (cleanPath === "/courses") {
+    title = `Online Quran Courses & Structured Programs | Truth Quran Academy`;
+    description = "Explore our comprehensive online Quran curriculums: Noorani Qaida for beginners, Tajweed Intensive recitation mastery, and private Quran Hifz pathways.";
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": title,
+      "description": description,
+      "url": canonicalUrl,
+      "hasPart": coursesList.map((c: any) => ({
+        "@type": "Course",
+        "name": c.title,
+        "description": c.description,
+        "provider": {
+          "@type": "EducationalOrganization",
+          "name": orgName,
+          "url": domain
+        }
+      }))
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>Courses</span></nav>
+      </header>
+      <main>
+        <h1>Online Quran Courses & Syllabused Programs</h1>
+        <p class="lead">Structured curriculums designed for beginner, intermediate, and advanced students. Delivered live 1-on-1 via Zoom, Google Meet, and WhatsApp.</p>
+        
+        <section>
+          <h2>Available Course Programs</h2>
+          ${coursesList.map((c: any) => `
+            <div class="course-item">
+              <h3><a href="/courses/${slugify(c.id || c.title)}">${escapeHtml(c.title)}</a></h3>
+              <p>${escapeHtml(c.description)}</p>
+              <p><strong>Level:</strong> ${escapeHtml(c.difficulty || "All Levels")} | <strong>Track:</strong> ${escapeHtml(c.tag || "Core Course")}</p>
+            </div>
+          `).join("")}
+        </section>
+
+        <section>
+          <h2>Explore Specialized Pathways</h2>
+          <ul>
+            <li><a href="/noorani-qaida">Noorani Qaida Foundational Phonetics &rarr;</a></li>
+            <li><a href="/kids-classes">Online Quran Classes for Kids & Sisters &rarr;</a></li>
+            <li><a href="/fees">View Class Pricing & Plans &rarr;</a></li>
+          </ul>
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 4: INDIVIDUAL COURSE PAGE (/courses/:courseId)
+  else if (cleanPath.startsWith("/courses/")) {
+    const rawCourseSlug = cleanPath.replace("/courses/", "");
+    const course = coursesList.find((c: any) => slugify(c.id || c.title) === slugify(rawCourseSlug) || c.id === rawCourseSlug) || coursesList[0];
+    
+    title = `${course.title} | Truth Quran Academy`;
+    description = course.description || `Master ${course.title} with certified 1-on-1 scholars at Truth Quran Academy.`;
+    
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "Course",
+      "name": course.title,
+      "description": course.description,
+      "provider": {
+        "@type": "EducationalOrganization",
+        "name": orgName,
+        "url": domain
+      }
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <a href="/courses">Courses</a> &gt; <span>${escapeHtml(course.title)}</span></nav>
+      </header>
+      <main>
+        <h1>${escapeHtml(course.title)}</h1>
+        <p class="lead">${escapeHtml(course.description)}</p>
+        <p><strong>Difficulty:</strong> ${escapeHtml(course.difficulty || "Beginners")} | <strong>Curriculum Track:</strong> ${escapeHtml(course.tag || "Certification")}</p>
+        
+        <section>
+          <h2>Course Overview & Learning Objectives</h2>
+          <p>Join our certified scholars in private 1-on-1 interactive lessons tailored to your pace. Learn with live screen sharing, whiteboard corrections, and recorded session notes.</p>
+          <p><a href="${escapeHtml(orgWhatsapp)}">Book a Free Trial Class for ${escapeHtml(course.title)} &rarr;</a></p>
+        </section>
+
+        <section>
+          <h2>Related Courses</h2>
+          <ul>
+            ${coursesList.filter((c: any) => c.id !== course.id).map((c: any) => `
+              <li><a href="/courses/${slugify(c.id || c.title)}">${escapeHtml(c.title)}</a></li>
+            `).join("")}
+          </ul>
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 5: NOORANI QAIDA STANDALONE PAGE (/noorani-qaida)
+  else if (cleanPath === "/noorani-qaida") {
+    title = `Noorani Qaida Course for Beginners & Kids | Truth Quran Academy`;
+    description = "Master Arabic alphabet pronunciation, letter joining, and foundational phonetics with certified 1-on-1 tutors in our interactive Noorani Qaida course.";
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "Course",
+      "name": "Noorani Qaida Foundational Phonetics",
+      "description": description,
+      "provider": {
+        "@type": "EducationalOrganization",
+        "name": orgName,
+        "url": domain
+      }
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <a href="/courses">Courses</a> &gt; <span>Noorani Qaida</span></nav>
+      </header>
+      <main>
+        <h1>Noorani Qaida Foundational Phonetics Course</h1>
+        <p class="lead">${description}</p>
+        <p>The essential gateway for beginners and young children to learn reading the Holy Quran with perfect Tajweed and Makharij from the absolute ground up.</p>
+        <section>
+          <h2>What You Will Learn</h2>
+          <ul>
+            <li>Single Arabic Letters (Mufradat) and precise Makharij articulation points.</li>
+            <li>Compound joined letters (Murakkabat) and shape variations.</li>
+            <li>Movements & Short Vowels: Fathah, Kasrah, Dammah (Harakat).</li>
+            <li>Tanween (Double Vowels), Sukoon (Jazm), and Shaddah (Tashdeed).</li>
+            <li>Madd (Elongations) and rules of stopping (Waqf).</li>
+          </ul>
+          <p><a href="/download">Download Free Noorani Qaida PDF &rarr;</a> | <a href="/contact">Book Free Trial &rarr;</a></p>
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 6: KIDS CLASSES STANDALONE PAGE (/kids-classes)
+  else if (cleanPath === "/kids-classes") {
+    title = `Online Quran Classes for Kids & Sisters | Truth Quran Academy`;
+    description = "Specialized 1-on-1 Quran lessons for young children and sisters with patient, certified female tutors using interactive whiteboards and visual aids.";
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "Course",
+      "name": "Online Quran Classes for Kids & Sisters",
+      "description": description,
+      "provider": {
+        "@type": "EducationalOrganization",
+        "name": orgName,
+        "url": domain
+      }
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <a href="/courses">Courses</a> &gt; <span>Kids & Sisters Classes</span></nav>
+      </header>
+      <main>
+        <h1>Online Quran Classes for Kids & Sisters</h1>
+        <p class="lead">${description}</p>
+        <section>
+          <h2>Child-Centric Interactive Pedagogy</h2>
+          <p>We specialize in patient, engaging teaching methods tailored specifically to young children. Our certified female tutors create a warm, motivating virtual classroom environment.</p>
+          <ul>
+            <li>Visual audio-visual slides and interactive games.</li>
+            <li>Weekly quizzes and monthly report cards sent to parents.</li>
+            <li>Flexible schedules to accommodate school hours in the USA, UK, Canada, and Australia.</li>
+          </ul>
+          <p><a href="${escapeHtml(orgWhatsapp)}">Register Your Child for Free Assessment &rarr;</a></p>
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 7: FEES / PRICING PAGE (/fees, /pricing)
+  else if (cleanPath === "/fees" || cleanPath === "/pricing") {
+    title = `Affordable Monthly Quran Tuition Fees & Pricing Plans | Truth Quran Academy`;
+    description = "Transparent, affordable monthly Quran class fees starting from $30/month. Includes 1-on-1 classes, free trial session, custom syllabus, and flexible schedules.";
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": faqsList.map((f: any) => ({
+        "@type": "Question",
+        "name": f.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": f.answer
+        }
+      }))
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>Tuition Fees</span></nav>
+      </header>
+      <main>
+        <h1>Affordable Monthly Quran Tuition Fees</h1>
+        <p class="lead">Transparent pricing with no hidden registration fees. Every plan includes a 100% free 1-on-1 trial class.</p>
+        
+        <section>
+          <h2>Our Monthly Plans</h2>
+          <ul>
+            <li><strong>Basic Starter ($30/month):</strong> 2 classes per week (8 classes/month). Ideal for steady foundational learning.</li>
+            <li><strong>Standard Premium ($45/month):</strong> 3 classes per week (12 classes/month). Most popular for kids and beginners.</li>
+            <li><strong>Elite Mastery ($60/month):</strong> 5 classes per week (20 classes/month). High-intensity track for rapid Hifz and Ijazah.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Tuition FAQs</h2>
+          ${faqsList.map((f: any) => `
+            <div>
+              <h3>${escapeHtml(f.question)}</h3>
+              <p>${escapeHtml(f.answer)}</p>
+            </div>
+          `).join("")}
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 8: VIDEOS PAGE (/videos)
+  else if (cleanPath === "/videos") {
+    title = `Online Quran & Tajweed Video Lessons Library | Truth Quran Academy`;
+    description = "Watch recorded video lessons, Tajweed pronunciation guides, Makharij tutorials, and inspirational Quranic lectures from our certified scholars.";
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>Video Lessons</span></nav>
+      </header>
+      <main>
+        <h1>Quran & Tajweed Video Lessons Library</h1>
+        <p class="lead">${description}</p>
+        <p>Explore free recorded video tutorials on Arabic articulation points, Noon Sakinah rules, Surah Al-Fatihah correction, and Hifz retention techniques.</p>
+      </main>
+    `;
+  }
+
+  // ROUTE 9: DOWNLOAD PAGE (/download)
+  else if (cleanPath === "/download") {
+    title = `Download Noorani Qaida & Quran Paras (1-30) PDF | Truth Quran Academy`;
+    description = "Free downloadable high-quality PDF files for Noorani Qaida, Tajweed charts, and all 30 Paras of the Holy Quran for offline reading and study.";
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>Downloads</span></nav>
+      </header>
+      <main>
+        <h1>Download Noorani Qaida & Holy Quran Paras (1-30) PDF</h1>
+        <p class="lead">${description}</p>
+        <section>
+          <h2>Free PDF Study Materials</h2>
+          <ul>
+            <li><a href="/qaida/noorani-qaida.pdf" download>Download Complete Noorani Qaida PDF (Color Coded)</a></li>
+            ${Array.from({ length: 30 }, (_, i) => i + 1).map(n => `
+              <li><a href="/paras/para-${n}.pdf" download>Download Para ${n} (Juz ${n}) PDF</a></li>
+            `).join("")}
+          </ul>
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 10: CONTACT PAGE (/contact)
+  else if (cleanPath === "/contact") {
+    title = `Contact Truth Quran Academy | Book Free 1-on-1 Quran Trial Class`;
+    description = `Get in touch with Truth Quran Academy. Book your free 1-on-1 trial class via WhatsApp (${orgPhone}) or email us today.`;
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "ContactPage",
+      "name": title,
+      "description": description,
+      "url": canonicalUrl,
+      "mainEntity": {
+        "@type": "EducationalOrganization",
+        "name": orgName,
+        "telephone": orgPhone,
+        "email": orgEmail,
+        "address": orgAddress
+      }
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>Contact Us</span></nav>
+      </header>
+      <main>
+        <h1>Contact Truth Quran Academy</h1>
+        <p class="lead">${description}</p>
+        <section>
+          <h2>Academy Contact Information</h2>
+          <p><strong>Phone / WhatsApp:</strong> <a href="tel:${escapeHtml(orgPhone)}">${escapeHtml(orgPhone)}</a></p>
+          <p><strong>Email Address:</strong> <a href="mailto:${escapeHtml(orgEmail)}">${escapeHtml(orgEmail)}</a></p>
+          <p><strong>Campus Address:</strong> ${escapeHtml(orgAddress)}</p>
+          <p><strong>WhatsApp Free Trial:</strong> <a href="${escapeHtml(orgWhatsapp)}">Click to chat on WhatsApp</a></p>
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 11: BLOG INDEX (/blog)
+  else if (cleanPath === "/blog") {
+    title = `Quranic Studies, Tajweed Guides & Hifz Blog | Truth Quran Academy`;
+    description = "Read educational articles, Tajweed pronunciation breakdowns, Hifz retention techniques, and Islamic studies guides written by certified scholars.";
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": title,
+      "description": description,
+      "url": canonicalUrl,
+      "blogPost": publishedPosts.map((p: any) => ({
+        "@type": "BlogPosting",
+        "headline": p.title,
+        "url": `${domain}/blog/${slugify(p.slug || p.id)}`,
+        "description": p.excerpt,
+        "datePublished": p.date || p.publishDate || "2026-07-20"
+      }))
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>Blog</span></nav>
+      </header>
+      <main>
+        <h1>The Academy Insights Blog</h1>
+        <p class="lead">${description}</p>
+        <section>
+          <h2>All Published Articles</h2>
+          ${publishedPosts.map((p: any) => `
+            <article>
+              <h3><a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a></h3>
+              <p>${escapeHtml(p.excerpt || "")}</p>
+              <p><small>Category: <a href="/category/${slugify(p.category || 'General')}">${escapeHtml(p.category || 'General')}</a> | By ${escapeHtml(p.author?.name || 'Muhammad Zain')} | Date: ${escapeHtml(p.date || 'July 2026')}</small></p>
+            </article>
+          `).join("")}
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 12: INDIVIDUAL BLOG ARTICLE (/blog/:slug)
+  else if (cleanPath.startsWith("/blog/")) {
+    const rawSlug = cleanPath.replace("/blog/", "");
+    const post = publishedPosts.find((p: any) => 
+      slugify(p.slug || p.id) === slugify(rawSlug) || 
+      p.id === rawSlug || 
+      p.slug === rawSlug
+    ) || (db.blogPosts || DEFAULT_BLOGS).find((p: any) => p.id === rawSlug || p.slug === rawSlug);
+
+    if (post) {
+      title = post.metaTitle || post.seoTitle || `${post.title} | Truth Quran Academy`;
+      description = post.metaDescription || post.excerpt || `${post.title} - Read in-depth guide at Truth Quran Academy.`;
+      ogImage = post.ogImage || post.featuredImage || post.coverImage || defaultOgImage;
+      ogType = "article";
+      canonicalUrl = post.canonicalUrl || `${domain}/blog/${slugify(post.slug || post.id)}`;
+
+      schemaJson = {
+        "@context": "https://schema.org",
+        "@type": post.schemaType || "BlogPosting",
+        "headline": post.title,
+        "description": description,
+        "image": ogImage,
+        "datePublished": post.date || post.publishDate || "2026-07-20",
+        "dateModified": post.lastUpdated || post.date || "2026-07-20",
+        "author": {
+          "@type": "Person",
+          "name": post.author?.name || "Muhammad Zain"
+        },
+        "publisher": {
+          "@type": "EducationalOrganization",
+          "name": orgName,
+          "url": domain,
+          "logo": {
+            "@type": "ImageObject",
+            "url": `${domain}/logo.png`
+          }
+        },
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": canonicalUrl
+        }
+      };
+
+      prerenderContent = `
+        <header>
+          <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>${escapeHtml(post.title)}</span></nav>
+        </header>
+        <main>
+          <article>
+            <h1>${escapeHtml(post.title)}</h1>
+            <p><small>Published by <strong>${escapeHtml(post.author?.name || 'Muhammad Zain')}</strong> in <a href="/category/${slugify(post.category || 'General')}">${escapeHtml(post.category || 'General')}</a> on ${escapeHtml(post.date || 'July 2026')}</small></p>
+            ${post.coverImage ? `<img src="${escapeHtml(post.coverImage)}" alt="${escapeHtml(post.title)}" style="max-width:100%; height:auto;" />` : ""}
+            <div class="article-content">
+              ${post.content || `<p>${escapeHtml(post.excerpt || "")}</p>`}
+            </div>
+            
+            ${Array.isArray(post.tags) && post.tags.length > 0 ? `
+              <div class="tags">
+                <strong>Tags:</strong> ${post.tags.map((t: string) => `<a href="/tag/${slugify(t)}">#${escapeHtml(t)}</a>`).join(" ")}
+              </div>
+            ` : ""}
+
+            <div class="related-links" style="margin-top: 2rem;">
+              <h3>Explore Our Academy Courses</h3>
+              <p><a href="/courses">View All Online Quran Courses</a> | <a href="/fees">View Tuition Plans</a> | <a href="/contact">Book Free 1-on-1 Trial</a></p>
+            </div>
+          </article>
+        </main>
+      `;
+    } else {
+      statusCode = 404;
+      title = `Article Not Found | Truth Quran Academy`;
+      description = "The requested article could not be found. Explore our latest Quran study guides and tutorials.";
+      prerenderContent = `
+        <main>
+          <h1>Article Not Found</h1>
+          <p>The blog article you are looking for has been moved or updated.</p>
+          <p><a href="/blog">Return to Blog Index &rarr;</a> | <a href="/">Go to Homepage &rarr;</a></p>
+        </main>
+      `;
+    }
+  }
+
+  // ROUTE 13: CATEGORY ARCHIVE (/category/:category)
+  else if (cleanPath.startsWith("/category/")) {
+    const rawCat = cleanPath.replace("/category/", "");
+    const matchingPosts = publishedPosts.filter((p: any) => 
+      slugify(p.category || "") === slugify(rawCat) ||
+      (p.category && p.category.toLowerCase() === rawCat.toLowerCase())
+    );
+    const catName = matchingPosts[0]?.category || rawCat.replace(/-/g, " ");
+
+    title = `${catName} Articles & Guides | Truth Quran Academy`;
+    description = `Explore all articles and educational study guides in the ${catName} category at Truth Quran Academy.`;
+    
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": title,
+      "description": description,
+      "url": canonicalUrl
+    };
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Category: ${escapeHtml(catName)}</span></nav>
+      </header>
+      <main>
+        <h1>Articles in ${escapeHtml(catName)}</h1>
+        <p class="lead">${description}</p>
+        <section>
+          ${matchingPosts.length > 0 ? matchingPosts.map((p: any) => `
+            <article>
+              <h2><a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a></h2>
+              <p>${escapeHtml(p.excerpt || "")}</p>
+            </article>
+          `).join("") : `<p>No articles currently published in this category. <a href="/blog">Browse all articles &rarr;</a></p>`}
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 14: TAG ARCHIVE (/tag/:tag)
+  else if (cleanPath.startsWith("/tag/")) {
+    const rawTag = cleanPath.replace("/tag/", "");
+    const matchingPosts = publishedPosts.filter((p: any) => 
+      Array.isArray(p.tags) && p.tags.some((t: string) => slugify(t) === slugify(rawTag))
+    );
+    const tagName = rawTag.replace(/-/g, " ");
+
+    title = `${tagName} Articles & Quran Resources | Truth Quran Academy`;
+    description = `Discover all articles and resources tagged with #${tagName} at Truth Quran Academy.`;
+
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Tag: #${escapeHtml(tagName)}</span></nav>
+      </header>
+      <main>
+        <h1>Articles tagged with #${escapeHtml(tagName)}</h1>
+        <section>
+          ${matchingPosts.length > 0 ? matchingPosts.map((p: any) => `
+            <article>
+              <h2><a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a></h2>
+              <p>${escapeHtml(p.excerpt || "")}</p>
+            </article>
+          `).join("") : `<p>No articles found for this tag. <a href="/blog">Browse all articles &rarr;</a></p>`}
+        </section>
+      </main>
+    `;
+  }
+
+  return {
+    title,
+    description,
+    canonicalUrl,
+    ogImage,
+    ogType,
+    schemaJson,
+    prerenderContent,
+    statusCode
+  };
+}
+
+// Transform HTML template with full dynamic SEO tags, canonical URL, OpenGraph, JSON-LD schema, and semantic content
+function renderPageWithSEO(htmlTemplate: string, reqPath: string, db: any): { html: string; statusCode: number } {
+  const seo = generateRouteSEO(reqPath, db);
+  let html = htmlTemplate;
+
+  // 1. Replace <title>
+  if (html.includes("<title>")) {
+    html = html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(seo.title)}</title>`);
+  } else {
+    html = html.replace("</head>", `  <title>${escapeHtml(seo.title)}</title>\n</head>`);
+  }
+
+  // 2. Replace or Inject <meta name="description">
+  const metaDescTag = `<meta name="description" content="${escapeHtml(seo.description)}" />`;
+  if (html.includes('name="description"')) {
+    html = html.replace(/<meta\s+name=["']description["']\s+content=["'][^"']*["']\s*\/?>/gi, metaDescTag);
+  } else {
+    html = html.replace("</head>", `  ${metaDescTag}\n</head>`);
+  }
+
+  // 3. Inject Canonical Link Tag
+  const canonicalTag = `<link rel="canonical" href="${seo.canonicalUrl}" />`;
+  if (html.includes('rel="canonical"')) {
+    html = html.replace(/<link\s+rel=["']canonical["']\s+href=["'][^"']*["']\s*\/?>/gi, canonicalTag);
+  } else {
+    html = html.replace("</head>", `  ${canonicalTag}\n</head>`);
+  }
+
+  // 4. Inject Robots Directives (Allow all search engines with full snippets)
+  const robotsTag = `<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />\n  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />`;
+  if (html.includes('name="robots"')) {
+    html = html.replace(/<meta\s+name=["']robots["']\s+content=["'][^"']*["']\s*\/?>/gi, robotsTag);
+  } else {
+    html = html.replace("</head>", `  ${robotsTag}\n</head>`);
+  }
+
+  // 5. Inject Open Graph & Twitter Cards
+  const ogTags = `
+  <meta property="og:site_name" content="Truth Quran Academy" />
+  <meta property="og:type" content="${seo.ogType}" />
+  <meta property="og:title" content="${escapeHtml(seo.title)}" />
+  <meta property="og:description" content="${escapeHtml(seo.description)}" />
+  <meta property="og:url" content="${seo.canonicalUrl}" />
+  <meta property="og:image" content="${seo.ogImage}" />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(seo.title)}" />
+  <meta name="twitter:description" content="${escapeHtml(seo.description)}" />
+  <meta name="twitter:image" content="${seo.ogImage}" />`;
+
+  html = html.replace("</head>", `${ogTags}\n</head>`);
+
+  // 6. Inject Google Site Verification and Bing Verification
+  const rawGsc = db.integrations?.googleSiteVerification || db.integrations?.gscId;
+  const gscCode = getCleanVerificationCode(rawGsc);
+  if (gscCode && gscCode !== "TRUTH_QURAN_GSC_VERIFY_2026") {
+    const gscMetaTag = `<meta name="google-site-verification" content="${gscCode}" />`;
+    if (html.includes('name="google-site-verification"')) {
+      html = html.replace(/<meta\s+name=["']google-site-verification["']\s+content=["'][^"']*["']\s*\/?>/gi, gscMetaTag);
+    } else {
+      html = html.replace("</head>", `  ${gscMetaTag}\n</head>`);
+    }
+  }
+
+  const rawBing = db.integrations?.bingSiteVerification;
+  const bingCode = getCleanVerificationCode(rawBing);
+  if (bingCode) {
+    const bingTag = `<meta name="msvalidate.01" content="${bingCode}" />`;
+    if (html.includes('name="msvalidate.01"')) {
+      html = html.replace(/<meta\s+name=["']msvalidate\.01["']\s+content=["'][^"']*["']\s*\/?>/gi, bingTag);
+    } else {
+      html = html.replace("</head>", `  ${bingTag}\n</head>`);
+    }
+  }
+
+  // 7. Inject Schema.org JSON-LD Structured Data
+  if (seo.schemaJson) {
+    const schemaScript = `  <script type="application/ld+json">\n${JSON.stringify(seo.schemaJson, null, 2)}\n  </script>`;
+    html = html.replace("</head>", `${schemaScript}\n</head>`);
+  }
+
+  // 8. Inject Semantic Pre-rendered HTML inside <div id="root">
+  if (seo.prerenderContent && html.includes('<div id="root"></div>')) {
+    html = html.replace('<div id="root"></div>', `<div id="root">${seo.prerenderContent}</div>`);
+  }
+
+  return { html, statusCode: seo.statusCode };
 }
 
 // Vite Middleware for dev or serving statics in production
@@ -2378,23 +3163,44 @@ const startServer = async () => {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa"
+      appType: "custom"
     });
 
     app.use(vite.middlewares);
+
+    app.use("*", async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith("/api/") || path.extname(url.split("?")[0])) {
+        return next();
+      }
+      try {
+        const templatePath = path.join(process.cwd(), "index.html");
+        const template = fs.readFileSync(templatePath, "utf-8");
+        let transformedHtml = await vite.transformIndexHtml(url, template);
+        const db = getDatabase();
+        const requestUrl = req.originalUrl || req.url || req.path;
+        const { html, statusCode } = renderPageWithSEO(transformedHtml, requestUrl, db);
+        res.status(statusCode).set({ "Content-Type": "text/html; charset=utf-8" }).end(html);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
   } else {
     let distPath = path.join(process.cwd(), "dist");
     if (!fs.existsSync(distPath) && fs.existsSync(path.join(__dirname, "index.html"))) {
       distPath = __dirname;
     }
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, { index: false }));
     app.get("*", (req, res) => {
       try {
         const indexPath = path.join(distPath, "index.html");
-        let html = fs.readFileSync(indexPath, "utf-8");
-        html = injectSeoMetaTags(html);
-        res.status(200).set({ "Content-Type": "text/html" }).end(html);
-      } catch {
+        const template = fs.readFileSync(indexPath, "utf-8");
+        const db = getDatabase();
+        const requestUrl = req.originalUrl || req.url || req.path;
+        const { html, statusCode } = renderPageWithSEO(template, requestUrl, db);
+        res.status(statusCode).set({ "Content-Type": "text/html; charset=utf-8" }).end(html);
+      } catch (err) {
         res.sendFile(path.join(distPath, "index.html"));
       }
     });

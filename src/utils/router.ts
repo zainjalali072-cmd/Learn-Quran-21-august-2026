@@ -41,6 +41,14 @@ export function parseCurrentRoute(): RouteState {
     return { view: "courses", activePostId: null, isWpAdmin: false };
   }
 
+  if (pathname.startsWith("/courses/")) {
+    const courseSlug = pathname.replace("/courses/", "").replace(/\/$/, "");
+    if (courseSlug === "noorani-qaida") {
+      return { view: "noorani-qaida", activePostId: courseSlug, isWpAdmin: false };
+    }
+    return { view: "courses", activePostId: courseSlug, isWpAdmin: false };
+  }
+
   if (pathname === "/noorani-qaida") {
     return { view: "noorani-qaida", activePostId: null, isWpAdmin: false };
   }

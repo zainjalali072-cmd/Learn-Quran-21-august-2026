@@ -62,6 +62,15 @@ export interface FAQItem {
   imageAltText?: string;
 }
 
+export interface ArticleAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type: "pdf" | "image" | "audio" | "video" | "document" | "other";
+  size?: string;
+  uploadedAt?: string;
+}
+
 export interface BlogPost {
   id: string;
   title: string;
@@ -82,6 +91,12 @@ export interface BlogPost {
     citation: string;
   };
   content: string;
+
+  // Immutable isolated attachments & media references
+  attachments?: ArticleAttachment[];
+  videoUrls?: string[];
+  pdfUrls?: string[];
+  customLinks?: Array<{ text: string; url: string; title?: string }>;
 
   // Advanced SEO & Metadata fields
   seoTitle?: string;

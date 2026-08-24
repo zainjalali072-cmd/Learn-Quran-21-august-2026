@@ -552,6 +552,7 @@ export const cleanHTMLToExcerpt = (content: string, existingExcerpt?: string): s
 };
 
 export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
+  if (!post) return post;
   const cleanExcerpt = cleanHTMLToExcerpt(post.content || "", post.excerpt);
   const validImage = post.featuredImage || post.coverImage || post.ogImage || DEFAULT_POST_IMAGE;
 
@@ -562,9 +563,16 @@ export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
 
   return {
     ...post,
-    excerpt: cleanExcerpt,
-    coverImage: validImage,
-    featuredImage: validImage,
+    // Strict preservation of isolated media and attachments
+    attachments: post.attachments || [],
+    videoUrls: post.videoUrls || [],
+    pdfUrls: post.pdfUrls || [],
+    customLinks: post.customLinks || [],
+
+    // Core content and metadata fields
+    excerpt: post.excerpt || cleanExcerpt,
+    coverImage: post.coverImage || validImage,
+    featuredImage: post.featuredImage || validImage,
     ogImage: post.ogImage || validImage,
     status: post.status || "published",
     author: {
@@ -576,37 +584,37 @@ export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
     readTime: post.readTime || "5 min read",
     category: post.category || "Tajweed Rules",
     tags: post.tags && post.tags.length > 0 ? post.tags : ["Tajweed"],
-    content: post.content || "<p>Article content details...</p>",
-    seoTitle: post.seoTitle || `${post.title} | Truth Quran Academy`,
-    metaTitle: post.metaTitle || post.title,
-    metaDescription: post.metaDescription || cleanExcerpt.substring(0, 150),
+    content: post.content !== undefined ? post.content : "<p>Article content details...</p>",
+    seoTitle: post.seoTitle || (post.title ? `${post.title} | Truth Quran Academy` : "Truth Quran Academy"),
+    metaTitle: post.metaTitle || post.title || "",
+    metaDescription: post.metaDescription || (post.excerpt || cleanExcerpt).substring(0, 150),
     focusKeyword: post.focusKeyword || (post.tags && post.tags[0]) || "Tajweed",
     slug: post.slug || post.id || "blog-article",
     canonicalUrl: post.canonicalUrl || `https://truthquranacademy.com/blog/${post.slug || post.id}/`,
     robotsMeta: post.robotsMeta || "index, follow, max-image-preview:large",
-    ogTitle: post.ogTitle || post.title,
-    ogDescription: post.ogDescription || cleanExcerpt,
-    twitterTitle: post.twitterTitle || post.ogTitle || post.title,
-    twitterDescription: post.twitterDescription || post.ogDescription || cleanExcerpt,
+    ogTitle: post.ogTitle || post.title || "",
+    ogDescription: post.ogDescription || post.excerpt || cleanExcerpt,
+    twitterTitle: post.twitterTitle || post.ogTitle || post.title || "",
+    twitterDescription: post.twitterDescription || post.ogDescription || post.excerpt || cleanExcerpt,
     twitterCard: post.twitterCard || "summary_large_image",
-    imageAltText: post.imageAltText || `${post.title} cover banner`,
-    imageTitle: post.imageTitle || `${post.title} featured photo`,
-    imageCaption: post.imageCaption || `Illustration for ${post.title}`,
-    imageDescription: post.imageDescription || `High quality featured photo for article ${post.title}`,
+    imageAltText: post.imageAltText || (post.title ? `${post.title} cover banner` : "Truth Quran Academy Cover"),
+    imageTitle: post.imageTitle || (post.title ? `${post.title} featured photo` : "Truth Quran Academy Photo"),
+    imageCaption: post.imageCaption || (post.title ? `Illustration for ${post.title}` : ""),
+    imageDescription: post.imageDescription || (post.title ? `High quality featured photo for article ${post.title}` : ""),
     imageFileName: post.imageFileName || `${(post.slug || "image").toLowerCase()}.jpg`,
     publishDate: post.publishDate || post.date || new Date().toISOString().split("T")[0],
     lastUpdated: post.lastUpdated || post.publishDate || post.date || new Date().toISOString().split("T")[0],
-    wordCount: post.wordCount || words || 450,
-    sentenceCount: post.sentenceCount || sentences,
-    paragraphCount: post.paragraphCount || paragraphs,
-    internalLinksCount: post.internalLinksCount || 2,
-    externalLinksCount: post.externalLinksCount || 1,
+    wordCount: post.wordCount !== undefined ? post.wordCount : (words || 450),
+    sentenceCount: post.sentenceCount !== undefined ? post.sentenceCount : sentences,
+    paragraphCount: post.paragraphCount !== undefined ? post.paragraphCount : paragraphs,
+    internalLinksCount: post.internalLinksCount !== undefined ? post.internalLinksCount : 2,
+    externalLinksCount: post.externalLinksCount !== undefined ? post.externalLinksCount : 1,
     schemaType: post.schemaType || "Article",
     customSchemaJson: post.customSchemaJson || `{
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "${post.title}",
-  "description": "${cleanExcerpt}",
+  "headline": "${post.title || ""}",
+  "description": "${(post.excerpt || cleanExcerpt).replace(/"/g, '\\"')}",
   "author": {
     "@type": "Person",
     "name": "${post.author?.name || "Muhammad Zain"}"
@@ -615,217 +623,7 @@ export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
   };
 };
 
-const STORAGE_KEY = "truth_quran_wordpress_sim_v2";
-let isFetchingCMSData = false;
-
-export const getCMSData = (): CMSData => {
-  // Trigger background fetch if not already in progress
-  if (!isFetchingCMSData) {
-    isFetchingCMSData = true;
-    fetch("/api/cms-data")
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Failed to load DB");
-      })
-      .then((serverData) => {
-        const cached = localStorage.getItem(STORAGE_KEY);
-        // Only update cache and dispatch if different to prevent re-rendering loops
-        if (!cached || JSON.stringify(serverData) !== cached) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(serverData));
-          window.dispatchEvent(new Event("cms_data_updated"));
-        }
-      })
-      .catch((err) => {
-        console.warn("Server connection offline or loading; using local cache fallback:", err);
-      })
-      .finally(() => {
-        isFetchingCMSData = false;
-      });
-  }
-
-  const cached = localStorage.getItem(STORAGE_KEY);
-  if (cached) {
-    try {
-      const cleanedCached = cached
-        .replace(/Al-Azhar University/g, "Jamia Naeemia Lahore")
-        .replace(/Al-Azhar/g, "Jamia Naeemia Lahore");
-      const parsed = JSON.parse(cleanedCached);
-      
-      // Ensure backward compatibility with newer fields
-      if (!parsed.sectionsVisibility) {
-        parsed.sectionsVisibility = {
-          hero: true,
-          whyUs: true,
-          courses: true,
-          process: true,
-          pricing: true,
-          testimonials: true,
-          faqs: true,
-          blog: true,
-          contact: true,
-          map: true
-        };
-      }
-      if (parsed.sectionsVisibility.map === undefined) {
-        parsed.sectionsVisibility.map = true;
-      }
-      if (!parsed.sectionsOrder) {
-        parsed.sectionsOrder = ["hero", "whyUs", "courses", "process", "pricing", "testimonials", "faqs", "blog", "contact"];
-      }
-      if (!parsed.themeColors) {
-        parsed.themeColors = {
-          primaryGold: "#d9b45c",
-          bgDark: "#07080b",
-          cardBg: "#12141b",
-          textLight: "#f3ecd8",
-          textMuted: "#c9c2ab"
-        };
-      }
-      if (!parsed.themeTypography) {
-        parsed.themeTypography = {
-          headingFont: "Cinzel",
-          bodyFont: "Inter",
-          baseFontSize: "16px"
-        };
-      }
-      if (!parsed.navigationMenu) {
-        parsed.navigationMenu = DEFAULT_NAVIGATION_MENU;
-      }
-      if (!parsed.comments) {
-        parsed.comments = DEFAULT_COMMENTS;
-      }
-      if (!parsed.mediaLibrary) {
-        parsed.mediaLibrary = DEFAULT_MEDIA;
-      }
-      if (!parsed.userProfiles) {
-        parsed.userProfiles = DEFAULT_USERS;
-      }
-      if (!parsed.teachers) {
-        parsed.teachers = DEFAULT_TEACHERS;
-      }
-      if (!parsed.widgets) {
-        parsed.widgets = DEFAULT_WIDGETS;
-      }
-      if (!parsed.videos) {
-        parsed.videos = DEFAULT_VIDEOS;
-      }
-      if (!parsed.integrations) {
-        parsed.integrations = DEFAULT_INTEGRATIONS;
-      }
-      if (!parsed.analyticsData) {
-        parsed.analyticsData = DEFAULT_ANALYTICS;
-      }
-      if (!parsed.searchPerformance) {
-        parsed.searchPerformance = DEFAULT_SEARCH_PERFORMANCE;
-      }
-      if (!parsed.seoHealth) {
-        parsed.seoHealth = DEFAULT_SEO_HEALTH;
-      }
-      if (!parsed.siteSettings) {
-        parsed.siteSettings = {
-          title: "Truth Quran Academy",
-          tagline: "Uncompromising standards in Quran, Tajweed, and Hifz education",
-          permalinkStructure: "/%postname%/",
-          defaultLanguage: "en-US",
-          isRTL: false,
-          isCacheEnabled: true,
-          isPerformanceOptimized: true,
-          isWooCommerceReady: true,
-          childThemeSupported: true,
-          gutenbergCompatible: true,
-          elementorCompatible: true,
-          securityFirewallActive: true
-        };
-      }
-      if (!parsed.customImages) {
-        parsed.customImages = DEFAULT_CUSTOM_IMAGES;
-      }
-      
-      // Map courses to resolve dynamic image assets and clean Arabic characters
-      if (parsed.courses) {
-        parsed.courses = parsed.courses.map((course: any) => {
-          let img = course.image;
-          let glyph = course.arabicGlyph;
-          
-          // Clean up corrupted arabic glyphs if present
-          if (glyph && (glyph.includes("Ø") || glyph.includes("Ù"))) {
-            if (course.id === "noorani-qaida") glyph = "ا ب ت";
-            else if (course.id === "tajweed-intensive" || course.id === "tajweed-mastery") glyph = "قُرْآن";
-            else if (course.id === "quran-hifz") glyph = "حِفْظ";
-            else if (course.id === "quran-tafseer") glyph = "تَفْسِير";
-            else if (course.id === "arabic-language") glyph = "عَرَبِيّ";
-            else if (course.id === "islamic-studies") glyph = "أَدَب";
-          }
-
-          if (!img) {
-            if (course.id === "noorani-qaida") {
-              img = kidsLearningBg;
-            } else if (course.id === "tajweed-intensive" || course.id === "tajweed-mastery") {
-              img = tajweedMasteryBg;
-            } else if (course.id === "quran-hifz") {
-              img = kidsLearningBg;
-            } else if (course.id === "quran-tafseer") {
-              img = tajweedMasteryBg;
-            } else if (course.id === "arabic-language") {
-              img = teacherBg;
-            } else if (course.id === "islamic-studies") {
-              img = kidsLearningBg;
-            } else {
-              const found = coursesData.find((c: any) => c.id === course.id);
-              img = found ? found.image : kidsLearningBg;
-            }
-          }
-          return {
-            ...course,
-            image: img,
-            arabicGlyph: glyph || "قُرْآن"
-          };
-        });
-      }
-      
-      // map pricing plans to ensure new fee structure ($30, $45, $60) is reflected
-      if (parsed.pricingPlans) {
-        parsed.pricingPlans = parsed.pricingPlans.map((plan: any) => {
-          if (plan.id === "price-1" || plan.id === "tier-1" || plan.name?.toLowerCase().includes("starter") || plan.name?.toLowerCase().includes("2 days")) {
-            return { ...plan, price: "$30" };
-          }
-          if (plan.id === "price-2" || plan.id === "tier-2" || plan.name?.toLowerCase().includes("premium") || plan.name?.toLowerCase().includes("3 days")) {
-            return { ...plan, price: "$45" };
-          }
-          if (plan.id === "price-3" || plan.id === "tier-3" || plan.name?.toLowerCase().includes("mastery") || plan.name?.toLowerCase().includes("5 days")) {
-            return { ...plan, price: "$60" };
-          }
-          return plan;
-        });
-      }
-
-      // map blog posts to have advanced SEO fields populated
-      if (parsed.blogPosts) {
-        parsed.blogPosts = parsed.blogPosts.map(ensureBlogPostSEO);
-      }
-
-      if (parsed.contactEmail === "zainjalali072@gmail.com") {
-        parsed.contactEmail = "muhammadzain92624@gmail.com";
-      }
-      if (parsed.contactAddress && parsed.contactAddress.includes("Rawalpindi")) {
-        parsed.contactAddress = "Altaf Colony, Ranjar Head Quarter, Lahore Cantt, Pakistan";
-      }
-      if (!parsed.facebookLink || parsed.facebookLink.includes("truthquranacademy")) {
-        parsed.facebookLink = academyContact.facebook;
-      }
-      if (!parsed.instagramLink || parsed.instagramLink.includes("truthquranacademy")) {
-        parsed.instagramLink = academyContact.instagram;
-      }
-      if (!parsed.linkedinLink || parsed.linkedinLink.includes("truthquranacademy")) {
-        parsed.linkedinLink = academyContact.linkedin;
-      }
-
-      return parsed;
-    } catch (e) {
-      console.error("Error parsing stored CMS data:", e);
-    }
-  }
-
+export const getDefaultCMSData = (): CMSData => {
   return {
     siteLogoText: "Truth",
     siteLogoSubText: "Quran",
@@ -868,7 +666,8 @@ export const getCMSData = (): CMSData => {
       testimonials: true,
       faqs: true,
       blog: true,
-      contact: true
+      contact: true,
+      map: true
     },
     sectionsOrder: ["hero", "whyUs", "courses", "process", "pricing", "testimonials", "faqs", "blog", "contact"],
     themeColors: {
@@ -907,17 +706,215 @@ export const getCMSData = (): CMSData => {
   };
 };
 
+const STORAGE_KEY = "truth_quran_wordpress_sim_v2";
+let isFetchingCMSData = false;
+
+// Strict Merging Engine to Protect User Data from Overwrites
+export const mergePreservingUserData = (cached: CMSData | null, incoming: Partial<CMSData>): CMSData => {
+  const baseDefaults = getDefaultCMSData();
+  if (!cached) {
+    return {
+      ...baseDefaults,
+      ...incoming,
+      blogPosts: (incoming.blogPosts || baseDefaults.blogPosts).map(ensureBlogPostSEO)
+    };
+  }
+
+  // 1. Strict Blog Posts Preservation: Never overwrite or delete user created posts!
+  let mergedPosts: BlogPost[] = [];
+  if (cached.blogPosts && Array.isArray(cached.blogPosts) && cached.blogPosts.length > 0) {
+    const cachedPostsMap = new Map<string, BlogPost>();
+    cached.blogPosts.forEach(p => {
+      if (p && (p.id || p.slug)) {
+        const key = p.id || p.slug!;
+        cachedPostsMap.set(key, ensureBlogPostSEO(p));
+      }
+    });
+
+    if (incoming.blogPosts && Array.isArray(incoming.blogPosts)) {
+      incoming.blogPosts.forEach(incPost => {
+        if (!incPost) return;
+        const key = incPost.id || incPost.slug;
+        if (key && cachedPostsMap.has(key)) {
+          const existing = cachedPostsMap.get(key)!;
+          // Deep merge: new properties added, but existing user edits & content are preserved
+          cachedPostsMap.set(key, ensureBlogPostSEO({
+            ...incPost,
+            ...existing,
+            title: existing.title || incPost.title,
+            content: existing.content !== undefined ? existing.content : incPost.content,
+            excerpt: existing.excerpt || incPost.excerpt,
+            coverImage: existing.coverImage || incPost.coverImage,
+            featuredImage: existing.featuredImage || incPost.featuredImage,
+            attachments: existing.attachments || incPost.attachments || [],
+            videoUrls: existing.videoUrls || incPost.videoUrls || [],
+            pdfUrls: existing.pdfUrls || incPost.pdfUrls || [],
+            customLinks: existing.customLinks || incPost.customLinks || []
+          }));
+        }
+      });
+    }
+
+    mergedPosts = Array.from(cachedPostsMap.values());
+  } else if (incoming.blogPosts && incoming.blogPosts.length > 0) {
+    mergedPosts = incoming.blogPosts.map(ensureBlogPostSEO);
+  } else {
+    mergedPosts = baseDefaults.blogPosts.map(ensureBlogPostSEO);
+  }
+
+  // 2. Strict Custom Video Preservation
+  let mergedVideos: WPVideo[] = [];
+  if (cached.videos && Array.isArray(cached.videos) && cached.videos.length > 0) {
+    const videoMap = new Map<string, WPVideo>();
+    (incoming.videos || baseDefaults.videos).forEach(v => {
+      if (v && v.id) videoMap.set(v.id, v);
+    });
+    // Cached user videos strictly take precedence
+    cached.videos.forEach(v => {
+      if (v && v.id) videoMap.set(v.id, v);
+    });
+    mergedVideos = Array.from(videoMap.values());
+  } else {
+    mergedVideos = incoming.videos || baseDefaults.videos;
+  }
+
+  // 3. Strict Media Library Preservation (never delete user-uploaded media)
+  let mergedMedia: WPMedia[] = [];
+  if (cached.mediaLibrary && Array.isArray(cached.mediaLibrary) && cached.mediaLibrary.length > 0) {
+    const mediaMap = new Map<string, WPMedia>();
+    (incoming.mediaLibrary || baseDefaults.mediaLibrary).forEach(m => {
+      if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m);
+    });
+    cached.mediaLibrary.forEach(m => {
+      if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m);
+    });
+    mergedMedia = Array.from(mediaMap.values());
+  } else {
+    mergedMedia = incoming.mediaLibrary || baseDefaults.mediaLibrary;
+  }
+
+  // 4. Safe Merging for Configuration Objects & Metadata
+  return {
+    ...baseDefaults,
+    ...incoming,
+    ...cached,
+    blogPosts: mergedPosts,
+    videos: mergedVideos,
+    mediaLibrary: mergedMedia,
+    sectionsVisibility: {
+      ...baseDefaults.sectionsVisibility,
+      ...(incoming.sectionsVisibility || {}),
+      ...(cached.sectionsVisibility || {})
+    },
+    sectionsOrder: cached.sectionsOrder || incoming.sectionsOrder || baseDefaults.sectionsOrder,
+    themeColors: {
+      ...baseDefaults.themeColors,
+      ...(incoming.themeColors || {}),
+      ...(cached.themeColors || {})
+    },
+    themeTypography: {
+      ...baseDefaults.themeTypography,
+      ...(incoming.themeTypography || {}),
+      ...(cached.themeTypography || {})
+    },
+    siteSettings: {
+      ...baseDefaults.siteSettings,
+      ...(incoming.siteSettings || {}),
+      ...(cached.siteSettings || {})
+    },
+    aiSettings: {
+      ...baseDefaults.aiSettings,
+      ...(incoming.aiSettings || {}),
+      ...(cached.aiSettings || {})
+    },
+    customImages: {
+      ...baseDefaults.customImages,
+      ...(incoming.customImages || {}),
+      ...(cached.customImages || {})
+    },
+    courses: (cached.courses && cached.courses.length > 0) ? cached.courses : (incoming.courses || baseDefaults.courses),
+    pricingPlans: (cached.pricingPlans && cached.pricingPlans.length > 0) ? cached.pricingPlans : (incoming.pricingPlans || baseDefaults.pricingPlans),
+    teachers: (cached.teachers && cached.teachers.length > 0) ? cached.teachers : (incoming.teachers || baseDefaults.teachers),
+    testimonials: (cached.testimonials && cached.testimonials.length > 0) ? cached.testimonials : (incoming.testimonials || baseDefaults.testimonials),
+    faqs: (cached.faqs && cached.faqs.length > 0) ? cached.faqs : (incoming.faqs || baseDefaults.faqs),
+    whyUs: (cached.whyUs && cached.whyUs.length > 0) ? cached.whyUs : (incoming.whyUs || baseDefaults.whyUs),
+  };
+};
+
+export const getCMSData = (): CMSData => {
+  // Trigger background fetch if not already in progress
+  if (!isFetchingCMSData && typeof window !== "undefined" && typeof fetch === "function") {
+    isFetchingCMSData = true;
+    fetch("/api/cms-data")
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error("Failed to load DB");
+      })
+      .then((serverData) => {
+        const cachedRaw = localStorage.getItem(STORAGE_KEY);
+        let cachedParsed: CMSData | null = null;
+        if (cachedRaw) {
+          try {
+            cachedParsed = JSON.parse(cachedRaw);
+          } catch (e) {}
+        }
+        
+        const merged = mergePreservingUserData(cachedParsed, serverData);
+        const mergedStr = JSON.stringify(merged);
+        if (cachedRaw !== mergedStr) {
+          localStorage.setItem(STORAGE_KEY, mergedStr);
+          window.dispatchEvent(new Event("cms_data_updated"));
+        }
+
+        // If local cache had user posts that the server was missing, sync merged data to server
+        if (cachedParsed && cachedParsed.blogPosts && Array.isArray(cachedParsed.blogPosts)) {
+          const serverPostIds = new Set((serverData.blogPosts || []).map((p: any) => p.id));
+          const hasLocalOnlyPosts = cachedParsed.blogPosts.some((p: any) => p && p.id && !serverPostIds.has(p.id));
+          if (hasLocalOnlyPosts) {
+            saveCMSData(merged).catch(console.error);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("Server connection offline or loading; using local cache fallback:", err);
+      })
+      .finally(() => {
+        isFetchingCMSData = false;
+      });
+  }
+
+  const cached = localStorage.getItem(STORAGE_KEY);
+  if (cached) {
+    try {
+      const cleanedCached = cached
+        .replace(/Al-Azhar University/g, "Jamia Naeemia Lahore")
+        .replace(/Al-Azhar/g, "Jamia Naeemia Lahore");
+      const parsed = JSON.parse(cleanedCached);
+      return mergePreservingUserData(parsed, {});
+    } catch (e) {
+      console.error("Error parsing stored CMS data:", e);
+    }
+  }
+
+  return getDefaultCMSData();
+};
+
 export const fetchCMSDataFromServer = async (): Promise<CMSData> => {
   try {
     const res = await fetch("/api/cms-data");
     if (res.ok) {
-      const data = await res.json();
-      if (data && data.blogPosts) {
-        data.blogPosts = data.blogPosts.map(ensureBlogPostSEO);
+      const serverData = await res.json();
+      const cachedRaw = localStorage.getItem(STORAGE_KEY);
+      let cachedParsed: CMSData | null = null;
+      if (cachedRaw) {
+        try {
+          cachedParsed = JSON.parse(cachedRaw);
+        } catch (e) {}
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const merged = mergePreservingUserData(cachedParsed, serverData);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       window.dispatchEvent(new Event("cms_data_updated"));
-      return data;
+      return merged;
     }
   } catch (err) {
     console.warn("Could not fetch CMS data from server:", err);

@@ -102,7 +102,11 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       robotsMeta: "index, follow",
       imageAltText: "",
       imageTitle: "",
-      imageCaption: ""
+      imageCaption: "",
+      attachments: [],
+      videoUrls: [],
+      pdfUrls: [],
+      customLinks: []
     };
   };
 
@@ -161,10 +165,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         featuredImage: activePost.featuredImage || activePost.coverImage || "",
         imageAltText: activePost.imageAltText || "",
         imageTitle: activePost.imageTitle || "",
-        imageCaption: activePost.imageCaption || ""
+        imageCaption: activePost.imageCaption || "",
+        attachments: activePost.attachments || [],
+        videoUrls: activePost.videoUrls || [],
+        pdfUrls: activePost.pdfUrls || [],
+        customLinks: activePost.customLinks || []
       });
     }
-  }, [selectedPostId, posts.length]);
+  }, [selectedPostId]);
 
   // Toast feedback state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -179,8 +187,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   const [viewLayoutMode, setViewLayoutMode] = useState<"editor" | "split" | "preview">("editor");
   const [snippetDevice, setSnippetDevice] = useState<"desktop" | "mobile">("desktop");
 
-  // Right Sidebar Active Tab ("seo" | "publish")
-  const [activeSidebarTab, setActiveSidebarTab] = useState<"seo" | "publish">("seo");
+  // Right Sidebar Active Tab ("seo" | "publish" | "media")
+  const [activeSidebarTab, setActiveSidebarTab] = useState<"seo" | "publish" | "media">("seo");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showChecklistExpanded, setShowChecklistExpanded] = useState(false);
 
@@ -273,6 +281,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
   const [showMediaLibraryModal, setShowMediaLibraryModal] = useState(false);
   const [mediaTargetField, setMediaTargetField] = useState<"featured" | "internal">("featured");
+
+  // Media & Attachments State
+  const [newVideoUrlInput, setNewVideoUrlInput] = useState("");
+  const [newPdfUrlInput, setNewPdfUrlInput] = useState("");
+  const [newPdfTitleInput, setNewPdfTitleInput] = useState("");
+  const [newLinkTitleInput, setNewLinkTitleInput] = useState("");
+  const [newLinkUrlInput, setNewLinkUrlInput] = useState("");
+  const pdfAttachmentInputRef = useRef<HTMLInputElement>(null);
 
   // Consolidated Toolbar "More Options" Menu State
   const [showMoreToolsMenu, setShowMoreToolsMenu] = useState(false);
@@ -499,7 +515,11 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       wordCount: contentStats.words,
       sentenceCount: contentStats.sentences,
       paragraphCount: contentStats.paragraphs,
-      seoScore: seoAnalysis.score
+      seoScore: seoAnalysis.score,
+      attachments: currentPost.attachments || [],
+      videoUrls: currentPost.videoUrls || [],
+      pdfUrls: currentPost.pdfUrls || [],
+      customLinks: currentPost.customLinks || []
     };
 
     let updatedPosts = [...posts];
@@ -3005,18 +3025,26 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
             <button
               type="button"
               onClick={() => setActiveSidebarTab("seo")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1.5 ${activeSidebarTab === "seo" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "seo" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
             >
-              <Sparkles size={14} />
-              <span>Rank Math SEO</span>
+              <Sparkles size={13} />
+              <span>SEO</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveSidebarTab("publish")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1.5 ${activeSidebarTab === "publish" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "publish" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
             >
-              <Globe size={14} />
-              <span>Post Settings</span>
+              <Globe size={13} />
+              <span>Settings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSidebarTab("media")}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "media" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
+            >
+              <Video size={13} />
+              <span>Media & Files</span>
             </button>
           </div>
 
@@ -3440,6 +3468,355 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     className="w-full mt-1 bg-[#07080b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
                   />
                 </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 3: MEDIA, VIDEOS & DOWNLOADABLE PDF FILES */}
+          {activeSidebarTab === "media" && (
+            <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl p-6 shadow-2xl space-y-6 animate-in fade-in duration-200">
+              
+              <div className="border-b border-white/10 pb-3">
+                <div className="flex items-center space-x-2">
+                  <Video size={16} className="text-[#d9b45c]" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Media & File Attachments</h4>
+                </div>
+                <p className="text-[11px] text-[#c9c2ab] mt-1">
+                  Attach isolated videos, downloadable PDFs, and custom reference links that persist safely across UI changes.
+                </p>
+              </div>
+
+              {/* 1. EMBEDDED VIDEO URLS */}
+              <div className="space-y-3 bg-[#07080b] p-4 rounded-xl border border-white/5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#f2d98a] flex items-center space-x-1.5">
+                    <Video size={14} className="text-[#d9b45c]" />
+                    <span>Embedded Videos</span>
+                  </label>
+                  <span className="text-[10px] text-[#c9c2ab] bg-white/5 px-2 py-0.5 rounded-full">
+                    {(currentPost.videoUrls || []).length} attached
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=... or MP4 URL"
+                    value={newVideoUrlInput}
+                    onChange={(e) => setNewVideoUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (newVideoUrlInput.trim()) {
+                          const currentVideos = currentPost.videoUrls || [];
+                          if (!currentVideos.includes(newVideoUrlInput.trim())) {
+                            handleUpdateField("videoUrls", [...currentVideos, newVideoUrlInput.trim()]);
+                          }
+                          setNewVideoUrlInput("");
+                          showToast("Video URL attached");
+                        }
+                      }
+                    }}
+                    className="flex-1 bg-[#12141b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newVideoUrlInput.trim()) {
+                        const currentVideos = currentPost.videoUrls || [];
+                        if (!currentVideos.includes(newVideoUrlInput.trim())) {
+                          handleUpdateField("videoUrls", [...currentVideos, newVideoUrlInput.trim()]);
+                        }
+                        setNewVideoUrlInput("");
+                        showToast("Video URL attached");
+                      }
+                    }}
+                    className="px-3 py-2 bg-[#d9b45c] text-black font-bold text-xs rounded-xl hover:brightness-110 shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {/* List of Attached Videos */}
+                {currentPost.videoUrls && currentPost.videoUrls.length > 0 ? (
+                  <div className="space-y-2 pt-2">
+                    {currentPost.videoUrls.map((vid, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-[#12141b] rounded-lg border border-white/5 text-xs">
+                        <div className="flex items-center space-x-2 truncate mr-2">
+                          <Video size={13} className="text-red-400 shrink-0" />
+                          <span className="text-white truncate text-[11px]">{vid}</span>
+                        </div>
+                        <div className="flex items-center space-x-1 shrink-0">
+                          <a
+                            href={vid}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 text-[#c9c2ab] hover:text-white"
+                            title="Preview video"
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (currentPost.videoUrls || []).filter((_, i) => i !== idx);
+                              handleUpdateField("videoUrls", updated);
+                              showToast("Video removed");
+                            }}
+                            className="p-1 text-red-400 hover:text-red-300"
+                            title="Remove video"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#c9c2ab]/60 italic">No video links attached yet.</p>
+                )}
+              </div>
+
+              {/* 2. DOWNLOADABLE PDF ATTACHMENTS */}
+              <div className="space-y-3 bg-[#07080b] p-4 rounded-xl border border-white/5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#f2d98a] flex items-center space-x-1.5">
+                    <FileText size={14} className="text-[#d9b45c]" />
+                    <span>Downloadable PDFs & Notes</span>
+                  </label>
+                  <span className="text-[10px] text-[#c9c2ab] bg-white/5 px-2 py-0.5 rounded-full">
+                    {((currentPost.pdfUrls || []).length + (currentPost.attachments || []).filter(a => a.type === "pdf" || a.url.endsWith(".pdf")).length)} files
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="PDF Document Title (e.g. Tajweed Chart Guide)"
+                    value={newPdfTitleInput}
+                    onChange={(e) => setNewPdfTitleInput(e.target.value)}
+                    className="w-full bg-[#12141b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
+                  />
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="url"
+                      placeholder="PDF File URL (e.g. https://example.com/guide.pdf)"
+                      value={newPdfUrlInput}
+                      onChange={(e) => setNewPdfUrlInput(e.target.value)}
+                      className="flex-1 bg-[#12141b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newPdfUrlInput.trim()) {
+                          const title = newPdfTitleInput.trim() || "Download PDF Document";
+                          const currentPdfs = currentPost.pdfUrls || [];
+                          const currentAttachments = currentPost.attachments || [];
+                          
+                          const newAttachment = {
+                            id: `att-${Date.now()}`,
+                            title,
+                            url: newPdfUrlInput.trim(),
+                            type: "pdf" as const,
+                            size: "PDF Document",
+                            uploadedAt: new Date().toISOString()
+                          };
+
+                          handleUpdateField("pdfUrls", [...currentPdfs, newPdfUrlInput.trim()]);
+                          handleUpdateField("attachments", [...currentAttachments, newAttachment]);
+                          
+                          setNewPdfUrlInput("");
+                          setNewPdfTitleInput("");
+                          showToast("PDF document attached");
+                        }
+                      }}
+                      className="px-3 py-2 bg-[#d9b45c] text-black font-bold text-xs rounded-xl hover:brightness-110 shrink-0"
+                    >
+                      Attach
+                    </button>
+                  </div>
+
+                  {/* Upload Local PDF Button */}
+                  <div className="pt-1">
+                    <input
+                      type="file"
+                      ref={pdfAttachmentInputRef}
+                      accept=".pdf,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const result = event.target?.result as string;
+                            if (result) {
+                              const fileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+                              const newAttachment = {
+                                id: `att-${Date.now()}`,
+                                title: newPdfTitleInput.trim() || file.name,
+                                url: result,
+                                type: "pdf" as const,
+                                size: fileSize,
+                                uploadedAt: new Date().toISOString()
+                              };
+                              const currentPdfs = currentPost.pdfUrls || [];
+                              const currentAttachments = currentPost.attachments || [];
+                              handleUpdateField("pdfUrls", [...currentPdfs, result]);
+                              handleUpdateField("attachments", [...currentAttachments, newAttachment]);
+                              setNewPdfTitleInput("");
+                              showToast(`Uploaded ${file.name}`);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => pdfAttachmentInputRef.current?.click()}
+                      className="w-full py-2 bg-white/5 hover:bg-white/10 border border-dashed border-[#d9b45c]/40 text-[#f2d98a] font-bold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all"
+                    >
+                      <Upload size={13} />
+                      <span>Upload Local PDF File</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* List of Attached PDFs */}
+                {((currentPost.attachments && currentPost.attachments.length > 0) || (currentPost.pdfUrls && currentPost.pdfUrls.length > 0)) ? (
+                  <div className="space-y-2 pt-2">
+                    {currentPost.attachments && currentPost.attachments.map((att, idx) => (
+                      <div key={att.id || idx} className="flex items-center justify-between p-2.5 bg-[#12141b] rounded-lg border border-white/5 text-xs">
+                        <div className="flex items-center space-x-2 truncate mr-2">
+                          <FileText size={14} className="text-amber-400 shrink-0" />
+                          <div className="truncate">
+                            <div className="text-white font-medium text-[11px] truncate">{att.title}</div>
+                            {att.size && <div className="text-[9px] text-[#c9c2ab]/60">{att.size}</div>}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1 shrink-0">
+                          <a
+                            href={att.url}
+                            download={att.title}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 text-[#c9c2ab] hover:text-white"
+                            title="Download/View PDF"
+                          >
+                            <Download size={12} />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedAtts = (currentPost.attachments || []).filter((_, i) => i !== idx);
+                              const updatedPdfUrls = (currentPost.pdfUrls || []).filter(u => u !== att.url);
+                              handleUpdateField("attachments", updatedAtts);
+                              handleUpdateField("pdfUrls", updatedPdfUrls);
+                              showToast("PDF attachment removed");
+                            }}
+                            className="p-1 text-red-400 hover:text-red-300"
+                            title="Remove attachment"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#c9c2ab]/60 italic">No PDF files attached yet.</p>
+                )}
+              </div>
+
+              {/* 3. CUSTOM EXTERNAL & REFERENCE LINKS */}
+              <div className="space-y-3 bg-[#07080b] p-4 rounded-xl border border-white/5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#f2d98a] flex items-center space-x-1.5">
+                    <ExternalLink size={14} className="text-[#d9b45c]" />
+                    <span>Custom Reference Links</span>
+                  </label>
+                  <span className="text-[10px] text-[#c9c2ab] bg-white/5 px-2 py-0.5 rounded-full">
+                    {(currentPost.customLinks || []).length} links
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Link Title (e.g. Jamia Naeemia Tajweed Curriculum)"
+                    value={newLinkTitleInput}
+                    onChange={(e) => setNewLinkTitleInput(e.target.value)}
+                    className="w-full bg-[#12141b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
+                  />
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={newLinkUrlInput}
+                      onChange={(e) => setNewLinkUrlInput(e.target.value)}
+                      className="flex-1 bg-[#12141b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newLinkUrlInput.trim()) {
+                          const title = newLinkTitleInput.trim() || newLinkUrlInput.trim();
+                          const currentLinks = currentPost.customLinks || [];
+                          handleUpdateField("customLinks", [...currentLinks, { title, url: newLinkUrlInput.trim() }]);
+                          setNewLinkTitleInput("");
+                          setNewLinkUrlInput("");
+                          showToast("Custom link added");
+                        }
+                      }}
+                      className="px-3 py-2 bg-[#d9b45c] text-black font-bold text-xs rounded-xl hover:brightness-110 shrink-0"
+                    >
+                      Add Link
+                    </button>
+                  </div>
+                </div>
+
+                {/* List of Custom Links */}
+                {currentPost.customLinks && currentPost.customLinks.length > 0 ? (
+                  <div className="space-y-2 pt-2">
+                    {currentPost.customLinks.map((link, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-[#12141b] rounded-lg border border-white/5 text-xs">
+                        <div className="flex items-center space-x-2 truncate mr-2">
+                          <Link2 size={13} className="text-[#d9b45c] shrink-0" />
+                          <div className="truncate">
+                            <div className="text-white font-medium text-[11px] truncate">{link.title}</div>
+                            <div className="text-[9px] text-[#c9c2ab]/60 truncate">{link.url}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1 shrink-0">
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 text-[#c9c2ab] hover:text-white"
+                            title="Open link"
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (currentPost.customLinks || []).filter((_, i) => i !== idx);
+                              handleUpdateField("customLinks", updated);
+                              showToast("Link removed");
+                            }}
+                            className="p-1 text-red-400 hover:text-red-300"
+                            title="Remove link"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#c9c2ab]/60 italic">No custom reference links added.</p>
+                )}
               </div>
 
             </div>

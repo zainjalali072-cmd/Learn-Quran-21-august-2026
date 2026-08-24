@@ -32,7 +32,52 @@ export default function SEOHead({ cmsData, currentView, activePostId }: SEOHeadP
     let twitterCard: string = "summary_large_image";
     let schemaJson: any = null;
 
-    if (currentView === "blog-post" && activePostId) {
+    if (currentView === "about") {
+      title = "About Truth Quran Academy | Certified Online Quran Scholars & Ijazah Tutors";
+      description = "Discover Truth Quran Academy's mission, certified teachers holding traditional Ijazah credentials, 1-on-1 personalized methodology, and female Quran tutors.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "courses") {
+      title = "Online Quran Courses & Structured Programs | Truth Quran Academy";
+      description = "Explore our comprehensive online Quran curriculums: Noorani Qaida for beginners, Tajweed Intensive recitation mastery, and private Quran Hifz pathways.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "noorani-qaida") {
+      title = "Noorani Qaida Course for Beginners & Kids | Truth Quran Academy";
+      description = "Master Arabic alphabet pronunciation, letter joining, and foundational phonetics with certified 1-on-1 tutors in our interactive Noorani Qaida course.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "kids-classes") {
+      title = "Online Quran Classes for Kids & Sisters | Truth Quran Academy";
+      description = "Specialized 1-on-1 Quran lessons for young children and sisters with patient, certified female tutors using interactive whiteboards and visual aids.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "fees") {
+      title = "Affordable Monthly Quran Tuition Fees & Pricing Plans | Truth Quran Academy";
+      description = "Transparent, affordable monthly Quran class fees starting from $30/month. Includes 1-on-1 classes, free trial session, custom syllabus, and flexible schedules.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "videos") {
+      title = "Online Quran & Tajweed Video Lessons Library | Truth Quran Academy";
+      description = "Watch recorded video lessons, Tajweed pronunciation guides, Makharij tutorials, and inspirational Quranic lectures from our certified scholars.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "download") {
+      title = "Download Noorani Qaida & Quran Paras (1-30) PDF | Truth Quran Academy";
+      description = "Free downloadable high-quality PDF files for Noorani Qaida, Tajweed charts, and all 30 Paras of the Holy Quran for offline reading and study.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "contact") {
+      title = "Contact Truth Quran Academy | Book Free 1-on-1 Quran Trial Class";
+      description = "Get in touch with Truth Quran Academy. Book your free 1-on-1 trial class via WhatsApp (+92 321 9347471) or email us today.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "blog") {
+      title = "Quranic Studies, Tajweed Guides & Hifz Blog | Truth Quran Academy";
+      description = "Read educational articles, Tajweed pronunciation breakdowns, Hifz retention techniques, and Islamic studies guides written by certified scholars.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "blog-post" && activePostId) {
       const posts = cmsData.blogPosts || [];
       const post = posts.find(p => 
         p.id === activePostId || 

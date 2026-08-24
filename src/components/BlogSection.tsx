@@ -22,7 +22,11 @@ import {
   Award,
   CheckCircle2,
   Bookmark,
-  ExternalLink
+  ExternalLink,
+  Video,
+  FileText,
+  Download,
+  Paperclip
 } from "lucide-react";
 import WhatsAppIcon from "./WhatsAppIcon";
 import { blogPostsData } from "../data";
@@ -566,6 +570,127 @@ export default function BlogSection({
               [&>pre]:bg-[#07080b] [&>pre]:p-4 [&>pre]:rounded-xl [&>pre]:text-[#f2d98a] [&>pre]:font-mono [&>pre]:text-xs [&>pre]:overflow-x-auto [&>pre]:border [&>pre]:border-white/10"
             dangerouslySetInnerHTML={{ __html: formatArticleBody(post.content) }}
           />
+
+          {/* ISOLATED EMBEDDED VIDEO MEDIA SECTION */}
+          {post.videoUrls && post.videoUrls.length > 0 && (
+            <div className="my-10 space-y-6 pt-6 border-t border-[#d9b45c]/20">
+              <div className="flex items-center space-x-2 text-sm font-bold uppercase tracking-wider text-[#f2d98a]">
+                <Video size={18} className="text-[#d9b45c]" />
+                <span>Featured Video Lessons & Explanations</span>
+              </div>
+              <div className="grid grid-cols-1 gap-6">
+                {post.videoUrls.map((vidUrl, vidIdx) => {
+                  const ytMatch = vidUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                  const embedUrl = ytMatch ? `https://www.youtube.com/embed/${ytMatch[1]}` : null;
+
+                  return (
+                    <div key={vidIdx} className="bg-[#07080b] border border-[#d9b45c]/30 rounded-2xl overflow-hidden shadow-xl">
+                      {embedUrl ? (
+                        <div className="relative aspect-[16/9] w-full">
+                          <iframe
+                            src={embedUrl}
+                            title={`Video lesson ${vidIdx + 1}`}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="absolute inset-0 w-full h-full border-0"
+                          />
+                        </div>
+                      ) : vidUrl.endsWith(".mp4") || vidUrl.endsWith(".webm") ? (
+                        <video controls className="w-full rounded-2xl" src={vidUrl}>
+                          Your browser does not support HTML5 video.
+                        </video>
+                      ) : (
+                        <div className="p-4 flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <Video size={18} className="text-red-400" />
+                            <span className="text-xs text-white truncate max-w-xs">{vidUrl}</span>
+                          </div>
+                          <a
+                            href={vidUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-[#d9b45c] text-black font-bold text-xs rounded-lg hover:brightness-110 flex items-center space-x-1"
+                          >
+                            <span>Watch Video</span>
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* DOWNLOADABLE PDFS & COURSE MATERIALS */}
+          {((post.attachments && post.attachments.length > 0) || (post.pdfUrls && post.pdfUrls.length > 0)) && (
+            <div className="my-10 space-y-4 pt-6 border-t border-[#d9b45c]/20">
+              <div className="flex items-center space-x-2 text-sm font-bold uppercase tracking-wider text-[#f2d98a]">
+                <FileText size={18} className="text-[#d9b45c]" />
+                <span>Downloadable Study Notes & PDF Materials</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {post.attachments && post.attachments.map((att, attIdx) => (
+                  <div
+                    key={att.id || attIdx}
+                    className="p-4 rounded-2xl bg-[#12141b] border border-[#d9b45c]/30 hover:border-[#d9b45c] transition-all flex items-center justify-between shadow-md group"
+                  >
+                    <div className="flex items-center space-x-3 truncate mr-2">
+                      <div className="w-10 h-10 rounded-xl bg-[#d9b45c]/10 border border-[#d9b45c]/30 flex items-center justify-center shrink-0">
+                        <FileText size={18} className="text-[#d9b45c]" />
+                      </div>
+                      <div className="truncate">
+                        <div className="text-xs font-bold text-white truncate group-hover:text-[#f2d98a] transition-colors">
+                          {att.title}
+                        </div>
+                        <div className="text-[10px] text-[#c9c2ab]">
+                          {att.size || "PDF Document"}
+                        </div>
+                      </div>
+                    </div>
+                    <a
+                      href={att.url}
+                      download={att.title}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 rounded-xl bg-[#d9b45c] text-black font-bold text-xs hover:brightness-110 flex items-center space-x-1.5 shrink-0 shadow"
+                    >
+                      <Download size={13} />
+                      <span className="hidden sm:inline">Download</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CUSTOM REFERENCE LINKS & VERIFIED CITATIONS */}
+          {post.customLinks && post.customLinks.length > 0 && (
+            <div className="my-10 space-y-3 pt-6 border-t border-[#d9b45c]/20">
+              <div className="flex items-center space-x-2 text-sm font-bold uppercase tracking-wider text-[#f2d98a]">
+                <ExternalLink size={16} className="text-[#d9b45c]" />
+                <span>Reference Links & Curriculum Resources</span>
+              </div>
+              <div className="space-y-2">
+                {post.customLinks.map((link, linkIdx) => (
+                  <a
+                    key={linkIdx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3.5 rounded-xl bg-[#12141b] border border-[#d9b45c]/20 hover:border-[#d9b45c] transition-all flex items-center justify-between text-xs text-white hover:text-[#f2d98a] group"
+                  >
+                    <div className="flex items-center space-x-2.5 truncate mr-3">
+                      <span className="w-2 h-2 rounded-full bg-[#d9b45c]" />
+                      <span className="font-semibold truncate">{link.title}</span>
+                    </div>
+                    <ExternalLink size={13} className="text-[#d9b45c] shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* TAGS & SHARE BLOCK */}
           <div className="pt-8 border-t border-[#d9b45c]/15 mt-10 space-y-4">
