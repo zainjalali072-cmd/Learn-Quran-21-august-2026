@@ -2558,8 +2558,8 @@ function generateRouteSEO(reqPath: string, db: any) {
     `;
   }
 
-  // ROUTE 3: COURSES PAGE (/courses)
-  else if (cleanPath === "/courses") {
+  // ROUTE 3: COURSES PAGE (/courses, /services)
+  else if (cleanPath === "/courses" || cleanPath === "/services") {
     title = `Online Quran Courses & Structured Programs | Truth Quran Academy`;
     description = "Explore our comprehensive online Quran curriculums: Noorani Qaida for beginners, Tajweed Intensive recitation mastery, and private Quran Hifz pathways.";
 
@@ -3052,6 +3052,34 @@ function generateRouteSEO(reqPath: string, db: any) {
               <p>${escapeHtml(p.excerpt || "")}</p>
             </article>
           `).join("") : `<p>No articles found for this tag. <a href="/blog">Browse all articles &rarr;</a></p>`}
+        </section>
+      </main>
+    `;
+  }
+
+  // ROUTE 15: 404 NOT FOUND (Fallback for unmapped URLs)
+  else {
+    statusCode = 404;
+    title = `Page Not Found (404) | Truth Quran Academy`;
+    description = "The requested page could not be found. Return to Truth Quran Academy homepage or explore our online Quran courses and pricing plans.";
+    prerenderContent = `
+      <header>
+        <nav><a href="/">Home</a> &gt; <span>404 Not Found</span></nav>
+      </header>
+      <main>
+        <h1>Page Not Found (404)</h1>
+        <p class="lead">We're sorry, the page you requested (${escapeHtml(cleanPath)}) cannot be found or has been moved.</p>
+        <section>
+          <h2>Popular Links</h2>
+          <ul>
+            <li><a href="/">Academy Homepage</a></li>
+            <li><a href="/courses">All Online Quran Courses</a></li>
+            <li><a href="/noorani-qaida">Noorani Qaida for Beginners</a></li>
+            <li><a href="/kids-classes">Kids & Sisters Quran Classes</a></li>
+            <li><a href="/fees">Tuition & Pricing Plans</a></li>
+            <li><a href="/blog">Quranic Blog & Tajweed Guides</a></li>
+            <li><a href="/contact">Book Free 1-on-1 Trial Class</a></li>
+          </ul>
         </section>
       </main>
     `;

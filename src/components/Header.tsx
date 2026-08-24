@@ -35,7 +35,6 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
       children: [
         { label: "Our Story / Mission", id: "about" },
         { label: "Videos / Gallery", id: "videos" },
-        { label: "Blogs & Guides", id: "blog" },
       ]
     },
     { 
@@ -48,9 +47,17 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
       ]
     },
     { label: "Pricing", id: "fees" },
+    { label: "Blog", id: "blog" },
     { label: "Download", id: "download" },
     { label: "Contact Us", id: "contact" },
   ];
+
+  const isViewActive = (navId: string) => {
+    if (navId === currentView) return true;
+    if (navId === "blog" && ["blog", "category", "tag", "blog-post"].includes(currentView)) return true;
+    if (navId === "courses" && ["courses"].includes(currentView)) return true;
+    return false;
+  };
 
   const handleLinkClick = (id: string) => {
     setIsMobileMenuOpen(false);
@@ -99,7 +106,7 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
           {navigation.map((link) => {
             if (link.children) {
               const isDropdownOpen = activeDropdown === link.id;
-              const isParentActive = link.children.some((sub) => sub.id === currentView);
+              const isParentActive = link.children.some((sub) => isViewActive(sub.id));
               return (
                 <div
                   key={link.id}
@@ -127,7 +134,7 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
                           key={subLink.id}
                           onClick={() => handleLinkClick(subLink.id)}
                           className={`text-left px-3 py-2 text-[11px] font-sans font-bold tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
-                            currentView === subLink.id
+                            isViewActive(subLink.id)
                               ? "bg-[#d9b45c]/12 text-[#f2d98a]"
                               : "text-[#c9c2ab] hover:bg-[#d9b45c]/8 hover:text-[#f3ecd8]"
                           }`}
@@ -146,7 +153,7 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
                 key={link.id}
                 onClick={() => handleLinkClick(link.id)}
                 className={`text-xs font-sans font-semibold tracking-wider uppercase transition-colors cursor-pointer ${
-                  currentView === link.id ? "text-[#f2d98a]" : "text-[#c9c2ab] hover:text-[#f2d98a]"
+                  isViewActive(link.id) ? "text-[#f2d98a]" : "text-[#c9c2ab] hover:text-[#f2d98a]"
                 }`}
               >
                 {link.label}
@@ -214,7 +221,7 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
                             key={subLink.id}
                             onClick={() => handleLinkClick(subLink.id)}
                             className={`text-left py-1.5 font-sans font-semibold tracking-wider text-xs uppercase transition-colors cursor-pointer ${
-                              currentView === subLink.id ? "text-[#f2d98a]" : "text-[#c9c2ab]/80 hover:text-[#f2d98a]"
+                              isViewActive(subLink.id) ? "text-[#f2d98a]" : "text-[#c9c2ab]/80 hover:text-[#f2d98a]"
                             }`}
                           >
                             {subLink.label}
@@ -231,7 +238,7 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
                   key={link.id}
                   onClick={() => handleLinkClick(link.id)}
                   className={`text-left py-2 font-sans font-semibold tracking-wider uppercase text-sm transition-colors cursor-pointer ${
-                    currentView === link.id ? "text-[#f2d98a]" : "text-[#c9c2ab] hover:text-[#f2d98a]"
+                    isViewActive(link.id) ? "text-[#f2d98a]" : "text-[#c9c2ab] hover:text-[#f2d98a]"
                   }`}
                 >
                   {link.label}

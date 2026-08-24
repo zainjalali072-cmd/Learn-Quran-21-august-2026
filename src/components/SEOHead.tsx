@@ -6,9 +6,11 @@ interface SEOHeadProps {
   cmsData: CMSData;
   currentView: string;
   activePostId: string | null;
+  categorySlug?: string | null;
+  tagSlug?: string | null;
 }
 
-export default function SEOHead({ cmsData, currentView, activePostId }: SEOHeadProps) {
+export default function SEOHead({ cmsData, currentView, activePostId, categorySlug, tagSlug }: SEOHeadProps) {
   useEffect(() => {
     // 1. Determine Title & Description
     const getMetaStr = (val: any, fallback: string): string => {
@@ -70,6 +72,27 @@ export default function SEOHead({ cmsData, currentView, activePostId }: SEOHeadP
     } else if (currentView === "contact") {
       title = "Contact Truth Quran Academy | Book Free 1-on-1 Quran Trial Class";
       description = "Get in touch with Truth Quran Academy. Book your free 1-on-1 trial class via WhatsApp (+92 321 9347471) or email us today.";
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "category" || (currentView === "blog" && categorySlug)) {
+      const rawCat = categorySlug || "tajweed";
+      const catName = rawCat.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+      title = `${catName} Articles & Quran Guides | Truth Quran Academy`;
+      description = `Read all insightful Islamic articles, study notes, and Tajweed guides categorized under ${catName} at Truth Quran Academy.`;
+      canonical = `https://truthquranacademy.com/category/${rawCat}`;
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "tag" || (currentView === "blog" && tagSlug)) {
+      const rawTag = tagSlug || "beginners";
+      const tagName = rawTag.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+      title = `${tagName} - Articles & Topic Guides | Truth Quran Academy`;
+      description = `Explore all articles and Quran lessons tagged with #${tagName} at Truth Quran Academy.`;
+      canonical = `https://truthquranacademy.com/tag/${rawTag}`;
+      ogTitle = title;
+      ogDesc = description;
+    } else if (currentView === "404") {
+      title = "Page Not Found (404) | Truth Quran Academy";
+      description = "The page you requested could not be found. Return to Truth Quran Academy homepage or explore our online Quran courses and pricing plans.";
       ogTitle = title;
       ogDesc = description;
     } else if (currentView === "blog") {

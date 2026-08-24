@@ -31,7 +31,7 @@ import {
 import WhatsAppIcon from "./WhatsAppIcon";
 import { blogPostsData } from "../data";
 import { getCMSData, DEFAULT_POST_IMAGE, cleanHTMLToExcerpt, ensureBlogPostSEO, BlogPost } from "../cmsStore";
-import { parseCurrentRoute, slugify } from "../utils/router";
+import { parseCurrentRoute, navigateToRoute, slugify } from "../utils/router";
 
 // Format raw HTML/Markdown body to ensure hyperlinks are properly rendered with yellow highlight, valid href, title & target attributes
 export function formatArticleBody(rawContent: string): string {
@@ -79,6 +79,8 @@ interface BlogSectionProps {
   setView: (view: string) => void;
   activePostId: string | null;
   setActivePostId: (id: string | null) => void;
+  categorySlug?: string | null;
+  tagSlug?: string | null;
 }
 
 interface Comment {
@@ -179,9 +181,12 @@ export default function BlogSection({
   currentView,
   setView,
   activePostId,
-  setActivePostId
+  setActivePostId,
+  categorySlug,
+  tagSlug
 }: BlogSectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [cms, setCms] = useState(getCMSData());
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
@@ -236,18 +241,53 @@ export default function BlogSection({
     return timeB - timeA;
   });
 
-  const categories = ["All", ...Array.from(new Set(allPosts.map(p => p.category).filter(Boolean)))];
+  const rawCategories = Array.from(new Set(allPosts.map(p => p.category).filter((c): c is string => Boolean(c)))) as string[];
+  const categories: string[] = ["All", ...rawCategories];
 
+  // Sync category and tag filter with props and route changes
   useEffect(() => {
     const route = parseCurrentRoute();
-    if (route.categorySlug) {
-      const targetSlug = route.categorySlug.toLowerCase();
-      const match = categories.find(c => slugify(String(c)) === targetSlug);
+    const activeCat = categorySlug || route.categorySlug;
+    const activeT = tagSlug || route.tagSlug;
+
+    if (activeCat) {
+      const target = activeCat.toLowerCase().trim();
+      const match = categories.find(c => 
+        slugify(String(c)) === slugify(target) || 
+        String(c).toLowerCase() === target ||
+        String(c).toLowerCase().includes(target) ||
+        target.includes(slugify(String(c)))
+      );
       if (match) {
         setSelectedCategory(match);
+      } else {
+        setSelectedCategory(activeCat);
       }
+      setSelectedTag(null);
+    } else if (activeT) {
+      setSelectedTag(activeT);
+      setSelectedCategory("All");
+    } else if (currentView === "blog") {
+      setSelectedCategory("All");
+      setSelectedTag(null);
     }
-  }, []);
+  }, [categorySlug, tagSlug, currentView]);
+
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    setSelectedTag(null);
+    if (cat === "All") {
+      navigateToRoute("blog");
+    } else {
+      navigateToRoute("category", null, slugify(cat));
+    }
+  };
+
+  const handleTagSelect = (tag: string) => {
+    setSelectedTag(tag);
+    setSelectedCategory("All");
+    navigateToRoute("tag", null, null, slugify(tag));
+  };
 
   // Handle post clicks
   const handlePostClick = (postId: string) => {
@@ -266,6 +306,13 @@ export default function BlogSection({
   // Back navigation
   const handleBackToBlog = () => {
     setActivePostId(null);
+    if (selectedCategory && selectedCategory !== "All") {
+      navigateToRoute("category", null, slugify(selectedCategory));
+    } else if (selectedTag) {
+      navigateToRoute("tag", null, null, slugify(selectedTag));
+    } else {
+      navigateToRoute("blog");
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -700,13 +747,14 @@ export default function BlogSection({
                   Article Tags:
                 </span>
                 {post.tags.map((tag) => (
-                  <span
+                  <button
                     key={tag}
-                    className="inline-flex items-center space-x-1 px-3 py-1 rounded-md bg-[#12141b] border border-[#d9b45c]/15 text-[10px] font-sans font-semibold text-[#c9c2ab]"
+                    onClick={() => handleTagSelect(tag)}
+                    className="inline-flex items-center space-x-1 px-3 py-1 rounded-md bg-[#12141b] border border-[#d9b45c]/25 hover:border-[#d9b45c] text-[10px] font-sans font-semibold text-[#c9c2ab] hover:text-[#f2d98a] transition-all cursor-pointer"
                   >
                     <Tag size={10} className="text-[#d9b45c]" />
                     <span>{tag}</span>
-                  </span>
+                  </button>
                 ))}
               </div>
             )}
@@ -942,10 +990,24 @@ export default function BlogSection({
     );
   }
 
-  // Filter logic including category and search query
+  // Filter logic including category, tag and search query
   const filteredPosts = currentPosts.filter((post) => {
-    const matchesCategory = selectedCategory === "All" || post.category === selectedCategory;
-    if (!matchesCategory) return false;
+    if (selectedTag) {
+      const matchTag = post.tags && post.tags.some(t => 
+        slugify(t) === slugify(selectedTag) || 
+        t.toLowerCase() === selectedTag.toLowerCase()
+      );
+      if (!matchTag) return false;
+    } else if (selectedCategory && selectedCategory !== "All") {
+      const postCatSlug = slugify(post.category || "");
+      const selCatSlug = slugify(selectedCategory);
+      const matchesCategory = 
+        post.category === selectedCategory || 
+        postCatSlug === selCatSlug ||
+        postCatSlug.includes(selCatSlug) ||
+        selCatSlug.includes(postCatSlug);
+      if (!matchesCategory) return false;
+    }
 
     if (!searchQuery.trim()) return true;
 
@@ -1014,21 +1076,47 @@ export default function BlogSection({
 
         {/* Category Filter Pills Row */}
         <div className="flex flex-wrap items-center justify-center gap-2.5">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-full text-[10px] font-sans font-extrabold uppercase tracking-widest border transition-all duration-300 cursor-pointer ${
-                selectedCategory === cat
-                  ? "bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-[#07080b] border-[#d9b45c] shadow-[0_4px_12px_rgba(217,180,92,0.25)]"
-                  : "bg-[#12141b]/60 text-[#c9c2ab] border-[#d9b45c]/15 hover:border-[#d9b45c]/40 hover:text-[#f3ecd8]"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const isCatActive = selectedCategory === cat && !selectedTag;
+            return (
+              <button
+                key={cat}
+                onClick={() => handleCategorySelect(cat)}
+                className={`px-4 py-2 rounded-full text-[10px] font-sans font-extrabold uppercase tracking-widest border transition-all duration-300 cursor-pointer ${
+                  isCatActive
+                    ? "bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-[#07080b] border-[#d9b45c] shadow-[0_4px_12px_rgba(217,180,92,0.25)]"
+                    : "bg-[#12141b]/60 text-[#c9c2ab] border-[#d9b45c]/15 hover:border-[#d9b45c]/40 hover:text-[#f3ecd8]"
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {/* Active Category or Tag Filter Banner */}
+      {((selectedCategory && selectedCategory !== "All") || selectedTag) && (
+        <div className="max-w-3xl mx-auto bg-[#12141b]/90 border border-[#d9b45c]/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left shadow-lg">
+          <div className="flex items-center space-x-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#d9b45c] shrink-0" />
+            <span className="text-xs text-[#f3ecd8]">
+              {selectedTag ? (
+                <>Showing articles tagged with <span className="text-[#f2d98a] font-bold">#{selectedTag}</span></>
+              ) : (
+                <>Showing articles in category <span className="text-[#f2d98a] font-bold">{selectedCategory}</span></>
+              )}
+            </span>
+          </div>
+          <button
+            onClick={() => handleCategorySelect("All")}
+            className="text-[11px] font-sans font-bold text-[#d9b45c] hover:underline cursor-pointer flex items-center space-x-1 shrink-0"
+          >
+            <span>View All Articles</span>
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      )}
 
       {searchQuery && (
         <div className="text-center text-xs font-sans text-[#c9c2ab]">

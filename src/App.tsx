@@ -57,6 +57,7 @@ import FeesPage from "./components/FeesPage";
 import VideosPage from "./components/VideosPage";
 import ContactPage from "./components/ContactPage";
 import DownloadPage from "./components/DownloadPage";
+import NotFoundPage from "./components/NotFoundPage";
 
 // Simple custom count-up component using React state and native frame scheduler
 function CountUpNumber({ end, suffix = "", duration = 2000 }: { end: number; suffix?: string; duration?: number }) {
@@ -93,8 +94,8 @@ export default function App() {
   const activePostId = routeState.activePostId;
   const isWpAdmin = routeState.isWpAdmin;
 
-  const setView = (newView: string) => {
-    navigateToRoute(newView, activePostId);
+  const setView = (newView: string, postId?: string | null, catSlug?: string | null, tagSlug?: string | null) => {
+    navigateToRoute(newView, postId !== undefined ? postId : activePostId, catSlug !== undefined ? catSlug : routeState.categorySlug, tagSlug !== undefined ? tagSlug : routeState.tagSlug);
   };
 
   const setActivePostId = (id: string | null) => {
@@ -291,7 +292,13 @@ export default function App() {
       `}</style>
 
       {/* Dynamic SEO Head with Auto Metadata & Google Search Console verification */}
-      <SEOHead cmsData={cms} currentView={currentView} activePostId={activePostId} />
+      <SEOHead 
+        cmsData={cms} 
+        currentView={currentView} 
+        activePostId={activePostId} 
+        categorySlug={routeState.categorySlug}
+        tagSlug={routeState.tagSlug}
+      />
 
       {/* 1. Global Translucent Twinkling Starfield Background */}
       <Starfield />
@@ -1025,14 +1032,20 @@ export default function App() {
         {currentView === "fees" && <FeesPage />}
         {currentView === "download" && <DownloadPage setView={setView} />}
         {currentView === "videos" && <VideosPage />}
-        {currentView === "blog" && (
+        {(currentView === "blog" || currentView === "category" || currentView === "tag") && (
           <div className="max-w-7xl mx-auto px-6 py-12 text-left space-y-12">
             <div className="text-center max-w-2xl mx-auto space-y-3">
               <span className="text-[12px] font-sans uppercase font-bold tracking-[0.22em] text-[#d9b45c] bg-[#d9b45c]/8 border border-[#d9b45c]/15 px-3 py-1 rounded-full">
                 Education & Insights
               </span>
               <h2 className="font-serif text-3xl md:text-4xl text-[#f3ecd8] font-medium tracking-tight">
-                The Academy <span className="text-[#d9b45c] italic font-normal">Insights Blog</span>
+                {currentView === "category" ? (
+                  <>Category: <span className="text-[#d9b45c] italic font-normal">{routeState.categorySlug?.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()) || "Articles"}</span></>
+                ) : currentView === "tag" ? (
+                  <>Tagged: <span className="text-[#d9b45c] italic font-normal">#{routeState.tagSlug?.replace(/-/g, " ") || "Topics"}</span></>
+                ) : (
+                  <>The Academy <span className="text-[#d9b45c] italic font-normal">Insights Blog</span></>
+                )}
               </h2>
               <p className="text-xs md:text-sm text-[#c9c2ab] leading-relaxed">
                 Read professional guide articles on Tajweed mechanics, traditional Hifz strategies, and classical Arabic linguistic studies.
@@ -1043,6 +1056,8 @@ export default function App() {
               setView={setView}
               activePostId={activePostId}
               setActivePostId={setActivePostId}
+              categorySlug={routeState.categorySlug}
+              tagSlug={routeState.tagSlug}
             />
           </div>
         )}
@@ -1054,9 +1069,12 @@ export default function App() {
               setView={setView}
               activePostId={activePostId}
               setActivePostId={setActivePostId}
+              categorySlug={routeState.categorySlug}
+              tagSlug={routeState.tagSlug}
             />
           </div>
         )}
+        {currentView === "404" && <NotFoundPage setView={setView} />}
 
       </main>
 
