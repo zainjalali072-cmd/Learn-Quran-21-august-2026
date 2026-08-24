@@ -29,6 +29,47 @@ import { blogPostsData } from "../data";
 import { getCMSData, DEFAULT_POST_IMAGE, cleanHTMLToExcerpt, ensureBlogPostSEO, BlogPost } from "../cmsStore";
 import { parseCurrentRoute, slugify } from "../utils/router";
 
+// Format raw HTML/Markdown body to ensure hyperlinks are properly rendered with yellow highlight, valid href, title & target attributes
+export function formatArticleBody(rawContent: string): string {
+  if (!rawContent) return "<p>No article content provided for this post.</p>";
+  
+  let formatted = rawContent;
+
+  // 1. Convert Markdown links [text](url) to HTML <a ...> tags if present
+  formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)/gi, (_match, text, url) => {
+    const isExternal = url.startsWith("http");
+    const targetAttr = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+    return `<a href="${url}" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer pointer-events-auto" title="${url}"${targetAttr}>${text}</a>`;
+  });
+
+  // 2. Ensure all existing <a> tags have pointer cursor, yellow color class and title tooltip for preview
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${formatted}</div>`, "text/html");
+    const links = doc.querySelectorAll("a");
+    
+    links.forEach((a) => {
+      const href = a.getAttribute("href") || "#";
+      if (!a.classList.contains("text-[#FACC15]")) {
+        a.classList.add("text-[#FACC15]", "underline", "hover:text-[#FEF08A]", "font-semibold", "cursor-pointer");
+      }
+      if (!a.getAttribute("title")) {
+        a.setAttribute("title", href);
+      }
+      if (href.startsWith("http") && !a.getAttribute("target")) {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
+    });
+
+    formatted = doc.body.firstElementChild ? doc.body.firstElementChild.innerHTML : formatted;
+  } catch (e) {
+    // Fallback regex if DOMParser isn't available
+  }
+
+  return formatted;
+}
+
 interface BlogSectionProps {
   currentView: string;
   setView: (view: string) => void;
@@ -520,10 +561,10 @@ export default function BlogSection({
               [&_td]:p-3.5 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
               [&_tr:hover]:bg-white/[0.04] [&_tr:hover]:transition-colors
               [&_.cta-button-block]:my-10 [&_.cta-button-block_a]:no-underline [&_.cta-button-block_a]:hover:no-underline
-              [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold
-              [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold
+              [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold [&>a]:cursor-pointer [&>a]:pointer-events-auto
+              [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold [&_a]:cursor-pointer [&_a]:pointer-events-auto
               [&>pre]:bg-[#07080b] [&>pre]:p-4 [&>pre]:rounded-xl [&>pre]:text-[#f2d98a] [&>pre]:font-mono [&>pre]:text-xs [&>pre]:overflow-x-auto [&>pre]:border [&>pre]:border-white/10"
-            dangerouslySetInnerHTML={{ __html: post.content || "<p>No article content provided for this post.</p>" }}
+            dangerouslySetInnerHTML={{ __html: formatArticleBody(post.content) }}
           />
 
           {/* TAGS & SHARE BLOCK */}

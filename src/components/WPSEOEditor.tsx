@@ -61,7 +61,8 @@ import {
   ArrowRight,
   HelpCircle,
   Type,
-  Unlink
+  Unlink,
+  Edit3
 } from "lucide-react";
 
 interface WPSEOEditorProps {
@@ -259,6 +260,16 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   const [linkOpenNewTab, setLinkOpenNewTab] = useState(true);
   const [savedRange, setSavedRange] = useState<Range | null>(null);
   const [savedTextareaSelection, setSavedTextareaSelection] = useState<{ start: number; end: number } | null>(null);
+
+  // Floating Hyperlink Action & Tooltip Bubble State in Visual Editor Canvas
+  const [activeLinkPopup, setActiveLinkPopup] = useState<{
+    href: string;
+    text: string;
+    top: number;
+    left: number;
+    anchorNode: HTMLAnchorElement | null;
+  } | null>(null);
+  const linkPopupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [showMediaLibraryModal, setShowMediaLibraryModal] = useState(false);
   const [mediaTargetField, setMediaTargetField] = useState<"featured" | "internal">("featured");
@@ -628,15 +639,18 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   const formatContentForPreview = (raw?: string): string => {
     if (!raw || !raw.trim()) return "<p class='text-gray-500 italic'>No content written yet.</p>";
     
-    // If raw already contains HTML tags like <p>, <h2>, <h3>, <table>, <div>, <ul>, <ol>, <blockquote>
-    const hasHtml = /<\/?(p|h[1-6]|table|div|ul|ol|blockquote|hr|section|article)[^>]*>/i.test(raw);
+    // Process markdown links in any text [text](url) -> <a href="url" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer">text</a>
+    let processed = raw.replace(/\[(.*?)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" title="Click to visit: $2" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer">$1</a>');
+
+    // If raw already contains HTML tags like <p>, <h2>, <h3>, <table>, <div>, <ul>, <ol>, <blockquote>, <a>
+    const hasHtml = /<\/?(p|h[1-6]|table|div|ul|ol|blockquote|hr|section|article|a)[^>]*>/i.test(processed);
     
     if (hasHtml) {
-      return raw;
+      return processed;
     }
 
     // Convert plain text / markdown blocks into clean HTML
-    const blocks = raw.split(/\n\n+/);
+    const blocks = processed.split(/\n\n+/);
     const formatted = blocks.map((block) => {
       const trimmed = block.trim();
       if (!trimmed) return "";
@@ -788,16 +802,17 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       const unwanted = doc.querySelectorAll("script, style, meta, link, noscript, svg, form, input, button");
       unwanted.forEach((el) => el.remove());
 
-      // 1. Process & Safeguard all Hyperlink <a> tags with Vibrant Yellow Styling (#FACC15)
+      // 1. Process & Safeguard all Hyperlink <a> tags with Vibrant Yellow Styling (#FACC15) & Pointer Cursor
       const allLinks = doc.querySelectorAll("a");
       allLinks.forEach((link) => {
         const href = link.getAttribute("href");
         if (href) {
           link.setAttribute("target", "_blank");
           link.setAttribute("rel", "noopener noreferrer");
+          link.setAttribute("title", `Click to visit: ${href}`);
           const existingClass = link.getAttribute("class") || "";
           if (!existingClass.includes("text-[#FACC15]")) {
-            link.setAttribute("class", `${existingClass} text-[#FACC15] underline hover:text-[#FEF08A] font-semibold`.trim());
+            link.setAttribute("class", `${existingClass} text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer`.trim());
           }
         }
       });
@@ -894,7 +909,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         .replace(/__(.*?)__/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/_(.*?)_/g, '<em>$1</em>')
-        .replace(/\[(.*?)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">$1</a>');
+        .replace(/\[(.*?)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" title="Click to visit: $2" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer">$1</a>');
 
       // Pre-existing HTML block elements (preserve directly without re-wrapping)
       if (/^<h[1-6][^>]*>(.*?)<\/h[1-6]>/i.test(trimmed) || /^<(table|div|hr|ul|ol|blockquote|p|img|iframe|section)/i.test(trimmed)) {
@@ -1364,6 +1379,49 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     }, 100);
   };
 
+  const handleVisualMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    const anchor = (target?.tagName === "A" ? target : target?.closest("a")) as HTMLAnchorElement | null;
+    if (anchor && visualEditorRef.current) {
+      if (linkPopupTimeoutRef.current) {
+        clearTimeout(linkPopupTimeoutRef.current);
+      }
+      const rect = anchor.getBoundingClientRect();
+      const parentRect = visualEditorRef.current.getBoundingClientRect();
+      setActiveLinkPopup({
+        href: anchor.getAttribute("href") || "https://truthquranacademy.com/",
+        text: anchor.textContent || "",
+        top: Math.max(5, rect.top - parentRect.top + visualEditorRef.current.scrollTop - 44),
+        left: Math.max(10, Math.min(rect.left - parentRect.left + (rect.width / 2) - 120, parentRect.width - 270)),
+        anchorNode: anchor,
+      });
+    }
+  };
+
+  const handleVisualMouseLeave = () => {
+    if (linkPopupTimeoutRef.current) {
+      clearTimeout(linkPopupTimeoutRef.current);
+    }
+    linkPopupTimeoutRef.current = setTimeout(() => {
+      setActiveLinkPopup(null);
+    }, 400);
+  };
+
+  const handleVisualClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    const anchor = (target?.tagName === "A" ? target : target?.closest("a")) as HTMLAnchorElement | null;
+    if (anchor) {
+      // If user holds Ctrl/Cmd or clicks with link popup, permit opening or clicking
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const href = anchor.getAttribute("href");
+        if (href) {
+          window.open(href, "_blank", "noopener,noreferrer");
+        }
+      }
+    }
+  };
+
   const handleVisualPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
     const htmlData = e.clipboardData.getData("text/html");
@@ -1662,35 +1720,38 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   };
 
   // Dedicated Hyperlink Inserter with Yellow (#FACC15) Anchor Text & Presets
-  const openLinkModal = () => {
+  const openLinkModal = (prefillHref?: string, prefillText?: string) => {
     if (!currentPost) return;
 
-    let selectedText = "";
-    let currentHref = "";
+    let selectedText = prefillText || "";
+    let currentHref = prefillHref || "";
 
-    if (editorMode === "visual" && viewLayoutMode === "editor") {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        setSavedRange(range.cloneRange());
-        selectedText = range.toString().trim();
+    if (!selectedText && !currentHref) {
+      if (editorMode === "visual" && viewLayoutMode === "editor") {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          setSavedRange(range.cloneRange());
+          selectedText = range.toString().trim();
 
-        // Check if selection / cursor is inside an existing <a> tag
-        let node: Node | null = range.commonAncestorContainer;
-        if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
-        if (node && (node as HTMLElement).tagName === "A") {
-          currentHref = (node as HTMLAnchorElement).getAttribute("href") || "";
-          if (!selectedText) selectedText = (node as HTMLElement).textContent || "";
+          // Check if selection / cursor is inside an existing <a> tag
+          let node: Node | null = range.commonAncestorContainer;
+          if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+          const anchorEl = (node as HTMLElement)?.closest?.("a") || ((node as HTMLElement)?.tagName === "A" ? (node as HTMLElement) : null);
+          if (anchorEl) {
+            currentHref = (anchorEl as HTMLAnchorElement).getAttribute("href") || "";
+            if (!selectedText) selectedText = anchorEl.textContent || "";
+          }
         }
-      }
-    } else {
-      const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
-      if (textarea) {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        setSavedTextareaSelection({ start, end });
-        if (start !== end) {
-          selectedText = (currentPost.content || "").substring(start, end).trim();
+      } else {
+        const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+        if (textarea) {
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          setSavedTextareaSelection({ start, end });
+          if (start !== end) {
+            selectedText = (currentPost.content || "").substring(start, end).trim();
+          }
         }
       }
     }
@@ -1707,7 +1768,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     const url = (linkUrl || "").trim() || "/";
 
     const targetAttr = linkOpenNewTab ? ' target="_blank" rel="noopener noreferrer"' : '';
-    const linkHtml = `<a href="${url}"${targetAttr} class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold">${text}</a>`;
+    const titleAttr = ` title="Visit: ${url}"`;
+    const linkHtml = `<a href="${url}"${targetAttr}${titleAttr} class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer">${text}</a>`;
 
     if (editorMode === "visual" && viewLayoutMode === "editor") {
       if (visualEditorRef.current) {
@@ -1743,8 +1805,21 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     showToast(`✅ Hyperlink applied to "${text}" with Yellow (#FACC15) anchor styling!`);
   };
 
-  const handleRemoveLink = () => {
+  const handleRemoveLink = (customAnchorNode?: HTMLAnchorElement | null) => {
     if (!currentPost) return;
+    if (customAnchorNode && customAnchorNode.parentNode) {
+      const textNode = document.createTextNode(customAnchorNode.textContent || "");
+      customAnchorNode.parentNode.replaceChild(textNode, customAnchorNode);
+      if (visualEditorRef.current) {
+        const newHtml = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", newHtml);
+        pushHistory(newHtml);
+      }
+      setActiveLinkPopup(null);
+      showToast("Link removed from anchor text.");
+      return;
+    }
+
     if (editorMode === "visual" && viewLayoutMode === "editor") {
       if (visualEditorRef.current) {
         visualEditorRef.current.focus();
@@ -1773,7 +1848,66 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       }
     }
     setShowLinkModal(false);
+    setActiveLinkPopup(null);
     showToast("Link removed from anchor text.");
+  };
+
+  // Auto-Link & Span Upgrade Utility: Scans entire article for yellow spans or unlinked keywords and converts to active <a> hyperlinks
+  const handleAutoLinkAndFixSpans = () => {
+    if (!currentPost || !currentPost.content) {
+      showToast("No content to scan.");
+      return;
+    }
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(currentPost.content, "text/html");
+      let fixedCount = 0;
+
+      // 1. Upgrade any yellow spans to genuine <a> tags
+      const yellowSpans = doc.querySelectorAll('span[class*="FACC15"], span[class*="yellow"], span[style*="250, 204, 21"], span[style*="yellow"]');
+      yellowSpans.forEach((span) => {
+        if (!span.closest("a")) {
+          const text = span.textContent?.trim() || "";
+          if (text) {
+            const anchor = doc.createElement("a");
+            anchor.setAttribute("href", "https://truthquranacademy.com/");
+            anchor.setAttribute("target", "_blank");
+            anchor.setAttribute("rel", "noopener noreferrer");
+            anchor.setAttribute("title", "Click to visit: https://truthquranacademy.com/");
+            anchor.setAttribute("class", "text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer");
+            anchor.textContent = text;
+            span.parentNode?.replaceChild(anchor, span);
+            fixedCount++;
+          }
+        }
+      });
+
+      // 2. Ensure all existing <a> tags have proper Yellow styling, target="_blank", rel, title, and pointer cursor
+      const allAnchors = doc.querySelectorAll("a");
+      allAnchors.forEach((a) => {
+        const href = a.getAttribute("href") || "https://truthquranacademy.com/";
+        a.setAttribute("href", href);
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+        a.setAttribute("title", `Click to visit: ${href}`);
+        const cls = a.getAttribute("class") || "";
+        if (!cls.includes("text-[#FACC15]")) {
+          a.setAttribute("class", `${cls} text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer`.trim());
+          fixedCount++;
+        }
+      });
+
+      const updatedHtml = doc.body.innerHTML;
+      handleUpdateField("content", updatedHtml);
+      pushHistory(updatedHtml);
+      if (visualEditorRef.current) {
+        visualEditorRef.current.innerHTML = updatedHtml;
+      }
+      showToast(`🎯 Verified & upgraded ${fixedCount} anchor hyperlinks with yellow styling & valid target URL!`);
+    } catch (err) {
+      console.error("Error auto-linking spans:", err);
+    }
   };
 
   const handleInsertLink = () => {
@@ -2286,6 +2420,27 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                           <span className="text-[9px] bg-white/5 text-[#d9b45c] px-1.5 py-0.5 rounded font-mono">Auto</span>
                         </button>
 
+                        {/* Fix / Upgrade Yellow Anchor Links */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            handleAutoLinkAndFixSpans();
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#FACC15]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#FACC15]/20 group-hover:bg-[#FACC15]/40 flex items-center justify-center text-[#FACC15]">
+                              <Link2 size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#FACC15]">Fix / Verify Hyperlinks</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Upgrade yellow text to active &lt;a&gt; links</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-[#FACC15]/20 text-[#FACC15] px-1.5 py-0.5 rounded font-mono">Links</span>
+                        </button>
+
                         {/* Table */}
                         <button
                           type="button"
@@ -2734,6 +2889,54 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     </div>
                   )}
 
+                  {/* Floating Hyperlink Tooltip / Action Bubble on Anchor Text */}
+                  {activeLinkPopup && (
+                    <div
+                      style={{
+                        top: `${activeLinkPopup.top}px`,
+                        left: `${activeLinkPopup.left}px`,
+                      }}
+                      onMouseEnter={() => {
+                        if (linkPopupTimeoutRef.current) {
+                          clearTimeout(linkPopupTimeoutRef.current);
+                        }
+                      }}
+                      onMouseLeave={handleVisualMouseLeave}
+                      className="absolute z-50 bg-[#12141b] border-2 border-[#FACC15]/80 rounded-xl px-3 py-1.5 shadow-2xl flex items-center space-x-2 text-xs backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
+                    >
+                      <div className="flex items-center space-x-1.5 max-w-[200px]">
+                        <span className="text-[#FACC15] font-bold">🔗</span>
+                        <a
+                          href={activeLinkPopup.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#FACC15] hover:text-[#FEF08A] underline font-mono text-[11px] truncate max-w-[150px]"
+                          title={`Open ${activeLinkPopup.href} in new tab`}
+                        >
+                          {activeLinkPopup.href}
+                        </a>
+                      </div>
+                      <div className="h-3 w-[1px] bg-white/20"></div>
+                      <button
+                        type="button"
+                        onClick={() => openLinkModal(activeLinkPopup.href, activeLinkPopup.text)}
+                        className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 text-white rounded text-[10px] font-bold flex items-center space-x-1 transition-colors"
+                        title="Edit link destination or anchor text"
+                      >
+                        <Edit3 size={10} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLink(activeLinkPopup.anchorNode)}
+                        className="p-1 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded transition-colors"
+                        title="Remove hyperlink and convert to normal text"
+                      >
+                        <Unlink size={11} />
+                      </button>
+                    </div>
+                  )}
+
                   {/* WYSIWYG Rich Visual Canvas */}
                   <div
                     ref={visualEditorRef}
@@ -2743,6 +2946,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     onInput={handleVisualInput}
                     onPaste={handleVisualPaste}
                     onKeyDown={handleVisualKeyDown}
+                    onMouseMove={handleVisualMouseMove}
+                    onMouseLeave={handleVisualMouseLeave}
+                    onClick={handleVisualClick}
                     data-placeholder="Start typing your English article here, or paste any text for automatic heading and paragraph detection..."
                     className="prose prose-invert max-w-none min-h-[400px] outline-none text-[#F3F4F6] font-sans text-sm md:text-base leading-relaxed
                       [&>h1]:font-serif [&>h1]:text-2xl [&>h1]:md:text-3xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-6 [&>h1]:mb-3
@@ -2759,8 +2965,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:border [&_table]:border-[#d9b45c]/30 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:text-xs [&_table]:md:text-sm [&_table]:bg-[#12141b]/90 [&_table]:text-left
                       [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-3 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10
                       [&_td]:p-3 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
-                      [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold
-                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold"
+                      [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold [&>a]:cursor-pointer [&>a]:pointer-events-auto
+                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold [&_a]:cursor-pointer [&_a]:pointer-events-auto"
                   />
                   {/* Hidden textarea reference for seamless fallback and compatibility */}
                   <textarea
@@ -3938,15 +4144,31 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
             {/* Modal Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-white/10">
-              <button
-                type="button"
-                onClick={handleRemoveLink}
-                className="px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-xl flex items-center space-x-1 transition-colors"
-                title="Remove hyperlink and keep anchor text"
-              >
-                <Unlink size={13} />
-                <span>Remove Link</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleRemoveLink();
+                  }}
+                  className="px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-xl flex items-center space-x-1 transition-colors"
+                  title="Remove hyperlink and keep anchor text"
+                >
+                  <Unlink size={13} />
+                  <span>Remove Link</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAutoLinkAndFixSpans();
+                    setShowLinkModal(false);
+                  }}
+                  className="px-2.5 py-1.5 bg-white/5 hover:bg-[#FACC15]/20 text-[#c9c2ab] hover:text-[#FACC15] border border-white/10 rounded-xl text-[11px] font-semibold transition-all flex items-center space-x-1"
+                  title="Auto-scan and verify all anchor links & yellow spans across the entire article"
+                >
+                  <Sparkles size={12} className="text-[#FACC15]" />
+                  <span>Auto-Fix All Links in Article</span>
+                </button>
+              </div>
               
               <div className="flex items-center space-x-2">
                 <button

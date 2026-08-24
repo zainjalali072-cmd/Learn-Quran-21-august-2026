@@ -109,14 +109,17 @@ body {
 .preview-content a,
 #gutenberg-preview-canvas a,
 #visual-editor-canvas a,
-div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]) {
+div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]),
+a[href] {
   color: #FACC15 !important;
   text-decoration: underline !important;
   text-underline-offset: 3px !important;
-  text-decoration-color: rgba(250, 204, 21, 0.7) !important;
+  text-decoration-color: #FACC15 !important;
   font-weight: 600 !important;
   cursor: pointer !important;
-  transition: all 0.2s ease-in-out !important;
+  pointer-events: auto !important;
+  display: inline !important;
+  transition: all 0.15s ease-in-out !important;
 }
 
 .prose a:hover,
@@ -126,9 +129,11 @@ div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([c
 .preview-content a:hover,
 #gutenberg-preview-canvas a:hover,
 #visual-editor-canvas a:hover,
-div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):hover {
+div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):hover,
+a[href]:hover {
   color: #FEF08A !important;
   text-decoration-color: #FEF08A !important;
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
 }
 
 /* Ensure H3 Headings Maintain Standard Clean Text Color (Not Yellow) */
