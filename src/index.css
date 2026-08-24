@@ -101,16 +101,14 @@ body {
   animation-play-state: paused;
 }
 
-/* Universal Article Hyperlink & Anchor Text Yellow Styling (#FACC15) */
-.prose a,
-.article-content a,
-.visual-editor-content a,
-.wp-article-body a,
-.preview-content a,
-#gutenberg-preview-canvas a,
-#visual-editor-canvas a,
-div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]),
-a[href] {
+/* Scoped Article Hyperlink & Anchor Text Yellow Styling (#FACC15) */
+.prose a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]),
+.article-content a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]),
+.visual-editor-content a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]),
+.wp-article-body a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]),
+.preview-content a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]),
+#gutenberg-preview-canvas a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]),
+#visual-editor-canvas a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]) {
   color: #FACC15 !important;
   text-decoration: underline !important;
   text-underline-offset: 3px !important;
@@ -118,19 +116,16 @@ a[href] {
   font-weight: 600 !important;
   cursor: pointer !important;
   pointer-events: auto !important;
-  display: inline !important;
   transition: all 0.15s ease-in-out !important;
 }
 
-.prose a:hover,
-.article-content a:hover,
-.visual-editor-content a:hover,
-.wp-article-body a:hover,
-.preview-content a:hover,
-#gutenberg-preview-canvas a:hover,
-#visual-editor-canvas a:hover,
-div[dangerouslySetInnerHTML] a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):hover,
-a[href]:hover {
+.prose a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]):hover,
+.article-content a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]):hover,
+.visual-editor-content a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]):hover,
+.wp-article-body a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]):hover,
+.preview-content a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]):hover,
+#gutenberg-preview-canvas a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]):hover,
+#visual-editor-canvas a:not([class*="btn"]):not([class*="button"]):not([class*="cta"]):not([class*="rounded-full"]):hover {
   color: #FEF08A !important;
   text-decoration-color: #FEF08A !important;
   text-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
