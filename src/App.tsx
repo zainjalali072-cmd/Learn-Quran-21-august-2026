@@ -47,7 +47,7 @@ import AutoOpeningQuran from "./components/AutoOpeningQuran";
 import BlogSection from "./components/BlogSection";
 import WPSimulator from "./components/WPSimulator";
 import SEOHead from "./components/SEOHead";
-import { getCMSData, fetchCMSDataFromServer } from "./cmsStore";
+import { getCMSData, fetchCMSDataFromServer, getCourseFallbackImage } from "./cmsStore";
 
 import AboutPage from "./components/AboutPage";
 import CoursesPage from "./components/CoursesPage";
@@ -572,9 +572,19 @@ export default function App() {
                         
                         {/* Course Image Background */}
                         <img 
-                          src={course.image} 
-                          alt={course.title}
+                          src={course.image || getCourseFallbackImage(course.id || course.title)} 
+                          alt=""
+                          aria-hidden="true"
                           referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            const fallback = getCourseFallbackImage(course.id || course.title);
+                            if (target.src !== fallback) {
+                              target.src = fallback;
+                            } else {
+                              target.style.display = "none";
+                            }
+                          }}
                           className="absolute inset-0 w-full h-full object-cover opacity-25 group-hover:scale-110 transition-transform duration-700 pointer-events-none"
                         />
                         

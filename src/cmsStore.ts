@@ -514,6 +514,38 @@ export const DEFAULT_SEO_HEALTH = {
 
 export const DEFAULT_POST_IMAGE = tajweedMasteryBg;
 
+export const getCourseFallbackImage = (courseIdOrTitle?: string): string => {
+  const lower = (courseIdOrTitle || "").toLowerCase();
+  if (lower.includes("noorani") || lower.includes("qaida")) {
+    return kidsLearningBg;
+  }
+  if (lower.includes("tajweed")) {
+    return tajweedMasteryBg;
+  }
+  if (lower.includes("hifz") || lower.includes("memoriz")) {
+    return parentKidsQuranBg || kidsLearningBg;
+  }
+  if (lower.includes("tafseer") || lower.includes("translat")) {
+    return tajweedMasteryBg;
+  }
+  if (lower.includes("arabic")) {
+    return teacherBg;
+  }
+  if (lower.includes("kids") || lower.includes("islamic")) {
+    return islamicKidsLearningBg || kidsLearningBg;
+  }
+  return tajweedMasteryBg;
+};
+
+export const ensureCourse = (course: Course): Course => {
+  if (!course) return course;
+  const fallback = getCourseFallbackImage(course.id || course.title);
+  return {
+    ...course,
+    image: (course.image && typeof course.image === "string" && course.image.trim().length > 0) ? course.image : fallback
+  };
+};
+
 export const cleanHTMLToExcerpt = (content: string, existingExcerpt?: string): string => {
   if (existingExcerpt && existingExcerpt.trim().length > 0) {
     const strippedExisting = existingExcerpt
@@ -638,7 +670,7 @@ export const getDefaultCMSData = (): CMSData => {
     whatsappLink: academyContact.whatsapp,
     facebookLink: academyContact.facebook,
     instagramLink: academyContact.instagram,
-    courses: coursesData,
+    courses: coursesData.map(ensureCourse),
     whyUs: whyUsData,
     pricingPlans: pricingPlans,
     testimonials: testimonialsData,
@@ -832,7 +864,7 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
       ...(incoming.customImages || {}),
       ...(cached.customImages || {})
     },
-    courses: (cached.courses && cached.courses.length > 0) ? cached.courses : (incoming.courses || baseDefaults.courses),
+    courses: ((cached.courses && cached.courses.length > 0) ? cached.courses : (incoming.courses || baseDefaults.courses)).map(ensureCourse),
     pricingPlans: (cached.pricingPlans && cached.pricingPlans.length > 0) ? cached.pricingPlans : (incoming.pricingPlans || baseDefaults.pricingPlans),
     teachers: (cached.teachers && cached.teachers.length > 0) ? cached.teachers : (incoming.teachers || baseDefaults.teachers),
     testimonials: (cached.testimonials && cached.testimonials.length > 0) ? cached.testimonials : (incoming.testimonials || baseDefaults.testimonials),

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { BookOpen, Sparkles, Star, ChevronRight, MessageCircle } from "lucide-react";
 import { coursesData, academyContact } from "../data";
+import { getCourseFallbackImage } from "../cmsStore";
 
 export default function CoursesPage() {
   const [filter, setFilter] = useState<string>("All");
@@ -67,9 +68,16 @@ export default function CoursesPage() {
               {/* Image Banner */}
               <div className="h-48 relative overflow-hidden bg-zinc-950">
                 <img
-                  src={course.image}
+                  src={course.image || getCourseFallbackImage(course.id || course.title)}
                   alt={course.title}
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    const fallback = getCourseFallbackImage(course.id || course.title);
+                    if (target.src !== fallback) {
+                      target.src = fallback;
+                    }
+                  }}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#12141b] via-black/25 to-transparent" />

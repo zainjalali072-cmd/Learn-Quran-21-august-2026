@@ -1172,6 +1172,16 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
                         className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded-lg p-2.5 text-xs text-white"
                       />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-[#c9c2ab] uppercase font-bold tracking-wider">Course Background Image URL</label>
+                      <input 
+                        type="text" 
+                        placeholder="https://... or image asset URL"
+                        value={formData.image || ""}
+                        onChange={(e) => setFormData((prev: any) => ({ ...prev, image: e.target.value }))}
+                        className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded-lg p-2.5 text-xs text-white"
+                      />
+                    </div>
                   </>
                 )}
 

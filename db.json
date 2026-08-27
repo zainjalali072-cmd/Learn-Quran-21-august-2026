@@ -20,6 +20,7 @@
       "tag": "Foundational Pathway",
       "difficulty": "Beginners (No Prereqs)",
       "rating": 5,
+      "image": "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&h=800&q=80",
       "description": "Master Arabic alphabet pronunciation and connecting letters with classical Tajweed rules from the absolute ground up."
     },
     {
@@ -29,6 +30,7 @@
       "tag": "Phonetic Precision",
       "difficulty": "Intermediate level",
       "rating": 5,
+      "image": "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?auto=format&fit=crop&w=1200&h=800&q=80",
       "description": "A comprehensive deep dive into the rules of Noon Sakinah, Meem Sakinah, Mudood (elongations), and advanced Makharij (letter origins)."
     },
     {
@@ -38,6 +40,7 @@
       "tag": "Spiritual Retention",
       "difficulty": "All levels (Tailored)",
       "rating": 5,
+      "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&h=800&q=80",
       "description": "Structured, private 1-on-1 memorization plans led by certified scholars to guide retention and rapid secure recall with classical revision loops."
     }
   ],
@@ -255,5 +258,154 @@
     "elementorCompatible": true,
     "securityFirewallActive": true
   },
-  "traffic_logs": []
+  "traffic_logs": [
+    {
+      "id": "hit_1787816530650_fgwux",
+      "timestamp": "2026-08-27T07:42:10.650Z",
+      "ip": "103.115.199.165",
+      "country": "GB",
+      "countryName": "United Kingdom",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1787493793567_rfjz67j",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1787816530723_i81ik",
+      "timestamp": "2026-08-27T07:42:10.723Z",
+      "ip": "103.115.199.165",
+      "country": "GB",
+      "countryName": "United Kingdom",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1787493793567_rfjz67j",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+    }
+  ],
+  "indexingSettings": {
+    "isEnabled": true,
+    "autoIndexPosts": true,
+    "autoIndexCourses": true,
+    "autoIndexPages": true,
+    "autoPingSitemap": true,
+    "googleServiceAccountEmail": "rankmath-fast-indexer@truthquranacademy.iam.gserviceaccount.com",
+    "googlePrivateKey": "",
+    "googleJsonConfig": "",
+    "indexNowKey": "4a8e2bc9d17f4019a58b43f9a721b06c",
+    "dailyQuotaUsed": 5,
+    "dailyQuotaTotal": 200
+  },
+  "indexingLogs": [
+    {
+      "id": "idx_log_1787814696055",
+      "timestamp": "2026-08-27T07:11:36.055Z",
+      "url": "https://truthquranacademy.com/",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console API accepted URL notification. Googlebot crawl scheduled.",
+      "latencyMs": 118
+    },
+    {
+      "id": "idx_log_1787812896055",
+      "timestamp": "2026-08-27T06:41:36.055Z",
+      "url": "https://truthquranacademy.com/blog/hifz-tips-success",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing & search bot network.",
+      "latencyMs": 135
+    }
+  ],
+  "indexingStatus": {
+    "https://truthquranacademy.com/": {
+      "url": "https://truthquranacademy.com/",
+      "title": "Truth Quran Academy Home",
+      "type": "page",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "lastCrawled": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed (Submitted & Indexed)",
+      "indexNowStatus": "Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/about": {
+      "url": "https://truthquranacademy.com/about",
+      "title": "About Our Academy",
+      "type": "page",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed",
+      "indexNowStatus": "Verified",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/courses": {
+      "url": "https://truthquranacademy.com/courses",
+      "title": "Online Quran Courses",
+      "type": "page",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed",
+      "indexNowStatus": "Verified",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/noorani-qaida": {
+      "url": "https://truthquranacademy.com/noorani-qaida",
+      "title": "Noorani Qaida Course",
+      "type": "course",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed",
+      "indexNowStatus": "Verified",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/kids-classes": {
+      "url": "https://truthquranacademy.com/kids-classes",
+      "title": "Kids Quran Classes",
+      "type": "course",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed",
+      "indexNowStatus": "Verified",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog": {
+      "url": "https://truthquranacademy.com/blog",
+      "title": "Academy Blog & Insights",
+      "type": "page",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed",
+      "indexNowStatus": "Verified",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog/hifz-tips-success": {
+      "url": "https://truthquranacademy.com/blog/hifz-tips-success",
+      "title": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
+      "type": "post",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed",
+      "indexNowStatus": "Verified",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog/tajweed-importance": {
+      "url": "https://truthquranacademy.com/blog/tajweed-importance",
+      "title": "Understanding the Essential Rules of Tajweed",
+      "type": "post",
+      "status": "Indexed",
+      "lastSubmitted": "2026-08-27T07:41:36.055Z",
+      "googleStatus": "Indexed",
+      "indexNowStatus": "Verified",
+      "httpCode": 200
+    }
+  }
 }

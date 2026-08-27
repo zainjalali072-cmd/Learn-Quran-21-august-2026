@@ -38,9 +38,9 @@ const DEFAULT_USERS = [
 ];
 
 const DEFAULT_COURSES = [
-  { id: "noorani-qaida", title: "Noorani Qaida foundational phonetics", arabicGlyph: "القاعدة النورانية", tag: "Foundational Pathway", difficulty: "Beginners (No Prereqs)", rating: 5, description: "Master Arabic alphabet pronunciation and connecting letters with classical Tajweed rules from the absolute ground up." },
-  { id: "tajweed-intensive", title: "Tajweed Intensive Recitation Excellence", arabicGlyph: "تجويد القرآن", tag: "Phonetic Precision", difficulty: "Intermediate level", rating: 5, description: "A comprehensive deep dive into the rules of Noon Sakinah, Meem Sakinah, Mudood (elongations), and advanced Makharij (letter origins)." },
-  { id: "quran-hifz", title: "Quran Hifz & Memory Pathway", arabicGlyph: "حفظ القرآن", tag: "Spiritual Retention", difficulty: "All levels (Tailored)", rating: 5, description: "Structured, private 1-on-1 memorization plans led by certified scholars to guide retention and rapid secure recall with classical revision loops." }
+  { id: "noorani-qaida", title: "Noorani Qaida foundational phonetics", arabicGlyph: "القاعدة النورانية", tag: "Foundational Pathway", difficulty: "Beginners (No Prereqs)", rating: 5, image: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&h=800&q=80", description: "Master Arabic alphabet pronunciation and connecting letters with classical Tajweed rules from the absolute ground up." },
+  { id: "tajweed-intensive", title: "Tajweed Intensive Recitation Excellence", arabicGlyph: "تجويد القرآن", tag: "Phonetic Precision", difficulty: "Intermediate level", rating: 5, image: "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?auto=format&fit=crop&w=1200&h=800&q=80", description: "A comprehensive deep dive into the rules of Noon Sakinah, Meem Sakinah, Mudood (elongations), and advanced Makharij (letter origins)." },
+  { id: "quran-hifz", title: "Quran Hifz & Memory Pathway", arabicGlyph: "حفظ القرآن", tag: "Spiritual Retention", difficulty: "All levels (Tailored)", rating: 5, image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&h=800&q=80", description: "Structured, private 1-on-1 memorization plans led by certified scholars to guide retention and rapid secure recall with classical revision loops." }
 ];
 
 const DEFAULT_FAQS = [
