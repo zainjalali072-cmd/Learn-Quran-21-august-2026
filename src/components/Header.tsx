@@ -59,13 +59,29 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
     return false;
   };
 
-  const handleLinkClick = (id: string) => {
+  const getViewHref = (id: string) => {
+    if (id === "home") return "/";
+    if (id === "about") return "/about";
+    if (id === "courses") return "/courses";
+    if (id === "noorani-qaida") return "/noorani-qaida";
+    if (id === "kids-classes") return "/kids-classes";
+    if (id === "fees" || id === "pricing") return "/fees";
+    if (id === "videos") return "/videos";
+    if (id === "download") return "/download";
+    if (id === "blog") return "/blog";
+    if (id === "contact") return "/contact";
+    return `/${id}`;
+  };
+
+  const handleLinkClick = (id: string, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     setIsMobileMenuOpen(false);
     setView(id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleLogoClick = () => {
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     setView("home");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -78,7 +94,8 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
     <header className="sticky top-0 w-full z-50 bg-[#07080b]/80 backdrop-blur-md border-b border-[#d9b45c]/18 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo Left */}
-        <div 
+        <a 
+          href="/"
           onClick={handleLogoClick}
           className="flex items-center space-x-2.5 cursor-pointer select-none group"
           id="header-logo-container"
@@ -99,7 +116,7 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
               Academy
             </span>
           </div>
-        </div>
+        </a>
 
         {/* Center Nav Links (Desktop) */}
         <nav className="hidden lg:flex items-center space-x-7" id="desktop-nav">
@@ -130,17 +147,18 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
                   {isDropdownOpen && (
                     <div className="absolute top-[80%] left-1/2 -translate-x-1/2 w-52 bg-[#0e1015]/95 backdrop-blur-md border border-[#d9b45c]/25 rounded-xl p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] animate-in fade-in slide-in-from-top-2 duration-150 flex flex-col space-y-1">
                       {link.children.map((subLink) => (
-                        <button
+                        <a
                           key={subLink.id}
-                          onClick={() => handleLinkClick(subLink.id)}
-                          className={`text-left px-3 py-2 text-[11px] font-sans font-bold tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                          href={getViewHref(subLink.id)}
+                          onClick={(e) => handleLinkClick(subLink.id, e)}
+                          className={`text-left px-3 py-2 text-[11px] font-sans font-bold tracking-wider uppercase rounded-lg transition-colors cursor-pointer block ${
                             isViewActive(subLink.id)
                               ? "bg-[#d9b45c]/12 text-[#f2d98a]"
                               : "text-[#c9c2ab] hover:bg-[#d9b45c]/8 hover:text-[#f3ecd8]"
                           }`}
                         >
                           {subLink.label}
-                        </button>
+                        </a>
                       ))}
                     </div>
                   )}
@@ -149,15 +167,16 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
             }
 
             return (
-              <button
+              <a
                 key={link.id}
-                onClick={() => handleLinkClick(link.id)}
+                href={getViewHref(link.id)}
+                onClick={(e) => handleLinkClick(link.id, e)}
                 className={`text-xs font-sans font-semibold tracking-wider uppercase transition-colors cursor-pointer ${
                   isViewActive(link.id) ? "text-[#f2d98a]" : "text-[#c9c2ab] hover:text-[#f2d98a]"
                 }`}
               >
                 {link.label}
-              </button>
+              </a>
             );
           })}
         </nav>
@@ -172,12 +191,13 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
           >
             <span>Free Trial</span>
           </a>
-          <button
-            onClick={() => handleLinkClick("contact")}
-            className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-xs font-sans font-extrabold text-[#07080b] shadow-[0_4px_15px_rgba(217,180,92,0.3)] hover:shadow-[0_4px_25px_rgba(217,180,92,0.5)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
+          <a
+            href="/contact"
+            onClick={(e) => handleLinkClick("contact", e)}
+            className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-xs font-sans font-extrabold text-[#07080b] shadow-[0_4px_15px_rgba(217,180,92,0.3)] hover:shadow-[0_4px_25px_rgba(217,180,92,0.5)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer inline-block"
           >
             Enquire
-          </button>
+          </a>
         </div>
 
         {/* Mobile Hamburger Button */}
@@ -217,15 +237,16 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
                     {isOpen && (
                       <div className="pl-4 flex flex-col space-y-2 border-l border-[#d9b45c]/20 py-1">
                         {link.children.map((subLink) => (
-                          <button
+                          <a
                             key={subLink.id}
-                            onClick={() => handleLinkClick(subLink.id)}
-                            className={`text-left py-1.5 font-sans font-semibold tracking-wider text-xs uppercase transition-colors cursor-pointer ${
+                            href={getViewHref(subLink.id)}
+                            onClick={(e) => handleLinkClick(subLink.id, e)}
+                            className={`text-left py-1.5 font-sans font-semibold tracking-wider text-xs uppercase transition-colors cursor-pointer block ${
                               isViewActive(subLink.id) ? "text-[#f2d98a]" : "text-[#c9c2ab]/80 hover:text-[#f2d98a]"
                             }`}
                           >
                             {subLink.label}
-                          </button>
+                          </a>
                         ))}
                       </div>
                     )}
@@ -234,15 +255,16 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
               }
 
               return (
-                <button
+                <a
                   key={link.id}
-                  onClick={() => handleLinkClick(link.id)}
-                  className={`text-left py-2 font-sans font-semibold tracking-wider uppercase text-sm transition-colors cursor-pointer ${
+                  href={getViewHref(link.id)}
+                  onClick={(e) => handleLinkClick(link.id, e)}
+                  className={`text-left py-2 font-sans font-semibold tracking-wider uppercase text-sm transition-colors cursor-pointer block ${
                     isViewActive(link.id) ? "text-[#f2d98a]" : "text-[#c9c2ab] hover:text-[#f2d98a]"
                   }`}
                 >
                   {link.label}
-                </button>
+                </a>
               );
             })}
              <div className="pt-4 border-t border-[#d9b45c]/10 flex flex-col space-y-3">
@@ -254,12 +276,13 @@ export default function Header({ currentView, setView, onNavigate }: HeaderProps
               >
                 <span>Free Trial</span>
               </a>
-              <button
-                onClick={() => handleLinkClick("contact")}
-                className="w-full text-center py-3 rounded-full bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-sm font-sans font-extrabold text-[#07080b] shadow-lg"
+              <a
+                href="/contact"
+                onClick={(e) => handleLinkClick("contact", e)}
+                className="w-full text-center py-3 rounded-full bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-sm font-sans font-extrabold text-[#07080b] shadow-lg block"
               >
                 Enquire
-              </button>
+              </a>
 
               {/* Social Media Links */}
               <div className="flex items-center justify-center space-x-3 pt-3 border-t border-[#d9b45c]/10">

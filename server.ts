@@ -2209,15 +2209,17 @@ app.get("/course-sitemap.xml", (req, res) => {
   xml += `    <priority>0.85</priority>\n`;
   xml += `  </url>\n`;
 
-  // Clean canonical sub-course URLs (No invalid # hash fragments in sitemaps!)
+  // Clean canonical sub-course URLs (excluding standalone routes to prevent duplicate index bloat)
   courses.forEach((c: any) => {
     const courseSlug = slugify(c.id || c.title);
-    xml += `  <url>\n`;
-    xml += `    <loc>${domain}/courses/${xmlEscape(courseSlug)}</loc>\n`;
-    xml += `    <lastmod>${now}</lastmod>\n`;
-    xml += `    <changefreq>weekly</changefreq>\n`;
-    xml += `    <priority>0.8</priority>\n`;
-    xml += `  </url>\n`;
+    if (courseSlug !== "noorani-qaida" && courseSlug !== "kids-classes" && courseSlug !== "kids-quran-classes") {
+      xml += `  <url>\n`;
+      xml += `    <loc>${domain}/courses/${xmlEscape(courseSlug)}</loc>\n`;
+      xml += `    <lastmod>${now}</lastmod>\n`;
+      xml += `    <changefreq>weekly</changefreq>\n`;
+      xml += `    <priority>0.8</priority>\n`;
+      xml += `  </url>\n`;
+    }
   });
 
   xml += `</urlset>`;
@@ -2358,6 +2360,49 @@ Sitemap: https://truthquranacademy.com/sitemap.xml`;
 
   res.header("Content-Type", "text/plain; charset=utf-8");
   res.send(content);
+});
+
+// 301 Canonical & Legacy URL Redirect Middleware (Handles URLs discovered by Search Bots)
+app.use((req, res, next) => {
+  const rawPath = req.path;
+  if (!rawPath || rawPath.startsWith("/api/") || rawPath.startsWith("/paras/") || rawPath.startsWith("/qaida/")) {
+    return next();
+  }
+
+  // Strip trailing slashes (except root)
+  if (rawPath.length > 1 && rawPath.endsWith("/")) {
+    const cleanUrl = rawPath.replace(/\/+$/, "") + ((req as any)._parsedUrl?.search || "");
+    return res.redirect(301, cleanUrl);
+  }
+
+  // Canonical Mappings for legacy or alternate URL variants
+  const redirects: Record<string, string> = {
+    "/blog-1": "/blog/blog-1",
+    "/blog-post-1": "/blog/blog-1",
+    "/blog/blog-post-1": "/blog/blog-1",
+    "/courses/noorani-qaida": "/noorani-qaida",
+    "/courses/noorani-qaida-foundation": "/noorani-qaida",
+    "/courses/kids-classes": "/kids-classes",
+    "/courses/kids-quran-classes": "/kids-classes",
+    "/course/noorani-qaida": "/noorani-qaida",
+    "/course/kids-classes": "/kids-classes",
+    "/fees-faq": "/fees",
+    "/fees/faq": "/fees",
+    "/faq": "/fees",
+    "/faqs": "/fees",
+    "/pricing": "/fees",
+    "/services": "/courses",
+    "/downloads": "/download",
+    "/video": "/videos",
+    "/gallery": "/videos",
+    "/video-gallery": "/videos"
+  };
+
+  if (redirects[rawPath]) {
+    return res.redirect(301, redirects[rawPath]);
+  }
+
+  next();
 });
 
 // Helper to clean verification codes

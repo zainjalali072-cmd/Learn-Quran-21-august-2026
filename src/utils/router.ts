@@ -17,7 +17,56 @@ export function slugify(text: string): string {
 export function parseCurrentRoute(): RouteState {
   // Normalize pathname: remove trailing slash, handle base path
   const rawPath = window.location.pathname || "/";
-  const pathname = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : "/";
+  let pathname = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : "/";
+  const hash = (window.location.hash || "").replace(/^#/, "").trim().toLowerCase();
+
+  // If there is a hash route (e.g. /#about, /#courses, /courses#noorani-qaida, /fees#faq)
+  if (hash) {
+    if (hash === "about") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/about");
+      return { view: "about", activePostId: null, isWpAdmin: false };
+    }
+    if (hash === "courses" || hash === "all-courses") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/courses");
+      return { view: "courses", activePostId: null, isWpAdmin: false };
+    }
+    if (hash === "noorani-qaida" || hash === "courses#noorani-qaida") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/noorani-qaida");
+      return { view: "noorani-qaida", activePostId: "noorani-qaida", isWpAdmin: false };
+    }
+    if (hash === "kids-classes" || hash === "kids-quran-classes") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/kids-classes");
+      return { view: "kids-classes", activePostId: "kids-classes", isWpAdmin: false };
+    }
+    if (hash === "tajweed-intensive" || hash === "tajweed") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/courses/tajweed-intensive");
+      return { view: "courses", activePostId: "tajweed-intensive", isWpAdmin: false };
+    }
+    if (hash === "quran-hifz" || hash === "hifz") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/courses/quran-hifz");
+      return { view: "courses", activePostId: "quran-hifz", isWpAdmin: false };
+    }
+    if (hash === "fees" || hash === "pricing" || hash === "faq" || hash === "faqs") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/fees");
+      return { view: "fees", activePostId: null, isWpAdmin: false };
+    }
+    if (hash === "videos") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/videos");
+      return { view: "videos", activePostId: null, isWpAdmin: false };
+    }
+    if (hash === "download" || hash === "downloads") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/download");
+      return { view: "download", activePostId: null, isWpAdmin: false };
+    }
+    if (hash === "contact" || hash === "enquiry") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/contact");
+      return { view: "contact", activePostId: null, isWpAdmin: false };
+    }
+    if (hash === "blog") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/blog");
+      return { view: "blog", activePostId: null, isWpAdmin: false };
+    }
+  }
 
   if (pathname === "/wp-admin" || pathname.startsWith("/wp-admin")) {
     return { view: "home", activePostId: null, isWpAdmin: true };
@@ -62,7 +111,7 @@ export function parseCurrentRoute(): RouteState {
     return { view: "kids-classes", activePostId: null, isWpAdmin: false };
   }
 
-  if (pathname === "/fees" || pathname === "/pricing") {
+  if (pathname === "/fees" || pathname === "/pricing" || pathname === "/fees-faq" || pathname === "/faq" || pathname === "/faqs") {
     return { view: "fees", activePostId: null, isWpAdmin: false };
   }
 
@@ -97,6 +146,12 @@ export function parseCurrentRoute(): RouteState {
       return { view: "blog-post", activePostId: slug, isWpAdmin: false };
     }
     return { view: "blog", activePostId: null, isWpAdmin: false };
+  }
+
+  // Direct blog post ID or slug (e.g. /blog-1)
+  if (pathname === "/blog-1" || pathname === "/blog-post-1") {
+    if (window.history.replaceState) window.history.replaceState(null, "", "/blog/blog-1");
+    return { view: "blog-post", activePostId: "blog-1", isWpAdmin: false };
   }
 
   // Any unmatched path shows 404

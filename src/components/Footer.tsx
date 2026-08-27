@@ -19,7 +19,22 @@ export default function Footer({ setView, onNavigate }: FooterProps) {
     return () => window.removeEventListener("cms_data_updated", handleSync);
   }, []);
 
-  const handleLinkClick = (id: string) => {
+  const getViewHref = (id: string) => {
+    if (id === "home") return "/";
+    if (id === "about") return "/about";
+    if (id === "courses") return "/courses";
+    if (id === "noorani-qaida") return "/noorani-qaida";
+    if (id === "kids-classes") return "/kids-classes";
+    if (id === "fees" || id === "pricing") return "/fees";
+    if (id === "videos") return "/videos";
+    if (id === "download") return "/download";
+    if (id === "blog") return "/blog";
+    if (id === "contact") return "/contact";
+    return `/${id}`;
+  };
+
+  const handleLinkClick = (id: string, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     setView(id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -34,7 +49,11 @@ export default function Footer({ setView, onNavigate }: FooterProps) {
           
           {/* Column 1: Brand Blurb (lg:col-span-4) */}
           <div className="lg:col-span-4 space-y-5" id="footer-col-1">
-            <div className="flex items-center space-x-2.5 cursor-pointer" onClick={() => handleLinkClick("home")}>
+            <a 
+              href="/"
+              onClick={(e) => handleLinkClick("home", e)}
+              className="flex items-center space-x-2.5 cursor-pointer inline-flex"
+            >
               <div className="w-12 h-12 rounded-xl border border-[#d9b45c]/40 flex items-center justify-center overflow-hidden bg-[#0e1015] flex-shrink-0">
                 <img 
                   src={cms.customImages?.siteLogo?.url || logoImg} 
@@ -51,7 +70,7 @@ export default function Footer({ setView, onNavigate }: FooterProps) {
                   Academy
                 </span>
               </div>
-            </div>
+            </a>
             <p className="text-xs text-[#c9c2ab] leading-relaxed max-w-sm">
               Truth Quran Academy is a premium global platform providing highly specialized, personalized 1-on-1 Quran, Tajweed, and Arabic language classes for children, sisters, and adults of all ages, taught by certified scholars.
             </p>
@@ -119,28 +138,31 @@ export default function Footer({ setView, onNavigate }: FooterProps) {
             </h4>
             <ul className="space-y-2.5 text-left">
               <li>
-                <button
-                  onClick={() => handleLinkClick("courses")}
+                <a
+                  href="/courses"
+                  onClick={(e) => handleLinkClick("courses", e)}
                   className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   All Quran Courses
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("noorani-qaida")}
+                <a
+                  href="/noorani-qaida"
+                  onClick={(e) => handleLinkClick("noorani-qaida", e)}
                   className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Noorani Qaida foundation
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("kids-classes")}
+                <a
+                  href="/kids-classes"
+                  onClick={(e) => handleLinkClick("kids-classes", e)}
                   className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Classes for Kids
-                </button>
+                </a>
               </li>
             </ul>
           </div>
@@ -153,60 +175,67 @@ export default function Footer({ setView, onNavigate }: FooterProps) {
             </h4>
             <ul className="space-y-2.5">
               <li>
-                <button
-                  onClick={() => handleLinkClick("home")}
-                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer"
+                <a
+                  href="/"
+                  onClick={(e) => handleLinkClick("home", e)}
+                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Home Academy
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("about")}
-                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer"
+                <a
+                  href="/about"
+                  onClick={(e) => handleLinkClick("about", e)}
+                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   About Us
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("videos")}
-                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer"
+                <a
+                  href="/videos"
+                  onClick={(e) => handleLinkClick("videos", e)}
+                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Video Gallery
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("fees")}
-                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer"
+                <a
+                  href="/fees"
+                  onClick={(e) => handleLinkClick("fees", e)}
+                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Pricing
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("download")}
-                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer"
+                <a
+                  href="/download"
+                  onClick={(e) => handleLinkClick("download", e)}
+                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Download Quran
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("blog")}
-                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer"
+                <a
+                  href="/blog"
+                  onClick={(e) => handleLinkClick("blog", e)}
+                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Academy Blog
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => handleLinkClick("contact")}
-                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer"
+                <a
+                  href="/contact"
+                  onClick={(e) => handleLinkClick("contact", e)}
+                  className="text-xs text-[#c9c2ab] hover:text-[#f2d98a] transition-colors cursor-pointer block"
                 >
                   Contact Admissions
-                </button>
+                </a>
               </li>
             </ul>
           </div>
