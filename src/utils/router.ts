@@ -69,7 +69,7 @@ export function parseCurrentRoute(): RouteState {
   }
 
   if (pathname === "/wp-admin" || pathname.startsWith("/wp-admin")) {
-    return { view: "home", activePostId: null, isWpAdmin: true };
+    return { view: "wp-admin", activePostId: null, isWpAdmin: true };
   }
 
   if (pathname === "/" || pathname === "") {

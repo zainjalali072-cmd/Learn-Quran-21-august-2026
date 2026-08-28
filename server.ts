@@ -2439,6 +2439,7 @@ function generateRouteSEO(reqPath: string, db: any) {
   let schemaJson: any = null;
   let prerenderContent = "";
   let statusCode = 200;
+  let noIndex = false;
 
   const publishedPosts = (db.blogPosts || DEFAULT_BLOGS).filter((p: any) =>
     p && (!p.status || p.status.toLowerCase() === "published" || p.status.toLowerCase() === "approved")
@@ -3102,9 +3103,21 @@ function generateRouteSEO(reqPath: string, db: any) {
     `;
   }
 
-  // ROUTE 15: 404 NOT FOUND (Fallback for unmapped URLs)
+  // ROUTE 15: WORDPRESS ADMIN PANEL (/wp-admin)
+  else if (cleanPath === "/wp-admin" || cleanPath.startsWith("/wp-admin")) {
+    statusCode = 200;
+    title = `WordPress Administration Panel ‹ ${orgName}`;
+    description = `Administration and Content Management System for ${orgName}`;
+    canonicalUrl = `${domain}/wp-admin`;
+    ogType = "website";
+    noIndex = true;
+    prerenderContent = "";
+  }
+
+  // ROUTE 16: 404 NOT FOUND (Fallback for unmapped URLs)
   else {
     statusCode = 404;
+    noIndex = true;
     title = `Page Not Found (404) | Truth Quran Academy`;
     description = "The requested page could not be found. Return to Truth Quran Academy homepage or explore our online Quran courses and pricing plans.";
     prerenderContent = `
@@ -3138,7 +3151,8 @@ function generateRouteSEO(reqPath: string, db: any) {
     ogType,
     schemaJson,
     prerenderContent,
-    statusCode
+    statusCode,
+    noIndex
   };
 }
 
@@ -3170,8 +3184,10 @@ function renderPageWithSEO(htmlTemplate: string, reqPath: string, db: any): { ht
     html = html.replace("</head>", `  ${canonicalTag}\n</head>`);
   }
 
-  // 4. Inject Robots Directives (Allow all search engines with full snippets)
-  const robotsTag = `<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />\n  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />`;
+  // 4. Inject Robots Directives (Respect noindex for wp-admin and 404)
+  const robotsTag = seo.noIndex
+    ? `<meta name="robots" content="noindex, nofollow" />\n  <meta name="googlebot" content="noindex, nofollow" />`
+    : `<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />\n  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />`;
   if (html.includes('name="robots"')) {
     html = html.replace(/<meta\s+name=["']robots["']\s+content=["'][^"']*["']\s*\/?>/gi, robotsTag);
   } else {
@@ -3223,9 +3239,12 @@ function renderPageWithSEO(htmlTemplate: string, reqPath: string, db: any): { ht
     html = html.replace("</head>", `${schemaScript}\n</head>`);
   }
 
-  // 8. Inject Semantic Pre-rendered HTML inside <div id="root">
-  if (seo.prerenderContent && html.includes('<div id="root"></div>')) {
-    html = html.replace('<div id="root"></div>', `<div id="root">${seo.prerenderContent}</div>`);
+  // 8. Inject Semantic Pre-rendered HTML inside <noscript> tag before </body>
+  // Crucial: NEVER inject raw unstyled text inside <div id="root"> because that causes visible unstyled text flashes to real users!
+  // <noscript> ensures search crawlers receive all content & links, while regular users with JavaScript enabled see NO raw text flash!
+  if (seo.prerenderContent) {
+    const noscriptContent = `  <noscript>\n    <div id="seo-prerender" style="display:none;">\n${seo.prerenderContent}\n    </div>\n  </noscript>`;
+    html = html.replace("</body>", `${noscriptContent}\n</body>`);
   }
 
   return { html, statusCode: seo.statusCode };

@@ -186,13 +186,20 @@ export default function App() {
 
   if (isWpAdmin) {
     return (
-      <WPSimulator 
-        onClose={() => {
-          window.history.pushState(null, "", "/");
-          setIsWpAdmin(false);
-          setView("home");
-        }} 
-      />
+      <>
+        <SEOHead 
+          cmsData={cms} 
+          currentView="wp-admin" 
+          activePostId={null} 
+        />
+        <WPSimulator 
+          onClose={() => {
+            window.history.pushState(null, "", "/");
+            setIsWpAdmin(false);
+            setView("home");
+          }} 
+        />
+      </>
     );
   }
 

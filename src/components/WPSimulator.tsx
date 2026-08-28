@@ -114,6 +114,12 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
     return () => window.removeEventListener("cms_data_updated", handleSync);
   }, []);
 
+  // Dynamically update document title to show proper WordPress panel section in browser tab
+  useEffect(() => {
+    const tabName = activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
+    document.title = `${tabName} ‹ WordPress Administration Panel ‹ Truth Quran Academy`;
+  }, [activeTab]);
+
   // Fetch verified session status from server
   useEffect(() => {
     if (isOpen) {

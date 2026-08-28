@@ -90,6 +90,12 @@ export default function SEOHead({ cmsData, currentView, activePostId, categorySl
       canonical = `https://truthquranacademy.com/tag/${rawTag}`;
       ogTitle = title;
       ogDesc = description;
+    } else if (currentView === "wp-admin") {
+      title = "WordPress Administration Panel ‹ Truth Quran Academy";
+      description = "Administrative Control Center and Content Management System for Truth Quran Academy";
+      canonical = "https://truthquranacademy.com/wp-admin";
+      ogTitle = title;
+      ogDesc = description;
     } else if (currentView === "404") {
       title = "Page Not Found (404) | Truth Quran Academy";
       description = "The page you requested could not be found. Return to Truth Quran Academy homepage or explore our online Quran courses and pricing plans.";
@@ -235,7 +241,8 @@ export default function SEOHead({ cmsData, currentView, activePostId, categorySl
     // 3. Inject Meta Tags
     setMetaTag("name", "description", description);
     setMetaTag("name", "keywords", getMetaStr(cmsData.seoSettings?.metaKeywords, "online quran class, tajweed rules, hifz course, quran tutor"));
-    setMetaTag("name", "robots", getMetaStr(cmsData.seoSettings?.robotsDirective, "index, follow"));
+    const isNoIndex = currentView === "wp-admin" || currentView === "404";
+    setMetaTag("name", "robots", isNoIndex ? "noindex, nofollow" : getMetaStr(cmsData.seoSettings?.robotsDirective, "index, follow"));
 
     // Google Search Console Verification code
     const rawGsc = cmsData.integrations?.googleSiteVerification || cmsData.integrations?.gscId;
