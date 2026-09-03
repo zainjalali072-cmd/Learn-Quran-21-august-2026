@@ -112,6 +112,45 @@ const DEFAULT_TEACHERS = [
   { id: "teacher-1", name: "Sheikh Abdul Rahman", role: "Head of Quranic Studies", bio: "Graduated from Jamia Naeemia Lahore. Holds high-ranking Ijazah in ten qira'at of the Quran.", photo: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=300", rating: 5, experience: "15+ Years", status: "published" }
 ];
 
+const DEFAULT_VIDEOS = [
+  {
+    id: "v1",
+    title: "Mastering Makhraj of Throat Letters (Halqi Letters)",
+    description: "A comprehensive video guide demonstrating the precise articulation points of throat letters, detailing the distinction between standard 'Ha' and pharyngeal 'Haa'.",
+    category: "Tajweed Guides",
+    duration: "12:45",
+    publishDate: "July 05, 2026",
+    thumbnail: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=800",
+    embedId: "quran-makharij-throat",
+    enabled: true,
+    pages: ["home", "videos"]
+  },
+  {
+    id: "v2",
+    title: "How to Build a Consistent Hifz Routine at Home",
+    description: "Our lead scholar shares a structured, easy-to-follow calendar system designed to help busy professionals and kids memorize Quran with long-term retention.",
+    category: "Lectures",
+    duration: "18:20",
+    publishDate: "June 20, 2026",
+    thumbnail: "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&q=80&w=800",
+    embedId: "hifz-routine-lecture",
+    enabled: true,
+    pages: ["home", "about"]
+  },
+  {
+    id: "v3",
+    title: "Beautiful Recitation by Student Muhammad Al-Amri",
+    description: "Listen to the soulful, measured recitation of Surah Al-Mulk by our 9-year-old student, showing absolute mastery of tajweed rules and modulation.",
+    category: "Student Recitations",
+    duration: "05:12",
+    publishDate: "June 12, 2026",
+    thumbnail: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&q=80&w=800",
+    embedId: "student-recitation-mulk",
+    enabled: true,
+    pages: ["videos"]
+  }
+];
+
 const DEFAULT_COMMENTS = [
   { id: "c-1", name: "Sarah Ahmed", email: "sarah@gmail.com", age: "8", country: "United Kingdom", course: "noorani-qaida", message: "Enroll Sarah into Noorani Qaida basic phonetics.", date: "2026-07-18", status: "approved", type: "inquiry" }
 ];
@@ -2517,13 +2556,9 @@ function generateRouteSEO(reqPath: string, db: any) {
           </section>
 
           <section>
-            <h2>Monthly Tuition Fees & Pricing</h2>
-            <ul>
-              <li><strong>Basic Starter ($30/month):</strong> 2 classes/week, 1-on-1 private sessions, Tajweed essentials.</li>
-              <li><strong>Standard Premium ($45/month):</strong> 3 classes/week, custom syllabus, weekly quizzes.</li>
-              <li><strong>Elite Mastery ($60/month):</strong> 5 classes/week, intensive memorization, dedicated academic coach.</li>
-            </ul>
-            <p><a href="/fees">View Full Pricing & FAQ Details &rarr;</a></p>
+            <h2>Tuition Fees & Enrollment Plans</h2>
+            <p>We provide affordable, transparent tuition with no admission or registration fees. Choose from 2, 3, or 5 classes per week starting at just $30/month with dedicated 1-on-1 certified teachers, automated sibling discounts, and a 100% money-back guarantee.</p>
+            <p><a href="/fees">View Complete Fee Schedule, Currency Calculator &amp; Payment Options &rarr;</a></p>
           </section>
 
           <section>
@@ -2637,21 +2672,24 @@ function generateRouteSEO(reqPath: string, db: any) {
         
         <section>
           <h2>Available Course Programs</h2>
-          ${coursesList.map((c: any) => `
+          ${coursesList.map((c: any) => {
+            const courseUrl = c.id === "noorani-qaida" ? "/noorani-qaida" : c.id === "kids-classes" ? "/kids-classes" : `/courses/${slugify(c.id || c.title)}`;
+            return `
             <div class="course-item">
-              <h3><a href="/courses/${slugify(c.id || c.title)}">${escapeHtml(c.title)}</a></h3>
+              <h3><a href="${courseUrl}">${escapeHtml(c.title)}</a></h3>
               <p>${escapeHtml(c.description)}</p>
               <p><strong>Level:</strong> ${escapeHtml(c.difficulty || "All Levels")} | <strong>Track:</strong> ${escapeHtml(c.tag || "Core Course")}</p>
             </div>
-          `).join("")}
+          `;
+          }).join("")}
         </section>
 
         <section>
           <h2>Explore Specialized Pathways</h2>
           <ul>
             <li><a href="/noorani-qaida">Noorani Qaida Foundational Phonetics &rarr;</a></li>
-            <li><a href="/kids-classes">Online Quran Classes for Kids & Sisters &rarr;</a></li>
-            <li><a href="/fees">View Class Pricing & Plans &rarr;</a></li>
+            <li><a href="/kids-classes">Online Quran Classes for Kids &amp; Sisters &rarr;</a></li>
+            <li><a href="/fees">View Class Pricing &amp; Plans &rarr;</a></li>
           </ul>
         </section>
       </main>
@@ -2678,6 +2716,9 @@ function generateRouteSEO(reqPath: string, db: any) {
       }
     };
 
+    const isTajweed = course.id === "tajweed-intensive" || rawCourseSlug.includes("tajweed");
+    const isHifz = course.id === "quran-hifz" || rawCourseSlug.includes("hifz");
+
     prerenderContent = `
       <header>
         <nav><a href="/">Home</a> &gt; <a href="/courses">Courses</a> &gt; <span>${escapeHtml(course.title)}</span></nav>
@@ -2688,17 +2729,37 @@ function generateRouteSEO(reqPath: string, db: any) {
         <p><strong>Difficulty:</strong> ${escapeHtml(course.difficulty || "Beginners")} | <strong>Curriculum Track:</strong> ${escapeHtml(course.tag || "Certification")}</p>
         
         <section>
-          <h2>Course Overview & Learning Objectives</h2>
+          <h2>Course Overview &amp; Learning Objectives</h2>
           <p>Join our certified scholars in private 1-on-1 interactive lessons tailored to your pace. Learn with live screen sharing, whiteboard corrections, and recorded session notes.</p>
+          ${isTajweed ? `
+          <h3>Comprehensive Tajweed Syllabus</h3>
+          <ul>
+            <li><strong>Makharij Precision:</strong> Mastery of the 17 articulation points across the throat, tongue, lips, and nasal passage.</li>
+            <li><strong>Sifat al-Huroof:</strong> In-depth study of permanent characteristics (Hams, Jahr, Shiddah, Tawassut, Isti'la, Itbaq).</li>
+            <li><strong>Noon &amp; Meem Sakinah Rules:</strong> Comprehensive application of Izhar, Idgham, Iqlab, and Ikhfa during live recitation.</li>
+            <li><strong>Ahkam al-Madd:</strong> Proper timing calculation for original 2-count vs. secondary 4-6 count elongations.</li>
+          </ul>
+          ` : isHifz ? `
+          <h3>Structured Quran Memorization (Hifz) Pathway</h3>
+          <ul>
+            <li><strong>Sabaq (Daily New Lesson):</strong> Memorize fresh verses with 100% phonetic accuracy under live scholar guidance.</li>
+            <li><strong>Sabqi (Recent Memorization):</strong> Daily revision of verses memorized in the past 30 days to consolidate retention.</li>
+            <li><strong>Manzil (Cumulative Long-term Retention):</strong> Systematic daily recitation of completed Juz to ensure permanent retention without forgetting.</li>
+            <li><strong>Sanad Preparation:</strong> Pathway to continuous chain of transmission (Ijazah with Sanad) upon completion.</li>
+          </ul>
+          ` : `
+          <p>Comprehensive modular syllabus with live scholar corrections, weekly revision assessments, and personalized milestone tracking.</p>
+          `}
           <p><a href="${escapeHtml(orgWhatsapp)}">Book a Free Trial Class for ${escapeHtml(course.title)} &rarr;</a></p>
         </section>
 
         <section>
-          <h2>Related Courses</h2>
+          <h2>Related Courses &amp; Programs</h2>
           <ul>
-            ${coursesList.filter((c: any) => c.id !== course.id).map((c: any) => `
-              <li><a href="/courses/${slugify(c.id || c.title)}">${escapeHtml(c.title)}</a></li>
-            `).join("")}
+            ${coursesList.filter((c: any) => c.id !== course.id).map((c: any) => {
+              const relUrl = c.id === "noorani-qaida" ? "/noorani-qaida" : c.id === "kids-classes" ? "/kids-classes" : `/courses/${slugify(c.id || c.title)}`;
+              return `<li><a href="${relUrl}">${escapeHtml(c.title)}</a></li>`;
+            }).join("")}
           </ul>
         </section>
       </main>
@@ -2785,13 +2846,37 @@ function generateRouteSEO(reqPath: string, db: any) {
 
   // ROUTE 7: FEES / PRICING PAGE (/fees, /pricing)
   else if (cleanPath === "/fees" || cleanPath === "/pricing") {
+    canonicalUrl = `${domain}/fees`;
     title = `Affordable Monthly Quran Tuition Fees & Pricing Plans | Truth Quran Academy`;
     description = "Transparent, affordable monthly Quran class fees starting from $30/month. Includes 1-on-1 classes, free trial session, custom syllabus, and flexible schedules.";
+
+    const tuitionFaqs = [
+      {
+        question: "Are there any registration fees or hidden admission charges?",
+        answer: "No. Truth Quran Academy does not charge any registration, admission, or setup fees. You only pay the straightforward monthly fee for the plan you select after your free trial."
+      },
+      {
+        question: "How does the 10% sibling discount work?",
+        answer: "When two or more students from the same immediate family enroll, a 10% sibling discount is automatically applied to each student's monthly tuition."
+      },
+      {
+        question: "What payment methods do you accept internationally?",
+        answer: "We accept secure international payments via PayPal, Wise (TransferWise), Direct Bank Transfer, and Western Union, accommodating families across the USA, UK, Canada, Europe, and Australia."
+      },
+      {
+        question: "Can I reschedule or make up a missed class?",
+        answer: "Yes. If you inform your teacher or the academy administrator at least 4 to 6 hours before class, we provide flexible makeup sessions so your learning continuity is never lost."
+      },
+      {
+        question: "Is there a money-back refund guarantee?",
+        answer: "Yes. We offer a 100% satisfaction money-back guarantee within the first week of paid classes if you are not completely satisfied with your assigned instructor."
+      }
+    ];
 
     schemaJson = {
       "@context": "https://schema.org",
       "@type": "FAQPage",
-      "mainEntity": faqsList.map((f: any) => ({
+      "mainEntity": tuitionFaqs.map((f: any) => ({
         "@type": "Question",
         "name": f.question,
         "acceptedAnswer": {
@@ -2806,44 +2891,131 @@ function generateRouteSEO(reqPath: string, db: any) {
         <nav><a href="/">Home</a> &gt; <span>Tuition Fees</span></nav>
       </header>
       <main>
-        <h1>Affordable Monthly Quran Tuition Fees</h1>
-        <p class="lead">Transparent pricing with no hidden registration fees. Every plan includes a 100% free 1-on-1 trial class.</p>
+        <h1>Affordable &amp; Transparent Monthly Quran Tuition Fees</h1>
+        <p class="lead">Transparent pricing with no hidden registration costs. Every plan begins with a 100% free, no-obligation 1-on-1 trial class.</p>
         
         <section>
-          <h2>Our Monthly Plans</h2>
+          <h2>Our Monthly Fee Plans (1-on-1 Classes)</h2>
+          <div class="plans-grid">
+            <div class="plan-card">
+              <h3>Basic Starter &mdash; $30 / Month</h3>
+              <p><strong>Frequency:</strong> 2 classes per week (8 private classes per month)</p>
+              <p><strong>Session Duration:</strong> 30 minutes per class</p>
+              <p>Ideal for beginners, toddlers, and working adults starting Noorani Qaida foundational phonetics.</p>
+            </div>
+            <div class="plan-card">
+              <h3>Standard Premium &mdash; $45 / Month (Most Popular)</h3>
+              <p><strong>Frequency:</strong> 3 classes per week (12 private classes per month)</p>
+              <p><strong>Session Duration:</strong> 30 minutes per class</p>
+              <p>Recommended for children and intermediate students seeking balanced recitation progress with weekly Tajweed assessments.</p>
+            </div>
+            <div class="plan-card">
+              <h3>Elite Intensive &mdash; $60 / Month</h3>
+              <p><strong>Frequency:</strong> 5 classes per week (20 private classes per month)</p>
+              <p><strong>Session Duration:</strong> 30 minutes per class</p>
+              <p>High-intensity pathway designed for rapid Quran memorization (Hifz), intensive Tajweed mastery, and Ijazah preparation.</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>International Currency Conversions</h2>
+          <p>We welcome students globally. Equivalent approximate monthly tuition across popular currencies:</p>
           <ul>
-            <li><strong>Basic Starter ($30/month):</strong> 2 classes per week (8 classes/month). Ideal for steady foundational learning.</li>
-            <li><strong>Standard Premium ($45/month):</strong> 3 classes per week (12 classes/month). Most popular for kids and beginners.</li>
-            <li><strong>Elite Mastery ($60/month):</strong> 5 classes per week (20 classes/month). High-intensity track for rapid Hifz and Ijazah.</li>
+            <li><strong>United States:</strong> Basic $30 | Standard $45 | Elite $60 USD</li>
+            <li><strong>United Kingdom:</strong> Basic &pound;24 | Standard &pound;35 | Elite &pound;47 GBP</li>
+            <li><strong>Canada:</strong> Basic C$41 | Standard C$62 | Elite C$82 CAD</li>
+            <li><strong>Australia:</strong> Basic A$45 | Standard A$68 | Elite A$91 AUD</li>
+            <li><strong>Europe:</strong> Basic &euro;28 | Standard &euro;41 | Elite &euro;55 EUR</li>
+            <li><strong>Pakistan:</strong> Basic Rs. 3,500 | Standard Rs. 5,000 | Elite Rs. 7,000 PKR</li>
           </ul>
         </section>
 
         <section>
-          <h2>Tuition FAQs</h2>
-          ${faqsList.map((f: any) => `
+          <h2>Family &amp; Sibling Discounts</h2>
+          <p>We actively support family Quran learning. Enroll two or more siblings or family members and receive an automatic 10% discount on total monthly tuition.</p>
+        </section>
+
+        <section>
+          <h2>Accepted Payment Methods</h2>
+          <p>Pay securely from any country using <strong>PayPal</strong>, <strong>Wise</strong>, <strong>Direct Bank Wire Transfer</strong>, or <strong>Western Union</strong>. Invoices are issued monthly with transparent payment receipts.</p>
+        </section>
+
+        <section>
+          <h2>100% Satisfaction &amp; Money-Back Guarantee</h2>
+          <p>Your spiritual satisfaction and learning comfort are our highest priorities. If you are not completely happy with your teacher during the first week of paid classes, we will either assign an alternative scholar immediately or issue a full refund with no questions asked.</p>
+        </section>
+
+        <section>
+          <h2>Tuition &amp; Billing FAQs</h2>
+          ${tuitionFaqs.map((f: any) => `
             <div>
               <h3>${escapeHtml(f.question)}</h3>
               <p>${escapeHtml(f.answer)}</p>
             </div>
           `).join("")}
         </section>
+
+        <p><a href="${escapeHtml(orgWhatsapp)}">Book Your Free 1-on-1 Trial Class Now &rarr;</a></p>
       </main>
     `;
   }
 
   // ROUTE 8: VIDEOS PAGE (/videos)
   else if (cleanPath === "/videos") {
+    canonicalUrl = `${domain}/videos`;
     title = `Online Quran & Tajweed Video Lessons Library | Truth Quran Academy`;
     description = "Watch recorded video lessons, Tajweed pronunciation guides, Makharij tutorials, and inspirational Quranic lectures from our certified scholars.";
+
+    const videosList = (db.videos && Array.isArray(db.videos) && db.videos.length > 0) ? db.videos : DEFAULT_VIDEOS;
+
+    schemaJson = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Truth Quran Academy Video Lessons",
+      "description": description,
+      "itemListElement": videosList.map((v: any, index: number) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "item": {
+          "@type": "VideoObject",
+          "name": v.title,
+          "description": v.description,
+          "thumbnailUrl": [v.thumbnail || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=800"],
+          "uploadDate": v.publishDate ? new Date(v.publishDate).toISOString().split("T")[0] : "2026-07-01",
+          "contentUrl": `${domain}/videos`
+        }
+      }))
+    };
 
     prerenderContent = `
       <header>
         <nav><a href="/">Home</a> &gt; <span>Video Lessons</span></nav>
       </header>
       <main>
-        <h1>Quran & Tajweed Video Lessons Library</h1>
+        <h1>Quran &amp; Tajweed Video Lessons Library</h1>
         <p class="lead">${description}</p>
-        <p>Explore free recorded video tutorials on Arabic articulation points, Noon Sakinah rules, Surah Al-Fatihah correction, and Hifz retention techniques.</p>
+        <p>Explore free recorded video tutorials on Arabic articulation points (Makharij), Noon Sakinah rules, Surah Al-Fatihah correction, and Hifz retention techniques led by Jamia Naeemia certified scholars.</p>
+        
+        <section>
+          <h2>Featured Video Lessons</h2>
+          <div class="video-grid">
+            ${videosList.map((v: any) => `
+              <div class="video-card">
+                <h3>${escapeHtml(v.title)}</h3>
+                <p><strong>Category:</strong> ${escapeHtml(v.category || "Tajweed Guides")} | <strong>Duration:</strong> ${escapeHtml(v.duration || "10 mins")}</p>
+                <p>${escapeHtml(v.description)}</p>
+                ${v.thumbnail ? `<p><img src="${escapeHtml(v.thumbnail)}" alt="${escapeHtml(v.title)}" width="400" /></p>` : ""}
+              </div>
+            `).join("")}
+          </div>
+        </section>
+
+        <section>
+          <h2>How Video Lessons Enhance 1-on-1 Learning</h2>
+          <p>Our video lessons serve as continuous revision resources between live 1-on-1 classes. Students can re-watch mouth movement guides, Makharij diagrams, and Surah recitations to refine their pronunciation at home.</p>
+          <p><a href="${escapeHtml(orgWhatsapp)}">Book a Live 1-on-1 Session with Our Video Scholars &rarr;</a></p>
+        </section>
       </main>
     `;
   }
@@ -3023,6 +3195,7 @@ function generateRouteSEO(reqPath: string, db: any) {
       `;
     } else {
       statusCode = 404;
+      noIndex = true;
       title = `Article Not Found | Truth Quran Academy`;
       description = "The requested article could not be found. Explore our latest Quran study guides and tutorials.";
       prerenderContent = `

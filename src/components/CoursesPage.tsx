@@ -63,6 +63,7 @@ export default function CoursesPage() {
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
               key={course.id}
+              id={course.id}
               className="bg-[#12141b] border border-[#d9b45c]/12 rounded-2xl overflow-hidden hover:border-[#d9b45c]/35 hover:-translate-y-1.5 hover:shadow-[0_25px_50px_rgba(0,0,0,0.6)] transition-all duration-300 flex flex-col justify-between group"
             >
               {/* Image Banner */}
