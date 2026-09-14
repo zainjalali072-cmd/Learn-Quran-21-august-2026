@@ -42,11 +42,11 @@ export default function DownloadPage({ setView }: DownloadPageProps) {
 
   // Helper to generate a reliable direct PDF download/view link from our local static folder
   const getParaDownloadUrl = (num: number) => {
-    return `/paras/para-${String(num).padStart(2, "0")}.pdf`;
+    return `/paras/Para_${String(num).padStart(2, "0")}.pdf`;
   };
 
   const getQaidaDownloadUrl = () => {
-    return "/qaida/noorani-qaida-english-complete.pdf";
+    return "/qaida/Noorani_Qaida_English_01.pdf";
   };
 
   return (

@@ -15,7 +15,65 @@ const hashPassword = (password: string): string => {
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));
-app.use(express.static(path.join(process.cwd(), "public")));
+
+// Explicit PDF serving handlers for Paras and Qaida (inline view in new tab)
+app.get("/paras/:file", (req, res) => {
+  const file = req.params.file;
+  let filePath = path.join(process.cwd(), "public", "paras", file);
+  if (!fs.existsSync(filePath)) {
+    // Fallback: match number e.g. para-01.pdf or para-1.pdf -> Para_01.pdf
+    const match = file.match(/\d+/);
+    if (match) {
+      const numStr = match[0].padStart(2, "0");
+      const altPath = path.join(process.cwd(), "public", "paras", `Para_${numStr}.pdf`);
+      if (fs.existsSync(altPath)) {
+        filePath = altPath;
+      }
+    }
+  }
+  if (fs.existsSync(filePath)) {
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${path.basename(filePath)}"`);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    return res.sendFile(filePath);
+  }
+  return res.status(404).send("Para PDF not found");
+});
+
+app.get("/qaida/:file", (req, res) => {
+  const file = req.params.file;
+  let filePath = path.join(process.cwd(), "public", "qaida", file);
+  if (!fs.existsSync(filePath)) {
+    // Fallback to new Noorani_Qaida_English_01.pdf
+    const fallbackPath = path.join(process.cwd(), "public", "qaida", "Noorani_Qaida_English_01.pdf");
+    if (fs.existsSync(fallbackPath)) {
+      filePath = fallbackPath;
+    }
+  }
+  if (fs.existsSync(filePath)) {
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${path.basename(filePath)}"`);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    return res.sendFile(filePath);
+  }
+  return res.status(404).send("Qaida PDF not found");
+});
+
+app.use(express.static(path.join(process.cwd(), "public"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".pdf")) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${path.basename(filePath)}"`);
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+  }
+}));
 
 // Helper to parse cookies manually (no extra dependency needed)
 const parseCookies = (cookieHeader?: string): Record<string, string> => {
@@ -2353,31 +2411,6 @@ Object.entries(faviconMimes).forEach(([route, mimeType]) => {
   });
 });
 
-// Explicit PDF serving handlers for Paras and Qaida
-app.get("/paras/:file", (req, res) => {
-  const file = req.params.file;
-  const filePath = path.join(process.cwd(), "public", "paras", file);
-  if (fs.existsSync(filePath)) {
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${file}"`);
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    return res.sendFile(filePath);
-  }
-  return res.status(404).send("Para PDF not found");
-});
-
-app.get("/qaida/:file", (req, res) => {
-  const file = req.params.file;
-  const filePath = path.join(process.cwd(), "public", "qaida", file);
-  if (fs.existsSync(filePath)) {
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${file}"`);
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    return res.sendFile(filePath);
-  }
-  return res.status(404).send("Qaida PDF not found");
-});
-
 // Robots.txt Endpoint
 app.get("/robots.txt", (req, res) => {
   const db = getDatabase();
@@ -3035,9 +3068,9 @@ function generateRouteSEO(reqPath: string, db: any) {
         <section>
           <h2>Free PDF Study Materials</h2>
           <ul>
-            <li><a href="/qaida/noorani-qaida.pdf" download>Download Complete Noorani Qaida PDF (Color Coded)</a></li>
+            <li><a href="/qaida/Noorani_Qaida_English_01.pdf" target="_blank" rel="noopener noreferrer">Download Complete English Noorani Qaida PDF</a></li>
             ${Array.from({ length: 30 }, (_, i) => i + 1).map(n => `
-              <li><a href="/paras/para-${n}.pdf" download>Download Para ${n} (Juz ${n}) PDF</a></li>
+              <li><a href="/paras/Para_${String(n).padStart(2, "0")}.pdf" target="_blank" rel="noopener noreferrer">Download Para ${n} (Juz ${n}) PDF</a></li>
             `).join("")}
           </ul>
         </section>
