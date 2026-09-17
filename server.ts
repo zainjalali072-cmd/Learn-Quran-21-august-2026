@@ -42,14 +42,20 @@ app.get("/paras/:file", (req, res) => {
   return res.status(404).send("Para PDF not found");
 });
 
-app.get("/qaida/:file", (req, res) => {
-  const file = req.params.file;
+app.get(["/qaida", "/qaida.pdf", "/qaida/:file"], (req, res) => {
+  const file = req.params.file || "Noorani_Qaida_English_01.pdf";
   let filePath = path.join(process.cwd(), "public", "qaida", file);
   if (!fs.existsSync(filePath)) {
-    // Fallback to new Noorani_Qaida_English_01.pdf
-    const fallbackPath = path.join(process.cwd(), "public", "qaida", "Noorani_Qaida_English_01.pdf");
-    if (fs.existsSync(fallbackPath)) {
-      filePath = fallbackPath;
+    filePath = path.join(process.cwd(), "dist", "qaida", file);
+  }
+  if (!fs.existsSync(filePath)) {
+    // Fallback to Noorani_Qaida_English_01.pdf
+    const fallbackPublic = path.join(process.cwd(), "public", "qaida", "Noorani_Qaida_English_01.pdf");
+    const fallbackDist = path.join(process.cwd(), "dist", "qaida", "Noorani_Qaida_English_01.pdf");
+    if (fs.existsSync(fallbackPublic)) {
+      filePath = fallbackPublic;
+    } else if (fs.existsSync(fallbackDist)) {
+      filePath = fallbackDist;
     }
   }
   if (fs.existsSync(filePath)) {
