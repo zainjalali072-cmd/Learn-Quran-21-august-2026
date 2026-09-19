@@ -19,6 +19,85 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Bismillah Opening Background Audio (Pure Vanilla JS, 0 UI, Autoplay-Safe) -->
+    <script>
+      (function() {
+        // Easily editable audio path
+        var BISMILLAH_AUDIO_PATH = "/assets/audio/bismillah.mp3";
+        var SESSION_KEY = "bismillah_played";
+
+        // Prevent repeated playback on SPA navigation or page reloads within the same session
+        try {
+          if (sessionStorage.getItem(SESSION_KEY) === "true") {
+            return;
+          }
+        } catch (e) {}
+
+        var audio = new Audio(BISMILLAH_AUDIO_PATH);
+        audio.preload = "auto";
+        audio.volume = 0.65; // Soft, calm and respectful volume
+
+        var isPlayed = false;
+
+        function markPlayed() {
+          if (isPlayed) return;
+          isPlayed = true;
+          try {
+            sessionStorage.setItem(SESSION_KEY, "true");
+          } catch (e) {}
+        }
+
+        // Attempt background autoplay immediately as website loads
+        function attemptPlay() {
+          if (isPlayed) return;
+          var promise = audio.play();
+          if (promise !== undefined) {
+            promise
+              .then(function() {
+                markPlayed();
+                cleanupListeners();
+              })
+              .catch(function() {
+                // Autoplay blocked by browser policy without user gesture.
+                // Do NOT show any popup, overlay, button or visual elements.
+                // The website loads normally as intended.
+              });
+          }
+        }
+
+        // Organic fallback: if autoplay was blocked by browser policy,
+        // play silently once upon the visitor's first organic touch/click anywhere on the website
+        function onFirstUserGesture() {
+          if (!isPlayed) {
+            var promise = audio.play();
+            if (promise !== undefined) {
+              promise
+                .then(function() {
+                  markPlayed();
+                })
+                .catch(function() {});
+            }
+          }
+          cleanupListeners();
+        }
+
+        function cleanupListeners() {
+          window.removeEventListener("click", onFirstUserGesture, true);
+          window.removeEventListener("touchstart", onFirstUserGesture, true);
+          window.removeEventListener("keydown", onFirstUserGesture, true);
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", attemptPlay);
+        } else {
+          attemptPlay();
+        }
+
+        window.addEventListener("click", onFirstUserGesture, { capture: true, once: true });
+        window.addEventListener("touchstart", onFirstUserGesture, { capture: true, once: true });
+        window.addEventListener("keydown", onFirstUserGesture, { capture: true, once: true });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

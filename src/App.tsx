@@ -58,7 +58,6 @@ import VideosPage from "./components/VideosPage";
 import ContactPage from "./components/ContactPage";
 import DownloadPage from "./components/DownloadPage";
 import NotFoundPage from "./components/NotFoundPage";
-import BismillahExperience from "./components/BismillahExperience";
 
 // Simple custom count-up component using React state and native frame scheduler
 function CountUpNumber({ end, suffix = "", duration = 2000 }: { end: number; suffix?: string; duration?: number }) {
@@ -298,9 +297,6 @@ export default function App() {
           }
         ` : ""}
       `}</style>
-
-      {/* Bismillah Opening Voice & Spiritual Welcome Experience */}
-      <BismillahExperience />
 
       {/* Dynamic SEO Head with Auto Metadata & Google Search Console verification */}
       <SEOHead 
