@@ -19,6 +19,10 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Hidden HTML5 Audio Elements for Maximum Browser Autoplay Compatibility -->
+    <audio id="quran-audio-taawwuz" src="/assets/audio/taawwuz.mp3" autoplay playsinline preload="auto" style="display:none"></audio>
+    <audio id="quran-audio-bismillah" src="/assets/audio/bismillah.mp3" playsinline preload="auto" style="display:none"></audio>
+
     <!-- Ta'awwuz & Bismillah Automatic Sequential Audio (Pure Vanilla JS, 0 UI, Autoplay-Guaranteed) -->
     <script>
       (function() {
@@ -26,22 +30,24 @@
         var TAAWWUZ_AUDIO_PATH = "/assets/audio/taawwuz.mp3";
         var BISMILLAH_AUDIO_PATH = "/assets/audio/bismillah.mp3";
 
-        // Preload audio objects with buffering
-        var taawwuzAudio = new Audio(TAAWWUZ_AUDIO_PATH);
-        var bismillahAudio = new Audio(BISMILLAH_AUDIO_PATH);
+        // Preload audio elements
+        var taawwuzAudio = document.getElementById("quran-audio-taawwuz") || new Audio(TAAWWUZ_AUDIO_PATH);
+        var bismillahAudio = document.getElementById("quran-audio-bismillah") || new Audio(BISMILLAH_AUDIO_PATH);
 
         taawwuzAudio.preload = "auto";
         bismillahAudio.preload = "auto";
-        taawwuzAudio.volume = 0.75; // Calm, clear, respectful volume
-        bismillahAudio.volume = 0.75;
+        taawwuzAudio.volume = 0.80; // Clear, calm, respectful volume
+        bismillahAudio.volume = 0.80;
 
-        // Force browser to start downloading and buffering both recitations immediately
-        taawwuzAudio.load();
-        bismillahAudio.load();
+        try {
+          taawwuzAudio.load();
+          bismillahAudio.load();
+        } catch (e) {}
 
         var playbackInitiated = false;
         var bismillahTriggered = false;
         var safetyTimer = null;
+        var retryTimer = null;
 
         function playBismillah() {
           if (bismillahTriggered) return;
@@ -64,8 +70,15 @@
           playBismillah();
         });
 
-        // Safety fallback transition in case ended event drops or is delayed
+        // When Ta'awwuz starts playing successfully
         taawwuzAudio.addEventListener("play", function() {
+          playbackInitiated = true;
+          if (retryTimer) {
+            clearInterval(retryTimer);
+            retryTimer = null;
+          }
+          removeGlobalActivityListeners();
+
           if (!safetyTimer) {
             // Ta'awwuz duration is ~4.18s; safety margin 4.8s
             safetyTimer = setTimeout(function() {
@@ -99,58 +112,61 @@
             if (p !== undefined) {
               p.then(function() {
                 playbackInitiated = true;
-                removeGlobalInteractionListeners();
-              }).catch(function(err) {
+                if (retryTimer) {
+                  clearInterval(retryTimer);
+                  retryTimer = null;
+                }
+                removeGlobalActivityListeners();
+              }).catch(function() {
                 // Autoplay blocked by browser policy without gesture.
-                // Interaction listeners remain active and will trigger instantly on any user touch/scroll/click.
+                // Activity listeners and polling loop will handle it instantly.
               });
             }
           } catch (err) {
-            // Handled via interaction listeners
+            // Handled via activity listeners
           }
         }
 
-        function onUserInteraction() {
+        function onActivity() {
           if (playbackInitiated) {
-            removeGlobalInteractionListeners();
+            removeGlobalActivityListeners();
             return;
           }
-          playbackInitiated = true;
-          removeGlobalInteractionListeners();
           unlockAudioContext();
-
-          try {
-            taawwuzAudio.currentTime = 0;
-            var p = taawwuzAudio.play();
-            if (p !== undefined) {
-              p.catch(function() {});
-            }
-          } catch (e) {}
+          tryPlayTaawwuz();
         }
 
-        var interactionEvents = [
+        // Comprehensive activity triggers: mouse movement, hover, focus, scroll, touch
+        // User DOES NOT have to click anything!
+        var activityEvents = [
           "pointerdown", "mousedown", "touchstart", "touchend",
-          "click", "keydown", "wheel", "scroll"
+          "click", "keydown", "wheel", "scroll",
+          "mousemove", "pointermove", "mouseenter", "mouseover", "focus"
         ];
 
-        function addGlobalInteractionListeners() {
-          for (var i = 0; i < interactionEvents.length; i++) {
-            var evt = interactionEvents[i];
-            window.addEventListener(evt, onUserInteraction, { capture: true, passive: true });
-            document.addEventListener(evt, onUserInteraction, { capture: true, passive: true });
+        function addGlobalActivityListeners() {
+          for (var i = 0; i < activityEvents.length; i++) {
+            var evt = activityEvents[i];
+            window.addEventListener(evt, onActivity, { capture: true, passive: true });
+            document.addEventListener(evt, onActivity, { capture: true, passive: true });
+          }
+          document.addEventListener("visibilitychange", function() {
+            if (!document.hidden && !playbackInitiated) {
+              onActivity();
+            }
+          });
+        }
+
+        function removeGlobalActivityListeners() {
+          for (var i = 0; i < activityEvents.length; i++) {
+            var evt = activityEvents[i];
+            window.removeEventListener(evt, onActivity, { capture: true, passive: true });
+            document.removeEventListener(evt, onActivity, { capture: true, passive: true });
           }
         }
 
-        function removeGlobalInteractionListeners() {
-          for (var i = 0; i < interactionEvents.length; i++) {
-            var evt = interactionEvents[i];
-            window.removeEventListener(evt, onUserInteraction, { capture: true, passive: true });
-            document.removeEventListener(evt, onUserInteraction, { capture: true, passive: true });
-          }
-        }
-
-        // Register interaction listeners immediately
-        addGlobalInteractionListeners();
+        // Register activity listeners immediately
+        addGlobalActivityListeners();
 
         // Attempt instant playback on script execution, DOM ready, and window load / pageshow
         tryPlayTaawwuz();
@@ -160,6 +176,24 @@
         }
         window.addEventListener("load", tryPlayTaawwuz);
         window.addEventListener("pageshow", tryPlayTaawwuz);
+
+        // Micro-retry loop: attempts to play every 150ms until playback starts
+        retryTimer = setInterval(function() {
+          if (playbackInitiated) {
+            clearInterval(retryTimer);
+            retryTimer = null;
+            return;
+          }
+          tryPlayTaawwuz();
+        }, 150);
+
+        // Clear polling after 12 seconds
+        setTimeout(function() {
+          if (retryTimer) {
+            clearInterval(retryTimer);
+            retryTimer = null;
+          }
+        }, 12000);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
