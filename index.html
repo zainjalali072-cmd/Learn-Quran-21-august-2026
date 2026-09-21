@@ -19,164 +19,147 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Ta'awwuz & Bismillah Automatic Sequential Audio (Pure Vanilla JS, 0 UI, Autoplay-Safe) -->
+    <!-- Ta'awwuz & Bismillah Automatic Sequential Audio (Pure Vanilla JS, 0 UI, Autoplay-Guaranteed) -->
     <script>
       (function() {
         // Easily editable audio file paths
         var TAAWWUZ_AUDIO_PATH = "/assets/audio/taawwuz.mp3";
         var BISMILLAH_AUDIO_PATH = "/assets/audio/bismillah.mp3";
-        var SESSION_KEY = "truth_quran_opening_audio_played";
 
-        // Prevent repeated playback on SPA navigation or page switches within the same session
-        try {
-          if (sessionStorage.getItem(SESSION_KEY) === "true") {
-            return;
-          }
-        } catch (e) {}
-
+        // Preload audio objects with buffering
         var taawwuzAudio = new Audio(TAAWWUZ_AUDIO_PATH);
         var bismillahAudio = new Audio(BISMILLAH_AUDIO_PATH);
 
         taawwuzAudio.preload = "auto";
         bismillahAudio.preload = "auto";
-        taawwuzAudio.volume = 0.70; // Calm, respectful volume
-        bismillahAudio.volume = 0.70;
+        taawwuzAudio.volume = 0.75; // Calm, clear, respectful volume
+        bismillahAudio.volume = 0.75;
 
-        var isStarted = false;
-        var bismillahStarted = false;
+        // Force browser to start downloading and buffering both recitations immediately
+        taawwuzAudio.load();
+        bismillahAudio.load();
 
-        function markSessionPlayed() {
+        var playbackInitiated = false;
+        var bismillahTriggered = false;
+        var safetyTimer = null;
+
+        function playBismillah() {
+          if (bismillahTriggered) return;
+          bismillahTriggered = true;
+          if (safetyTimer) {
+            clearTimeout(safetyTimer);
+            safetyTimer = null;
+          }
           try {
-            sessionStorage.setItem(SESSION_KEY, "true");
+            bismillahAudio.currentTime = 0;
+            var bp = bismillahAudio.play();
+            if (bp !== undefined) {
+              bp.catch(function() {});
+            }
           } catch (e) {}
         }
 
-        function playBismillah() {
-          if (bismillahStarted) return;
-          bismillahStarted = true;
-          var p = bismillahAudio.play();
-          if (p !== undefined) {
-            p.catch(function() {});
-          }
-        }
-
-        // When Ta'awwuz recitation ends, immediately start Bismillah
+        // Sequential Playback: When Ta'awwuz recitation ends, immediately play Bismillah
         taawwuzAudio.addEventListener("ended", function() {
           playBismillah();
         });
 
-        // Safety timeout fallback: if Ta'awwuz ends without firing event (~4.8s)
-        var fallbackTimer = null;
-
-        function startSequence() {
-          if (isStarted) return;
-
-          // Attempt 1: Direct unmuted playback
-          var promise = taawwuzAudio.play();
-
-          if (promise !== undefined) {
-            promise
-              .then(function() {
-                isStarted = true;
-                markSessionPlayed();
-                cleanupListeners();
-
-                // Setup fallback transition to Bismillah in case ended event is delayed
-                fallbackTimer = setTimeout(function() {
-                  if (!bismillahStarted) {
-                    playBismillah();
-                  }
-                }, 5200);
-              })
-              .catch(function(err) {
-                // Autoplay blocked by browser policy without user gesture.
-                // Attempt 2: Web Audio Context / Muted kickoff strategy
-                tryMutedKickoff();
-              });
+        // Safety fallback transition in case ended event drops or is delayed
+        taawwuzAudio.addEventListener("play", function() {
+          if (!safetyTimer) {
+            // Ta'awwuz duration is ~4.18s; safety margin 4.8s
+            safetyTimer = setTimeout(function() {
+              if (!bismillahTriggered) {
+                playBismillah();
+              }
+            }, 4800);
           }
-        }
+        });
 
-        // Muted kickoff trick to gain browser media playback authorization
-        function tryMutedKickoff() {
-          if (isStarted) return;
+        function unlockAudioContext() {
           try {
-            var AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            if (AudioContextClass) {
-              var ctx = new AudioContextClass();
-              if (ctx.state === "suspended") {
-                ctx.resume().catch(function() {});
+            var AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+              if (!window._quranAudioCtx) {
+                window._quranAudioCtx = new AudioCtx();
+              }
+              if (window._quranAudioCtx.state === "suspended") {
+                window._quranAudioCtx.resume().catch(function() {});
               }
             }
           } catch (e) {}
-
-          // Try muted play then unmuting immediately
-          try {
-            taawwuzAudio.muted = true;
-            var mutedPromise = taawwuzAudio.play();
-            if (mutedPromise !== undefined) {
-              mutedPromise
-                .then(function() {
-                  taawwuzAudio.muted = false;
-                  isStarted = true;
-                  markSessionPlayed();
-                  cleanupListeners();
-                  fallbackTimer = setTimeout(function() {
-                    if (!bismillahStarted) playBismillah();
-                  }, 5200);
-                })
-                .catch(function() {
-                  // If muted unmuting is also blocked, restore unmuted for the first natural gesture
-                  taawwuzAudio.muted = false;
-                });
-            }
-          } catch (e) {
-            taawwuzAudio.muted = false;
-          }
         }
 
-        // First natural organic gesture fallback (zero extra UI, popups, or buttons)
-        // If unprompted background play was withheld by the browser,
-        // it starts smoothly on the user's very first natural scroll, touch, or click.
-        function onNaturalUserGesture() {
-          if (!isStarted) {
-            isStarted = true;
-            markSessionPlayed();
-            taawwuzAudio.muted = false;
+        function tryPlayTaawwuz() {
+          if (playbackInitiated) return;
+          unlockAudioContext();
+
+          try {
             var p = taawwuzAudio.play();
             if (p !== undefined) {
               p.then(function() {
-                fallbackTimer = setTimeout(function() {
-                  if (!bismillahStarted) playBismillah();
-                }, 5200);
-              }).catch(function() {});
+                playbackInitiated = true;
+                removeGlobalInteractionListeners();
+              }).catch(function(err) {
+                // Autoplay blocked by browser policy without gesture.
+                // Interaction listeners remain active and will trigger instantly on any user touch/scroll/click.
+              });
             }
+          } catch (err) {
+            // Handled via interaction listeners
           }
-          cleanupListeners();
         }
 
-        function cleanupListeners() {
-          window.removeEventListener("pointerdown", onNaturalUserGesture, true);
-          window.removeEventListener("touchstart", onNaturalUserGesture, true);
-          window.removeEventListener("scroll", onNaturalUserGesture, true);
-          window.removeEventListener("wheel", onNaturalUserGesture, true);
-          window.removeEventListener("click", onNaturalUserGesture, true);
-          window.removeEventListener("keydown", onNaturalUserGesture, true);
+        function onUserInteraction() {
+          if (playbackInitiated) {
+            removeGlobalInteractionListeners();
+            return;
+          }
+          playbackInitiated = true;
+          removeGlobalInteractionListeners();
+          unlockAudioContext();
+
+          try {
+            taawwuzAudio.currentTime = 0;
+            var p = taawwuzAudio.play();
+            if (p !== undefined) {
+              p.catch(function() {});
+            }
+          } catch (e) {}
         }
 
-        // Trigger as early as possible
+        var interactionEvents = [
+          "pointerdown", "mousedown", "touchstart", "touchend",
+          "click", "keydown", "wheel", "scroll"
+        ];
+
+        function addGlobalInteractionListeners() {
+          for (var i = 0; i < interactionEvents.length; i++) {
+            var evt = interactionEvents[i];
+            window.addEventListener(evt, onUserInteraction, { capture: true, passive: true });
+            document.addEventListener(evt, onUserInteraction, { capture: true, passive: true });
+          }
+        }
+
+        function removeGlobalInteractionListeners() {
+          for (var i = 0; i < interactionEvents.length; i++) {
+            var evt = interactionEvents[i];
+            window.removeEventListener(evt, onUserInteraction, { capture: true, passive: true });
+            document.removeEventListener(evt, onUserInteraction, { capture: true, passive: true });
+          }
+        }
+
+        // Register interaction listeners immediately
+        addGlobalInteractionListeners();
+
+        // Attempt instant playback on script execution, DOM ready, and window load / pageshow
+        tryPlayTaawwuz();
+
         if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", startSequence);
-        } else {
-          startSequence();
+          document.addEventListener("DOMContentLoaded", tryPlayTaawwuz);
         }
-
-        // Passive listeners for natural user activity if browser strictly blocks 0-gesture audio
-        window.addEventListener("pointerdown", onNaturalUserGesture, { capture: true, once: true });
-        window.addEventListener("touchstart", onNaturalUserGesture, { capture: true, once: true, passive: true });
-        window.addEventListener("scroll", onNaturalUserGesture, { capture: true, once: true, passive: true });
-        window.addEventListener("wheel", onNaturalUserGesture, { capture: true, once: true, passive: true });
-        window.addEventListener("click", onNaturalUserGesture, { capture: true, once: true });
-        window.addEventListener("keydown", onNaturalUserGesture, { capture: true, once: true });
+        window.addEventListener("load", tryPlayTaawwuz);
+        window.addEventListener("pageshow", tryPlayTaawwuz);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
