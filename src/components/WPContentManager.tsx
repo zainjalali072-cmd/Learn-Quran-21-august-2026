@@ -1617,18 +1617,17 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
                   {activeTab === "courses" && <th className="py-3 px-4 w-12 text-center">Emblem</th>}
                   {activeTab === "media" && <th className="py-3 px-4 w-12 text-center">File</th>}
                   
-                  <th className="py-3 px-4">Title</th>
+                  <th className="py-3 px-4">Title / Identifier</th>
                   
-                  {(activeTab === "posts" || activeTab === "teachers" || activeTab === "videos") && <th className="py-3 px-4">Category</th>}
                   {activeTab === "posts" && <th className="py-3 px-4">Author</th>}
-                  {activeTab === "posts" && <th className="py-3 px-4 whitespace-nowrap">Reading Time</th>}
+                  {(activeTab === "posts" || activeTab === "teachers" || activeTab === "videos") && <th className="py-3 px-4">Category</th>}
+                  {activeTab === "posts" && <th className="py-3 px-4">Tags</th>}
                   {activeTab === "posts" && <th className="py-3 px-4 text-center">SEO Score</th>}
                   {activeTab === "teachers" && <th className="py-3 px-4">Role / Experience</th>}
                   {activeTab === "testimonials" && <th className="py-3 px-4">Country</th>}
                   
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Date</th>
-                  {activeTab === "posts" && <th className="py-3 px-4 text-center">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#d9b45c]/5 text-[#c9c2ab]">
@@ -1850,15 +1849,20 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
                       </td>
 
                       {/* Dynamic metadata columns depending on content type */}
+                      {activeTab === "posts" && <td className="py-3.5 px-4 font-sans text-xs">{item.author?.name || "Scholar Admin"}</td>}
                       {(activeTab === "posts" || activeTab === "teachers" || activeTab === "videos") && (
                         <td className="py-3.5 px-4 text-xs font-semibold text-[#d9b45c]">{item.category || "Uncategorized"}</td>
                       )}
-
-                      {activeTab === "posts" && <td className="py-3.5 px-4 font-sans text-xs">{item.author?.name || "Scholar Admin"}</td>}
                       
                       {activeTab === "posts" && (
-                        <td className="py-3.5 px-4 font-mono text-xs text-[#f2d98a] whitespace-nowrap">
-                          {item.readTime || "5 min read"}
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <div className="flex flex-wrap gap-1.5">
+                            {item.tags?.map((tag: string, idx: number) => (
+                              <span key={idx} className="bg-[#d9b45c]/8 text-[#f2d98a] border border-[#d9b45c]/12 text-[8px] font-mono px-1 py-0.5 rounded">
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
                         </td>
                       )}
 
@@ -1894,53 +1898,10 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
                       </td>
 
                       {/* Date details */}
-                      <td className="py-3.5 px-4 font-mono text-[10px] text-[#c9c2ab]/70 whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-mono text-[10px] text-[#c9c2ab]/70">
                         <div className="font-semibold text-white">{item.date || "July 20, 2026"}</div>
-                        <div className="text-[9px] text-[#c9c2ab]/40 mt-0.5 uppercase">Publish Date</div>
+                        <div className="text-[9px] text-[#c9c2ab]/40 mt-0.5 uppercase">Last Updated</div>
                       </td>
-
-                      {/* Dedicated Post Action Buttons */}
-                      {activeTab === "posts" && (
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center space-x-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleEditItem(item.id)}
-                              title="Edit in Block Editor"
-                              className="p-1.5 bg-[#d9b45c]/10 text-[#d9b45c] hover:bg-[#d9b45c] hover:text-black rounded transition-all cursor-pointer"
-                            >
-                              <Edit size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDuplicateItem(item.id)}
-                              title="Duplicate Post"
-                              className="p-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded transition-all cursor-pointer"
-                            >
-                              <Copy size={13} />
-                            </button>
-                            <a
-                              href={`/blog/${item.slug || item.id}`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                navigateToRoute("blog-post", item.slug || item.id);
-                              }}
-                              title="Preview Post"
-                              className="p-1.5 bg-white/5 text-[#c9c2ab] hover:text-white rounded transition-all cursor-pointer"
-                            >
-                              <Eye size={13} />
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => handleTrashItem(item.id)}
-                              title="Move to Trash / Delete"
-                              className="p-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded transition-all cursor-pointer"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      )}
 
                     </tr>
                   );

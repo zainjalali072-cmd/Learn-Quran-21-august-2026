@@ -2,8 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BlogPost } from "../types";
 import { saveCMSData, CMSData, cleanHTMLToExcerpt, DEFAULT_POST_IMAGE, submitUrlsForIndexing, WPMedia } from "../cmsStore";
 import { WPMediaLibraryModal } from "./WPMediaLibraryModal";
-import WPBlockCanvas from "./WPBlockCanvas";
-import { generateAutoSchemaJson, slugifyAnchor } from "../utils/blockParser";
 import { 
   Check, 
   ChevronDown, 
@@ -185,17 +183,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
   // Device mode & Editor mode
   const [deviceFrame, setDeviceFrame] = useState<"desktop" | "tablet" | "mobile">("desktop");
-  const [editorMode, setEditorMode] = useState<"blocks" | "visual" | "code">("blocks");
+  const [editorMode, setEditorMode] = useState<"visual" | "code">("visual");
   const [viewLayoutMode, setViewLayoutMode] = useState<"editor" | "split" | "preview">("editor");
   const [snippetDevice, setSnippetDevice] = useState<"desktop" | "mobile">("desktop");
 
-  // Right Sidebar Active Tab ("seo" | "social" | "schema" | "publish" | "media")
-  const [activeSidebarTab, setActiveSidebarTab] = useState<"seo" | "social" | "schema" | "publish" | "media">("seo");
+  // Right Sidebar Active Tab ("seo" | "publish" | "media")
+  const [activeSidebarTab, setActiveSidebarTab] = useState<"seo" | "publish" | "media">("seo");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showChecklistExpanded, setShowChecklistExpanded] = useState(false);
-  const [newKeywordInput, setNewKeywordInput] = useState("");
-  const [isCopiedSchema, setIsCopiedSchema] = useState(false);
-  const [showAdvancedRobots, setShowAdvancedRobots] = useState(false);
 
   // Auto Save State
   const [lastSavedTime, setLastSavedTime] = useState<string>("Not saved yet");
@@ -2631,22 +2626,6 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     type="button"
                     onClick={() => {
                       setViewLayoutMode("editor");
-                      setEditorMode("blocks");
-                    }}
-                    className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
-                      viewLayoutMode === "editor" && editorMode === "blocks"
-                        ? "bg-[#d9b45c] text-black shadow-sm"
-                        : "text-[#c9c2ab] hover:text-white"
-                    }`}
-                    title="Modular Block Editor (Gutenberg)"
-                  >
-                    <Layers size={12} />
-                    <span>Blocks</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewLayoutMode("editor");
                       setEditorMode("visual");
                     }}
                     className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all flex items-center space-x-1 ${
@@ -2878,16 +2857,6 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     />
                   </div>
                 </div>
-              ) : editorMode === "blocks" ? (
-                /* MODULAR GUTENBERG-STYLE BLOCK CANVAS */
-                <WPBlockCanvas
-                  post={currentPost}
-                  onChange={(updated) => {
-                    setCurrentPost(updated);
-                    setIsDirty(true);
-                  }}
-                  cmsData={cmsData}
-                />
               ) : editorMode === "code" ? (
                 /* RAW HTML CODE EDITOR MODE */
                 <div
@@ -3052,46 +3021,30 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-20">
           
           {/* TAB SWITCHER HEADER */}
-          <div className="bg-[#12141b] border border-[#d9b45c]/30 rounded-2xl p-1 flex items-center shadow-xl">
+          <div className="bg-[#12141b] border border-[#d9b45c]/30 rounded-2xl p-1.5 flex items-center shadow-xl">
             <button
               type="button"
               onClick={() => setActiveSidebarTab("seo")}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "seo" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "seo" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
             >
-              <Sparkles size={12} />
+              <Sparkles size={13} />
               <span>SEO</span>
             </button>
             <button
               type="button"
-              onClick={() => setActiveSidebarTab("social")}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "social" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
-            >
-              <Share2 size={12} />
-              <span>Social</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSidebarTab("schema")}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "schema" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
-            >
-              <FileCode size={12} />
-              <span>Schema</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveSidebarTab("publish")}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "publish" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "publish" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
             >
-              <Globe size={12} />
+              <Globe size={13} />
               <span>Settings</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveSidebarTab("media")}
-              className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "media" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${activeSidebarTab === "media" ? "bg-[#d9b45c] text-black shadow-lg" : "text-[#c9c2ab] hover:text-white"}`}
             >
-              <Video size={12} />
-              <span>Media</span>
+              <Video size={13} />
+              <span>Media & Files</span>
             </button>
           </div>
 
@@ -3265,144 +3218,6 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                 )}
               </div>
 
-              {/* SECONDARY KEYWORDS */}
-              <div className="border-t border-white/10 pt-3">
-                <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                  Secondary Keywords (Semantic Entities)
-                </label>
-                <div className="flex items-center space-x-2 mb-2">
-                  <input
-                    type="text"
-                    value={newKeywordInput}
-                    onChange={(e) => setNewKeywordInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const kw = newKeywordInput.trim().toLowerCase();
-                        if (kw) {
-                          const currentKws = currentPost.secondaryKeywords || [];
-                          if (!currentKws.includes(kw)) {
-                            handleUpdateField("secondaryKeywords", [...currentKws, kw]);
-                          }
-                          setNewKeywordInput("");
-                        }
-                      }
-                    }}
-                    placeholder="Type keyword and press Enter..."
-                    className="flex-1 bg-[#07080b] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-[#d9b45c]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const kw = newKeywordInput.trim().toLowerCase();
-                      if (kw) {
-                        const currentKws = currentPost.secondaryKeywords || [];
-                        if (!currentKws.includes(kw)) {
-                          handleUpdateField("secondaryKeywords", [...currentKws, kw]);
-                        }
-                        setNewKeywordInput("");
-                      }
-                    }}
-                    className="px-2.5 py-1.5 bg-[#d9b45c] text-black font-bold text-xs rounded-xl hover:bg-white"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {(currentPost.secondaryKeywords || []).map((kw, i) => (
-                    <span
-                      key={i}
-                      className="px-2 py-0.5 rounded-full bg-[#d9b45c]/10 border border-[#d9b45c]/30 text-[#f2d98a] text-[10px] font-mono flex items-center gap-1"
-                    >
-                      <span>{kw}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentKws = currentPost.secondaryKeywords || [];
-                          handleUpdateField("secondaryKeywords", currentKws.filter((k) => k !== kw));
-                        }}
-                        className="hover:text-red-400 p-0.5"
-                      >
-                        <X size={10} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* URL SLUG GENERATOR */}
-              <div className="border-t border-white/10 pt-3">
-                <div className="flex items-center justify-between text-[10px] text-[#c9c2ab] uppercase font-bold mb-1">
-                  <span>URL Slug (Permalink)</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (currentPost.title) {
-                        handleUpdateField("slug", slugifyAnchor(currentPost.title));
-                      }
-                    }}
-                    className="text-[#d9b45c] hover:underline normal-case"
-                  >
-                    Auto-generate
-                  </button>
-                </div>
-                <div className="flex items-center space-x-1 bg-[#07080b] border border-white/10 rounded-xl px-3 py-1.5">
-                  <span className="text-[10px] text-[#c9c2ab]/50 font-mono">/blog/</span>
-                  <input
-                    type="text"
-                    value={currentPost.slug || ""}
-                    onChange={(e) => handleUpdateField("slug", slugifyAnchor(e.target.value))}
-                    placeholder="clean-seo-slug"
-                    className="flex-1 bg-transparent text-xs text-[#f2d98a] font-mono outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* ADVANCED ROBOTS & CANONICAL OVERRIDE */}
-              <div className="border-t border-white/10 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedRobots(!showAdvancedRobots)}
-                  className="w-full flex items-center justify-between text-xs font-bold text-[#d9b45c]"
-                >
-                  <span>Advanced Robots & Canonical URL</span>
-                  {showAdvancedRobots ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-
-                {showAdvancedRobots && (
-                  <div className="mt-3 space-y-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                        Canonical URL Override
-                      </label>
-                      <input
-                        type="text"
-                        value={currentPost.canonicalUrl || ""}
-                        onChange={(e) => handleUpdateField("canonicalUrl", e.target.value)}
-                        placeholder="https://truthquranacademy.com/blog/..."
-                        className="w-full bg-[#07080b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                        Robots Meta Directives
-                      </label>
-                      <select
-                        value={currentPost.robotsMeta || "index, follow"}
-                        onChange={(e) => handleUpdateField("robotsMeta", e.target.value)}
-                        className="w-full bg-[#07080b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
-                      >
-                        <option value="index, follow">index, follow (Recommended)</option>
-                        <option value="noindex, follow">noindex, follow</option>
-                        <option value="index, nofollow">index, nofollow</option>
-                        <option value="noindex, nofollow">noindex, nofollow</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* INSTANT INDEXING ACTION BUTTON */}
               <div className="border-t border-white/10 pt-4">
                 <button
@@ -3419,149 +3234,6 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                 </p>
               </div>
 
-            </div>
-          )}
-
-          {/* TAB: OPEN GRAPH & TWITTER SOCIAL METADATA */}
-          {activeSidebarTab === "social" && (
-            <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200 text-left">
-              {/* LIVE SOCIAL SHARE CARD PREVIEW */}
-              <div className="p-3 bg-[#07080b] rounded-xl border border-white/10 space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#d9b45c] block">
-                  Social Card Preview (Facebook & Twitter)
-                </span>
-
-                <div className="border border-white/10 rounded-xl overflow-hidden bg-[#18191a] shadow-lg">
-                  <div className="aspect-[1.91/1] w-full bg-black relative overflow-hidden">
-                    <img
-                      src={currentPost.ogImage || currentPost.featuredImage || currentPost.coverImage || "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=600"}
-                      alt="Social share preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-3 space-y-1">
-                    <span className="text-[9px] text-[#c9c2ab]/60 uppercase font-mono block">truthquranacademy.com</span>
-                    <h4 className="text-xs font-bold text-white leading-snug line-clamp-2">
-                      {currentPost.ogTitle || currentPost.metaTitle || currentPost.title || "Article Social Title..."}
-                    </h4>
-                    <p className="text-[11px] text-[#b0b3b8] line-clamp-2 leading-relaxed">
-                      {currentPost.ogDescription || currentPost.metaDescription || currentPost.excerpt || "Article social description summary..."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* SOCIAL TITLE */}
-              <div>
-                <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                  Social Share Title (OG / Twitter)
-                </label>
-                <input
-                  type="text"
-                  value={currentPost.ogTitle || ""}
-                  onChange={(e) => handleUpdateField("ogTitle", e.target.value)}
-                  placeholder={currentPost.metaTitle || currentPost.title || "Custom social title..."}
-                  className="w-full bg-[#07080b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
-                />
-              </div>
-
-              {/* SOCIAL DESCRIPTION */}
-              <div>
-                <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                  Social Share Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={currentPost.ogDescription || ""}
-                  onChange={(e) => handleUpdateField("ogDescription", e.target.value)}
-                  placeholder={currentPost.metaDescription || currentPost.excerpt || "Custom social description..."}
-                  className="w-full bg-[#07080b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
-                />
-              </div>
-
-              {/* SOCIAL IMAGE */}
-              <div>
-                <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                  Social Share Image (Recommended: 1200×630)
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={currentPost.ogImage || ""}
-                    onChange={(e) => handleUpdateField("ogImage", e.target.value)}
-                    placeholder="https://... or choose from Media Library"
-                    className="flex-1 bg-[#07080b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMediaTargetField("social");
-                      setShowMediaLibraryModal(true);
-                    }}
-                    className="px-3 py-2 bg-[#d9b45c] text-black font-bold text-xs rounded-xl hover:bg-white transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    Media Library
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: SCHEMA.ORG JSON-LD BUILDER & VIEWER */}
-          {activeSidebarTab === "schema" && (
-            <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl p-6 shadow-2xl space-y-4 animate-in fade-in duration-200 text-left">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#d9b45c]">
-                    Schema.org (JSON-LD) Builder
-                  </h4>
-                  <p className="text-[10px] text-[#c9c2ab]/70">
-                    Article + Breadcrumbs + FAQPage auto-extracted
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const schema = currentPost.customSchemaJson || JSON.stringify(generateAutoSchemaJson(currentPost), null, 2);
-                    navigator.clipboard.writeText(schema);
-                    setIsCopiedSchema(true);
-                    setTimeout(() => setIsCopiedSchema(false), 2000);
-                  }}
-                  className="px-2.5 py-1 bg-[#d9b45c]/20 hover:bg-[#d9b45c] text-[#d9b45c] hover:text-black rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-                >
-                  {isCopiedSchema ? <Check size={12} /> : <Copy size={12} />}
-                  <span>{isCopiedSchema ? "Copied!" : "Copy JSON"}</span>
-                </button>
-              </div>
-
-              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center space-x-2 text-[10px] text-emerald-400">
-                <CheckCircle2 size={14} className="shrink-0" />
-                <span>Valid Google Rich Results structured data (BlogPosting, BreadcrumbList, FAQPage).</span>
-              </div>
-
-              {/* JSON-LD Code Viewer & Editor */}
-              <div>
-                <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                  Structured Data Payload (JSON-LD)
-                </label>
-                <textarea
-                  rows={14}
-                  value={currentPost.customSchemaJson || JSON.stringify(generateAutoSchemaJson(currentPost), null, 2)}
-                  onChange={(e) => handleUpdateField("customSchemaJson", e.target.value)}
-                  className="w-full bg-[#07080b] border border-white/10 rounded-xl p-3 font-mono text-[11px] text-[#f2d98a] outline-none focus:border-[#d9b45c] leading-relaxed resize-y"
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] text-[#c9c2ab]/60">
-                <span>Automatically injected into &lt;head&gt; of blog post</span>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateField("customSchemaJson", undefined)}
-                  className="text-[#d9b45c] hover:underline"
-                >
-                  Reset to Auto-generated
-                </button>
-              </div>
             </div>
           )}
 

@@ -71,27 +71,7 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "posts" | "pages" | "media" | "videos" | "comments" | "customizer" | "rankmath" | "seo-settings" | "ai-settings" | "users" | "settings" | "tools" | "theme" | "courses" | "teachers" | "testimonials" | "faqs" | "services" | "pricing"
-  >(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const tabParam = params.get("tab") || params.get("page");
-        const validTabs = ["dashboard", "posts", "pages", "media", "videos", "comments", "customizer", "rankmath", "seo-settings", "ai-settings", "users", "settings", "tools", "theme", "courses", "teachers", "testimonials", "faqs", "services", "pricing"];
-        if (tabParam && validTabs.includes(tabParam.toLowerCase())) {
-          return tabParam.toLowerCase() as any;
-        }
-        const rawHash = (window.location.hash || "").replace(/^#/, "").trim().toLowerCase();
-        if (rawHash && validTabs.includes(rawHash)) {
-          return rawHash as any;
-        }
-        const subpath = window.location.pathname.replace(/^\/wp-admin\/?/, "").toLowerCase();
-        if (subpath && validTabs.includes(subpath)) {
-          return subpath as any;
-        }
-      }
-    } catch (e) {}
-    return "dashboard";
-  });
+  >("dashboard");
   const [cmsData, setCmsData] = useState<CMSData>(getCMSData());
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -104,16 +84,8 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
     }, 4000);
   };
 
-  // Authentication & Security States (with 2FA & Password Recovery)
-  const [sessionUser, setSessionUser] = useState<any | null>(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("wp_admin_session");
-        if (saved) return JSON.parse(saved);
-      }
-    } catch (e) {}
-    return null;
-  });
+  // Authentication & Security States
+  const [sessionUser, setSessionUser] = useState<any | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -121,14 +93,6 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [lostPasswordRequested, setLostPasswordRequested] = useState(false);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
-
-  // 2FA Verification States
-  const [is2FAStep, setIs2FAStep] = useState(false);
-  const [twoFactorCode, setTwoFactorCode] = useState("");
-  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
-  const [forgotPasswordMsg, setForgotPasswordMsg] = useState("");
-  const [isSubmittingForgot, setIsSubmittingForgot] = useState(false);
 
   // Sub-tabs for Customizer
   const [customizerSection, setCustomizerSection] = useState<"general" | "colors" | "navigation" | "widgets" | "assets">("general");
@@ -162,12 +126,7 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       fetch("/api/auth/session")
         .then((res) => res.json())
         .then((data) => {
-          if (data.user) {
-            setSessionUser(data.user);
-            try {
-              localStorage.setItem("wp_admin_session", JSON.stringify(data.user));
-            } catch (e) {}
-          }
+          setSessionUser(data.user);
           setAuthChecked(true);
         })
         .catch((e) => {
@@ -187,34 +146,11 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       return;
     }
 
-    const isValidUser = 
-      inputUser === "zainjalali072@gmail.com" ||
-      inputUser === "muhammadzain92624@gmail.com" || 
-      inputUser === "qarizain" ||
-      inputUser === "admin" ||
-      inputUser === "admin@truthquranacademy.com";
-
-    const isValidPass = 
-      inputPass === "MuhammadZain786.." || 
-      inputPass === "admin2026" || 
-      inputPass === "admin123";
+    const isValidUser = inputUser === "muhammadzain92624@gmail.com" || inputUser === "qarizain";
+    const isValidPass = inputPass === "MuhammadZain786..";
 
     if (!isValidUser || !isValidPass) {
       setLoginError("ERROR: Invalid scholar email/username or password credentials.");
-      return;
-    }
-
-    // If 2FA step is not yet triggered, prompt for 2FA verification
-    if (!is2FAStep) {
-      setLoginError("");
-      setIs2FAStep(true);
-      return;
-    }
-
-    // Step 2: 2FA Verification Submission
-    const clean2FA = twoFactorCode.trim();
-    if (!clean2FA) {
-      setLoginError("Please enter the 6-digit Two-Factor Authentication (2FA) verification code.");
       return;
     }
 
@@ -224,76 +160,39 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
     fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: loginEmail, password: loginPassword, twoFactorCode: clean2FA })
+      body: JSON.stringify({ email: loginEmail, password: loginPassword })
     })
       .then((res) => {
         if (res.ok) return res.json();
         return res.json().then((err) => { throw new Error(err.error || "Failed to log in") });
       })
       .then((data) => {
-        if (data.require2FA) {
-          setIs2FAStep(true);
-          return;
-        }
         setSessionUser(data.user);
-        try {
-          localStorage.setItem("wp_admin_session", JSON.stringify(data.user));
-        } catch (e) {}
         setLoginPassword("");
-        setTwoFactorCode("");
-        setIs2FAStep(false);
         const currentData = getCMSData();
         setCmsData(currentData);
       })
       .catch((err) => {
-        // Fallback offline authentication for valid credentials & 2FA
-        if (isValidUser && isValidPass && (clean2FA === "786786" || clean2FA.length === 6)) {
+        // Fallback offline authentication for valid credentials
+        if (isValidUser && isValidPass) {
           const userObj = {
-            id: inputUser === "zainjalali072@gmail.com" ? "u-zain-admin" : "u-admin",
-            name: inputUser === "zainjalali072@gmail.com" ? "Zain Jalali" : "Qarizain",
-            email: inputUser,
+            id: "u-admin",
+            name: "Qarizain",
+            email: "muhammadzain92624@gmail.com",
             role: "Administrator",
             avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
             loginTime: new Date().toISOString()
           };
           setSessionUser(userObj);
-          try {
-            localStorage.setItem("wp_admin_session", JSON.stringify(userObj));
-          } catch (e) {}
           setLoginPassword("");
-          setTwoFactorCode("");
-          setIs2FAStep(false);
           const currentData = getCMSData();
           setCmsData(currentData);
         } else {
-          setLoginError(err.message || "ERROR: Invalid 2FA security code.");
+          setLoginError(err.message || "ERROR: Invalid scholar email/username or password credentials.");
         }
       })
       .finally(() => {
         setIsLoggingIn(false);
-      });
-  };
-
-  const handleForgotPasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!forgotPasswordEmail) return;
-    setIsSubmittingForgot(true);
-    setForgotPasswordMsg("");
-
-    fetch("/api/auth/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: forgotPasswordEmail })
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setForgotPasswordMsg(data.message || "Password reset token sent to your email!");
-      })
-      .catch(() => {
-        setForgotPasswordMsg(`Password reset instructions and security token transmitted to ${forgotPasswordEmail}.`);
-      })
-      .finally(() => {
-        setIsSubmittingForgot(false);
       });
   };
 
@@ -302,9 +201,6 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       fetch("/api/auth/logout", { method: "POST" })
         .then(() => {
           setSessionUser(null);
-          try {
-            localStorage.removeItem("wp_admin_session");
-          } catch (e) {}
         })
         .catch(console.error);
     }
@@ -494,204 +390,87 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
                   </div>
                 )}
 
-                {/* 2FA Verification Step */}
-                {is2FAStep ? (
-                  <div className="space-y-4 animate-in fade-in duration-200">
-                    <div className="p-3 bg-[#07080b] rounded-xl border border-[#d9b45c]/30 flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span className="text-[11px] text-[#f2d98a] font-bold">Two-Factor Authentication (2FA) Required</span>
-                    </div>
-
-                    <p className="text-[11px] text-[#c9c2ab] leading-relaxed">
-                      Enter the 6-digit security verification code sent to your authenticated scholar device (or use backup key <span className="font-mono text-[#d9b45c] font-bold">786786</span>).
-                    </p>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] text-[#c9c2ab] uppercase font-bold tracking-wider block">
-                        6-Digit Security Code
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        autoFocus
-                        value={twoFactorCode}
-                        onChange={(e) => {
-                          setTwoFactorCode(e.target.value.replace(/\D/g, ""));
-                          setLoginError("");
-                        }}
-                        placeholder="786786"
-                        className="w-full text-center tracking-widest text-lg font-mono bg-[#07080b] border border-[#d9b45c]/40 rounded-xl p-3 text-[#d9b45c] font-extrabold outline-none focus:border-[#d9b45c] focus:ring-1 focus:ring-[#d9b45c]"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIs2FAStep(false);
-                          setTwoFactorCode("");
-                          setLoginError("");
-                        }}
-                        className="text-[11px] text-[#c9c2ab] hover:text-white underline"
-                      >
-                        ← Back to Password
-                      </button>
-
-                      <button
-                        type="submit"
-                        disabled={isLoggingIn}
-                        className="px-5 py-2.5 rounded bg-[#d9b45c] text-black hover:bg-white active:scale-95 transition-all text-[11px] font-extrabold uppercase tracking-widest disabled:opacity-50 cursor-pointer shadow-[0_4px_12px_rgba(217,180,92,0.2)]"
-                      >
-                        {isLoggingIn ? "Verifying..." : "Verify & Access"}
-                      </button>
-                    </div>
+                {lostPasswordRequested && (
+                  <div className="bg-[#121b14] border-l-4 border-[#d9b45c] p-3 text-[11px] text-[#f3ecd8] leading-relaxed animate-in fade-in duration-300">
+                    <strong className="text-[#d9b45c] block mb-0.5 font-bold uppercase tracking-wider">Reset Initiated:</strong>
+                    <span>Please contact the Chief Administrator at <strong className="text-white select-all">muhammadzain92624@gmail.com</strong> to securely update your credentials.</span>
                   </div>
-                ) : (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] text-[#c9c2ab] uppercase font-bold tracking-wider block">Username or Email Address</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required
-                          value={loginEmail}
-                          onChange={(e) => {
-                            setLoginEmail(e.target.value);
-                            setLoginError("");
-                          }}
-                          placeholder="Username or email address"
-                          className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded p-3 text-xs text-white font-semibold outline-none focus:border-[#d9b45c] focus:ring-1 focus:ring-[#d9b45c] transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] text-[#c9c2ab] uppercase font-bold tracking-wider block">Password</label>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          required
-                          value={loginPassword}
-                          onChange={(e) => {
-                            setLoginPassword(e.target.value);
-                            setLoginError("");
-                          }}
-                          placeholder="••••••••"
-                          className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded p-3 text-xs text-white outline-none focus:border-[#d9b45c] focus:ring-1 focus:ring-[#d9b45c] transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <label className="flex items-center space-x-2 text-[#c9c2ab] text-[10px] cursor-pointer">
-                        <input type="checkbox" defaultChecked className="rounded bg-[#07080b] border-[#d9b45c]/30 text-[#d9b45c] focus:ring-[#d9b45c] w-3.5 h-3.5 cursor-pointer" />
-                        <span>Remember Me</span>
-                      </label>
-
-                      <button
-                        type="submit"
-                        disabled={isLoggingIn}
-                        className="px-5 py-2.5 rounded bg-[#d9b45c] text-black hover:bg-white active:scale-95 transition-all text-[11px] font-extrabold uppercase tracking-widest disabled:opacity-50 cursor-pointer shadow-[0_4px_12px_rgba(217,180,92,0.2)]"
-                      >
-                        {isLoggingIn ? "Logging In..." : "Log In"}
-                      </button>
-                    </div>
-                  </>
                 )}
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-[#c9c2ab] uppercase font-bold tracking-wider block">Username or Email Address</label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      value={loginEmail}
+                      onChange={(e) => {
+                        setLoginEmail(e.target.value);
+                        setLoginError("");
+                      }}
+                      placeholder="Username or email address"
+                      className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded p-3 text-xs text-white font-semibold outline-none focus:border-[#d9b45c] focus:ring-1 focus:ring-[#d9b45c] transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-[#c9c2ab] uppercase font-bold tracking-wider block">Password</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required
+                      value={loginPassword}
+                      onChange={(e) => {
+                        setLoginPassword(e.target.value);
+                        setLoginError("");
+                      }}
+                      placeholder="••••••••"
+                      className="w-full bg-[#07080b] border border-[#d9b45c]/20 rounded p-3 text-xs text-white outline-none focus:border-[#d9b45c] focus:ring-1 focus:ring-[#d9b45c] transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <label className="flex items-center space-x-2 text-[#c9c2ab] text-[10px] cursor-pointer">
+                    <input type="checkbox" defaultChecked className="rounded bg-[#07080b] border-[#d9b45c]/30 text-[#d9b45c] focus:ring-[#d9b45c] w-3.5 h-3.5 cursor-pointer" />
+                    <span>Remember Me</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={isLoggingIn}
+                    className="px-5 py-2.5 rounded bg-[#d9b45c] text-black hover:bg-white active:scale-95 transition-all text-[11px] font-extrabold uppercase tracking-widest disabled:opacity-50 cursor-pointer shadow-[0_4px_12px_rgba(217,180,92,0.2)]"
+                  >
+                    {isLoggingIn ? "Logging In..." : "Log In"}
+                  </button>
+                </div>
               </form>
             </div>
 
-            {/* Back Links & Forgot Password Modal Trigger */}
-            <div className="flex flex-col space-y-2.5 px-1 text-left">
-              <div className="flex items-center justify-between text-[11px] text-[#c9c2ab] font-sans">
-                <button 
-                  type="button"
-                  onClick={() => setShowForgotPasswordModal(true)}
-                  className="hover:text-white transition-all text-left underline"
-                >
-                  Lost your password?
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    if (onClose) onClose();
-                    else setIsOpen(false);
-                  }}
-                  className="hover:text-white transition-all flex items-center space-x-1 underline"
-                >
-                  <ArrowLeft size={10} />
-                  <span>← Go to Truth Quran Academy</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Forgot Password Modal */}
-            {showForgotPasswordModal && (
-              <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-                <div className="bg-[#12141b] border border-[#d9b45c]/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-left space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                    <h3 className="font-serif font-bold text-white text-base">Recover Admin Password</h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowForgotPasswordModal(false);
-                        setForgotPasswordMsg("");
-                      }}
-                      className="text-[#c9c2ab] hover:text-white"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-
-                  <p className="text-xs text-[#c9c2ab] leading-relaxed">
-                    Enter your registered administrator email address below to receive password recovery instructions and a secure verification code.
-                  </p>
-
-                  {forgotPasswordMsg && (
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs">
-                      {forgotPasswordMsg}
-                    </div>
-                  )}
-
-                  <form onSubmit={handleForgotPasswordSubmit} className="space-y-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider block mb-1">
-                        Administrator Email
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={forgotPasswordEmail}
-                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                        placeholder="muhammadzain92624@gmail.com"
-                        className="w-full bg-[#07080b] border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-[#d9b45c]"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-end space-x-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowForgotPasswordModal(false);
-                          setForgotPasswordMsg("");
-                        }}
-                        className="px-3 py-2 text-xs text-[#c9c2ab] hover:text-white"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSubmittingForgot}
-                        className="px-4 py-2 bg-[#d9b45c] text-black font-bold text-xs rounded-xl hover:bg-white transition-all disabled:opacity-50"
-                      >
-                        {isSubmittingForgot ? "Transmitting..." : "Send Reset Code"}
-                      </button>
-                    </div>
-                  </form>
+              {/* Back Links */}
+              <div className="flex flex-col space-y-2.5 px-1 text-left">
+                <div className="flex items-center justify-between text-[11px] text-[#c9c2ab] font-sans">
+                  <button 
+                    type="button"
+                    onClick={() => setLostPasswordRequested(prev => !prev)}
+                    className="hover:text-white transition-all text-left underline"
+                  >
+                    Lost your password?
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (onClose) onClose();
+                      else setIsOpen(false);
+                    }}
+                    className="hover:text-white transition-all flex items-center space-x-1 underline"
+                  >
+                    <ArrowLeft size={10} />
+                    <span>← Go to Truth Quran Academy</span>
+                  </button>
                 </div>
               </div>
-            )}
           </div>
         </div>
       )}

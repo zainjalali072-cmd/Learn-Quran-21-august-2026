@@ -194,6 +194,8 @@ export default function App() {
         />
         <WPSimulator 
           onClose={() => {
+            window.history.pushState(null, "", "/");
+            setIsWpAdmin(false);
             setView("home");
           }} 
         />

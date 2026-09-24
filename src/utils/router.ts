@@ -15,128 +15,85 @@ export function slugify(text: string): string {
 }
 
 export function parseCurrentRoute(): RouteState {
-  const rawPath = typeof window !== "undefined" ? window.location.pathname || "/" : "/";
+  // Normalize pathname: remove trailing slash, handle base path
+  const rawPath = window.location.pathname || "/";
   let pathname = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : "/";
-  const normalizedPath = pathname.toLowerCase();
-  
-  const rawHash = typeof window !== "undefined" ? (window.location.hash || "").replace(/^#/, "").trim().toLowerCase() : "";
-  const cleanHash = rawHash.replace(/^\/+/, "").replace(/\/+$/, "");
+  const hash = (window.location.hash || "").replace(/^#/, "").trim().toLowerCase();
 
-  // =========================================================================
-  // PRIORITY 1: EXCLUSIVE ADMIN / BLOG MANAGEMENT ACCESS (/wp-admin)
-  // Highest priority so public hash routes (like #about or #dashboard) never hijack /wp-admin
-  // =========================================================================
-  const isDirectWpAdminPath = 
-    normalizedPath === "/wp-admin" || 
-    normalizedPath.startsWith("/wp-admin/") ||
-    normalizedPath === "/wp-admin.php" ||
-    normalizedPath.startsWith("/wp-admin.php");
-
-  const isHashWpAdmin = 
-    cleanHash === "wp-admin" || 
-    cleanHash.startsWith("wp-admin/") || 
-    cleanHash === "admin-panel";
-
-  if (isDirectWpAdminPath || isHashWpAdmin) {
-    if (isHashWpAdmin && typeof window !== "undefined" && window.history && window.history.replaceState) {
-      window.history.replaceState(null, "", "/wp-admin");
-    }
-    return { view: "wp-admin", activePostId: null, isWpAdmin: true };
-  }
-
-  // =========================================================================
-  // PRIORITY 2: STRICTLY RESTRICT & BLOCK OTHER ADMINISTRATIVE ALIASES
-  // Block: /admin, /admin-login, /login, /dashboard, /wp-login, /wp-login.php
-  // Redirect them cleanly to homepage (/)
-  // =========================================================================
-  const restrictedAdminAliases = ["/admin", "/admin-login", "/login", "/dashboard", "/wp-login", "/wp-login.php"];
-  const isRestrictedAlias = 
-    restrictedAdminAliases.includes(normalizedPath) ||
-    restrictedAdminAliases.some(alias => normalizedPath.startsWith(`${alias}/`)) ||
-    restrictedAdminAliases.map(a => a.replace(/^\//, "")).includes(cleanHash);
-
-  if (isRestrictedAlias) {
-    if (typeof window !== "undefined" && window.history && window.history.replaceState) {
-      window.history.replaceState(null, "", "/");
-    }
-    return { view: "home", activePostId: null, isWpAdmin: false };
-  }
-
-  // =========================================================================
-  // PRIORITY 3: PUBLIC HASH ROUTES
-  // =========================================================================
-  if (cleanHash) {
-    if (cleanHash === "about") {
+  // If there is a hash route (e.g. /#about, /#courses, /courses#noorani-qaida, /fees#faq)
+  if (hash) {
+    if (hash === "about") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/about");
       return { view: "about", activePostId: null, isWpAdmin: false };
     }
-    if (cleanHash === "courses" || cleanHash === "all-courses") {
+    if (hash === "courses" || hash === "all-courses") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/courses");
       return { view: "courses", activePostId: null, isWpAdmin: false };
     }
-    if (cleanHash === "noorani-qaida" || cleanHash === "courses#noorani-qaida") {
+    if (hash === "noorani-qaida" || hash === "courses#noorani-qaida") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/noorani-qaida");
       return { view: "noorani-qaida", activePostId: "noorani-qaida", isWpAdmin: false };
     }
-    if (cleanHash === "kids-classes" || cleanHash === "kids-quran-classes") {
+    if (hash === "kids-classes" || hash === "kids-quran-classes") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/kids-classes");
       return { view: "kids-classes", activePostId: "kids-classes", isWpAdmin: false };
     }
-    if (cleanHash === "tajweed-intensive" || cleanHash === "tajweed") {
+    if (hash === "tajweed-intensive" || hash === "tajweed") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/courses/tajweed-intensive");
       return { view: "courses", activePostId: "tajweed-intensive", isWpAdmin: false };
     }
-    if (cleanHash === "quran-hifz" || cleanHash === "hifz") {
+    if (hash === "quran-hifz" || hash === "hifz") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/courses/quran-hifz");
       return { view: "courses", activePostId: "quran-hifz", isWpAdmin: false };
     }
-    if (cleanHash === "fees" || cleanHash === "pricing" || cleanHash === "faq" || cleanHash === "faqs") {
+    if (hash === "fees" || hash === "pricing" || hash === "faq" || hash === "faqs") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/fees");
       return { view: "fees", activePostId: null, isWpAdmin: false };
     }
-    if (cleanHash === "videos") {
+    if (hash === "videos") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/videos");
       return { view: "videos", activePostId: null, isWpAdmin: false };
     }
-    if (cleanHash === "download" || cleanHash === "downloads") {
+    if (hash === "download" || hash === "downloads") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/download");
       return { view: "download", activePostId: null, isWpAdmin: false };
     }
-    if (cleanHash === "contact" || cleanHash === "enquiry") {
+    if (hash === "contact" || hash === "enquiry") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/contact");
       return { view: "contact", activePostId: null, isWpAdmin: false };
     }
-    if (cleanHash === "blog") {
+    if (hash === "blog") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/blog");
       return { view: "blog", activePostId: null, isWpAdmin: false };
     }
   }
 
-  // =========================================================================
-  // PRIORITY 4: PUBLIC PATHWAYS
-  // =========================================================================
-  if (normalizedPath === "/" || normalizedPath === "") {
+  if (pathname === "/wp-admin" || pathname.startsWith("/wp-admin")) {
+    return { view: "wp-admin", activePostId: null, isWpAdmin: true };
+  }
+
+  if (pathname === "/" || pathname === "") {
     return { view: "home", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/about") {
+  if (pathname === "/about") {
     return { view: "about", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/services") {
+  if (pathname === "/services") {
     return { view: "courses", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/contact") {
+  if (pathname === "/contact") {
     return { view: "contact", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/courses") {
+  if (pathname === "/courses") {
     return { view: "courses", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath.startsWith("/courses/")) {
-    const courseSlug = normalizedPath.replace("/courses/", "").replace(/\/+$/, "");
+  if (pathname.startsWith("/courses/")) {
+    const courseSlug = pathname.replace("/courses/", "").replace(/\/+$/, "");
     if (courseSlug === "noorani-qaida") {
       return { view: "noorani-qaida", activePostId: courseSlug, isWpAdmin: false };
     }
@@ -146,44 +103,44 @@ export function parseCurrentRoute(): RouteState {
     return { view: "courses", activePostId: courseSlug, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/noorani-qaida") {
+  if (pathname === "/noorani-qaida") {
     return { view: "noorani-qaida", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/kids-classes" || normalizedPath === "/kids-quran-classes") {
+  if (pathname === "/kids-classes" || pathname === "/kids-quran-classes") {
     return { view: "kids-classes", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/fees" || normalizedPath === "/pricing" || normalizedPath === "/fees-faq" || normalizedPath === "/faq" || normalizedPath === "/faqs") {
+  if (pathname === "/fees" || pathname === "/pricing" || pathname === "/fees-faq" || pathname === "/faq" || pathname === "/faqs") {
     return { view: "fees", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/videos") {
+  if (pathname === "/videos") {
     return { view: "videos", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/download" || normalizedPath === "/downloads") {
+  if (pathname === "/download" || pathname === "/downloads") {
     return { view: "download", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/blog") {
+  if (pathname === "/blog") {
     return { view: "blog", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath.startsWith("/category/") || normalizedPath.startsWith("/blog/category/")) {
-    const rawCat = normalizedPath.replace(/^\/(blog\/)?category\//, "").replace(/\/+$/, "");
+  if (pathname.startsWith("/category/") || pathname.startsWith("/blog/category/")) {
+    const rawCat = pathname.replace(/^\/(blog\/)?category\//, "").replace(/\/+$/, "");
     const decodedCat = decodeURIComponent(rawCat).trim();
     return { view: "category", activePostId: null, categorySlug: decodedCat, isWpAdmin: false };
   }
 
-  if (normalizedPath.startsWith("/tag/") || normalizedPath.startsWith("/blog/tag/")) {
-    const rawTag = normalizedPath.replace(/^\/(blog\/)?tag\//, "").replace(/\/+$/, "");
+  if (pathname.startsWith("/tag/") || pathname.startsWith("/blog/tag/")) {
+    const rawTag = pathname.replace(/^\/(blog\/)?tag\//, "").replace(/\/+$/, "");
     const decodedTag = decodeURIComponent(rawTag).trim();
     return { view: "tag", activePostId: null, tagSlug: decodedTag, isWpAdmin: false };
   }
 
-  if (normalizedPath.startsWith("/blog/")) {
-    const rawSlug = normalizedPath.replace("/blog/", "").replace(/\/+$/, "");
+  if (pathname.startsWith("/blog/")) {
+    const rawSlug = pathname.replace("/blog/", "").replace(/\/+$/, "");
     const slug = decodeURIComponent(rawSlug).trim();
     if (slug) {
       return { view: "blog-post", activePostId: slug, isWpAdmin: false };
@@ -192,7 +149,7 @@ export function parseCurrentRoute(): RouteState {
   }
 
   // Direct blog post ID or slug (e.g. /blog-1)
-  if (normalizedPath === "/blog-1" || normalizedPath === "/blog-post-1") {
+  if (pathname === "/blog-1" || pathname === "/blog-post-1") {
     if (window.history.replaceState) window.history.replaceState(null, "", "/blog/blog-1");
     return { view: "blog-post", activePostId: "blog-1", isWpAdmin: false };
   }
@@ -209,7 +166,7 @@ export function navigateToRoute(
 ) {
   let targetPath = "/";
 
-  if (view === "wp-admin" || view === "admin") {
+  if (view === "wp-admin") {
     targetPath = "/wp-admin";
   } else if (view === "home") {
     targetPath = "/";
