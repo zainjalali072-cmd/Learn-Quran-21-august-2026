@@ -68,7 +68,12 @@ export function parseCurrentRoute(): RouteState {
     }
   }
 
-  if (pathname === "/wp-admin" || pathname.startsWith("/wp-admin")) {
+  if (
+    pathname === "/wp-admin" || 
+    pathname.startsWith("/wp-admin") || 
+    pathname === "/admin" || 
+    pathname.startsWith("/admin")
+  ) {
     return { view: "wp-admin", activePostId: null, isWpAdmin: true };
   }
 
@@ -166,8 +171,8 @@ export function navigateToRoute(
 ) {
   let targetPath = "/";
 
-  if (view === "wp-admin") {
-    targetPath = "/wp-admin";
+  if (view === "wp-admin" || view === "admin") {
+    targetPath = "/admin";
   } else if (view === "home") {
     targetPath = "/";
   } else if (view === "about") {

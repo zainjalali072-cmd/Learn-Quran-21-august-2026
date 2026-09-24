@@ -71,6 +71,46 @@ export interface ArticleAttachment {
   uploadedAt?: string;
 }
 
+export type ContentBlockType = 
+  | "paragraph" 
+  | "heading" 
+  | "image" 
+  | "list" 
+  | "quote" 
+  | "table" 
+  | "faq" 
+  | "code";
+
+export interface ContentBlock {
+  id: string;
+  type: ContentBlockType;
+  // Paragraph
+  text?: string;
+  // Heading
+  level?: 2 | 3 | 4;
+  anchorId?: string;
+  // Image
+  imageUrl?: string;
+  altText?: string;
+  caption?: string;
+  alignment?: "left" | "center" | "right" | "wide";
+  // List
+  listStyle?: "bullet" | "numbered";
+  items?: string[];
+  // Quote / Callout Box
+  quoteText?: string;
+  citation?: string;
+  boxType?: "quote" | "tip" | "warning" | "info";
+  // Table
+  headers?: string[];
+  rows?: string[][];
+  // FAQ Accordion
+  faqItems?: Array<{ question: string; answer: string }>;
+  // Code / Custom HTML Embed
+  code?: string;
+  language?: string;
+}
+
 export interface BlogPost {
   id: string;
   title: string;
@@ -91,6 +131,7 @@ export interface BlogPost {
     citation: string;
   };
   content: string;
+  blocks?: ContentBlock[];
 
   // Immutable isolated attachments & media references
   attachments?: ArticleAttachment[];
@@ -103,6 +144,7 @@ export interface BlogPost {
   metaTitle?: string;
   metaDescription?: string;
   focusKeyword?: string;
+  secondaryKeywords?: string[];
   slug?: string;
   canonicalUrl?: string;
   robotsMeta?: string;
