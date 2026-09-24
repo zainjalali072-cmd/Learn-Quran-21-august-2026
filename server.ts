@@ -657,6 +657,14 @@ app.get("/logo.png", (req, res) => {
   res.status(404).end();
 });
 
+// Restrict administrative access strictly to /wp-admin; block and redirect all other paths (/admin, /admin-login, /login, /dashboard) to /
+app.get(
+  ["/admin", "/admin/*", "/admin-login", "/login", "/dashboard", "/wp-login", "/wp-login.php"],
+  (req, res) => {
+    return res.redirect(302, "/");
+  }
+);
+
 // Auth endpoints with 2FA & Password Recovery
 app.post("/api/auth/login", (req, res) => {
   const { email, password, twoFactorCode } = req.body;

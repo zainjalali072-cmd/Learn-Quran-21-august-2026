@@ -62,17 +62,37 @@ export function parseCurrentRoute(): RouteState {
       if (window.history.replaceState) window.history.replaceState(null, "", "/contact");
       return { view: "contact", activePostId: null, isWpAdmin: false };
     }
+    if (hash === "admin" || hash === "login" || hash === "dashboard" || hash === "admin-login") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/");
+      return { view: "home", activePostId: null, isWpAdmin: false };
+    }
+    if (hash === "wp-admin") {
+      if (window.history.replaceState) window.history.replaceState(null, "", "/wp-admin");
+      return { view: "wp-admin", activePostId: null, isWpAdmin: true };
+    }
     if (hash === "blog") {
       if (window.history.replaceState) window.history.replaceState(null, "", "/blog");
       return { view: "blog", activePostId: null, isWpAdmin: false };
     }
   }
 
+  // Strictly block other administrative aliases (/admin, /admin-login, /login, /dashboard) and redirect to homepage (/)
+  const restrictedAdminAliases = ["/admin", "/admin-login", "/login", "/dashboard", "/wp-login", "/wp-login.php"];
+  if (
+    restrictedAdminAliases.includes(pathname) ||
+    restrictedAdminAliases.some(alias => pathname.startsWith(`${alias}/`))
+  ) {
+    if (typeof window !== "undefined" && window.history && window.history.replaceState) {
+      window.history.replaceState(null, "", "/");
+    }
+    return { view: "home", activePostId: null, isWpAdmin: false };
+  }
+
+  // Exclusive Admin URL: Admin / Blog Management Panel is strictly restricted to /wp-admin
   if (
     pathname === "/wp-admin" || 
-    pathname.startsWith("/wp-admin") || 
-    pathname === "/admin" || 
-    pathname.startsWith("/admin")
+    pathname === "/wp-admin/" || 
+    pathname.startsWith("/wp-admin/")
   ) {
     return { view: "wp-admin", activePostId: null, isWpAdmin: true };
   }
@@ -172,7 +192,7 @@ export function navigateToRoute(
   let targetPath = "/";
 
   if (view === "wp-admin" || view === "admin") {
-    targetPath = "/admin";
+    targetPath = "/wp-admin";
   } else if (view === "home") {
     targetPath = "/";
   } else if (view === "about") {
