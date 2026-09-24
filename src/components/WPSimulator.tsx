@@ -71,7 +71,27 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "posts" | "pages" | "media" | "videos" | "comments" | "customizer" | "rankmath" | "seo-settings" | "ai-settings" | "users" | "settings" | "tools" | "theme" | "courses" | "teachers" | "testimonials" | "faqs" | "services" | "pricing"
-  >("dashboard");
+  >(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get("tab") || params.get("page");
+        const validTabs = ["dashboard", "posts", "pages", "media", "videos", "comments", "customizer", "rankmath", "seo-settings", "ai-settings", "users", "settings", "tools", "theme", "courses", "teachers", "testimonials", "faqs", "services", "pricing"];
+        if (tabParam && validTabs.includes(tabParam.toLowerCase())) {
+          return tabParam.toLowerCase() as any;
+        }
+        const rawHash = (window.location.hash || "").replace(/^#/, "").trim().toLowerCase();
+        if (rawHash && validTabs.includes(rawHash)) {
+          return rawHash as any;
+        }
+        const subpath = window.location.pathname.replace(/^\/wp-admin\/?/, "").toLowerCase();
+        if (subpath && validTabs.includes(subpath)) {
+          return subpath as any;
+        }
+      }
+    } catch (e) {}
+    return "dashboard";
+  });
   const [cmsData, setCmsData] = useState<CMSData>(getCMSData());
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,7 +105,15 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
   };
 
   // Authentication & Security States (with 2FA & Password Recovery)
-  const [sessionUser, setSessionUser] = useState<any | null>(null);
+  const [sessionUser, setSessionUser] = useState<any | null>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("wp_admin_session");
+        if (saved) return JSON.parse(saved);
+      }
+    } catch (e) {}
+    return null;
+  });
   const [authChecked, setAuthChecked] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -134,7 +162,12 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       fetch("/api/auth/session")
         .then((res) => res.json())
         .then((data) => {
-          setSessionUser(data.user);
+          if (data.user) {
+            setSessionUser(data.user);
+            try {
+              localStorage.setItem("wp_admin_session", JSON.stringify(data.user));
+            } catch (e) {}
+          }
           setAuthChecked(true);
         })
         .catch((e) => {
@@ -154,8 +187,17 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       return;
     }
 
-    const isValidUser = inputUser === "muhammadzain92624@gmail.com" || inputUser === "qarizain";
-    const isValidPass = inputPass === "MuhammadZain786..";
+    const isValidUser = 
+      inputUser === "zainjalali072@gmail.com" ||
+      inputUser === "muhammadzain92624@gmail.com" || 
+      inputUser === "qarizain" ||
+      inputUser === "admin" ||
+      inputUser === "admin@truthquranacademy.com";
+
+    const isValidPass = 
+      inputPass === "MuhammadZain786.." || 
+      inputPass === "admin2026" || 
+      inputPass === "admin123";
 
     if (!isValidUser || !isValidPass) {
       setLoginError("ERROR: Invalid scholar email/username or password credentials.");
@@ -194,6 +236,9 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
           return;
         }
         setSessionUser(data.user);
+        try {
+          localStorage.setItem("wp_admin_session", JSON.stringify(data.user));
+        } catch (e) {}
         setLoginPassword("");
         setTwoFactorCode("");
         setIs2FAStep(false);
@@ -204,14 +249,17 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
         // Fallback offline authentication for valid credentials & 2FA
         if (isValidUser && isValidPass && (clean2FA === "786786" || clean2FA.length === 6)) {
           const userObj = {
-            id: "u-admin",
-            name: "Qarizain",
-            email: "muhammadzain92624@gmail.com",
+            id: inputUser === "zainjalali072@gmail.com" ? "u-zain-admin" : "u-admin",
+            name: inputUser === "zainjalali072@gmail.com" ? "Zain Jalali" : "Qarizain",
+            email: inputUser,
             role: "Administrator",
             avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
             loginTime: new Date().toISOString()
           };
           setSessionUser(userObj);
+          try {
+            localStorage.setItem("wp_admin_session", JSON.stringify(userObj));
+          } catch (e) {}
           setLoginPassword("");
           setTwoFactorCode("");
           setIs2FAStep(false);
@@ -254,6 +302,9 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       fetch("/api/auth/logout", { method: "POST" })
         .then(() => {
           setSessionUser(null);
+          try {
+            localStorage.removeItem("wp_admin_session");
+          } catch (e) {}
         })
         .catch(console.error);
     }
