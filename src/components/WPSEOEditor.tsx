@@ -343,6 +343,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   const [cropSaturation, setCropSaturation] = useState(100);
   const [cropAspectRatio, setCropAspectRatio] = useState<"3:2" | "16:9" | "1:1" | "4:3">("3:2");
 
+  // Input Validation State for Article Fields
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
   const featuredFileInputRef = useRef<HTMLInputElement>(null);
   const internalFileInputRef = useRef<HTMLInputElement>(null);
   const visualEditorRef = useRef<HTMLDivElement>(null);
@@ -405,6 +408,16 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       }
       return updated;
     });
+
+    // Dynamically clear validation error for the modified field
+    if (validationErrors[field as string]) {
+      setValidationErrors((prev) => {
+        const next = { ...prev };
+        delete next[field as string];
+        return next;
+      });
+    }
+
     setIsDirty(true);
   };
 
@@ -544,44 +557,142 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     };
   }, [currentPost, contentStats]);
 
+  // Comprehensive Input Validation to ensure required fields are present and prevent empty/null error states
+  const validateArticle = (post: BlogPost | null, isPublishing = true): { isValid: boolean; errors: Record<string, string> } => {
+    const errors: Record<string, string> = {};
+    if (!post) {
+      errors.general = "No article selected to save.";
+      return { isValid: false, errors };
+    }
+
+    // 1. Article Title Validation (Strictly required for both draft and publish)
+    const rawTitle = (post.title || "").trim();
+    if (!rawTitle) {
+      errors.title = "Article Post Title is required and cannot be empty.";
+    } else if (rawTitle.length < 3) {
+      errors.title = "Article Post Title must be at least 3 characters long.";
+    }
+
+    // 2. Article Content Validation
+    const rawContent = (post.content || "").trim();
+    const plainText = rawContent.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").trim();
+    const hasMedia = /<img|<iframe|<video|<svg/i.test(rawContent);
+
+    if (isPublishing) {
+      // Content is strictly mandatory when updating / publishing live
+      if (!plainText && !hasMedia) {
+        errors.content = "Article content cannot be empty. Please write your article body or add paragraphs/media.";
+      }
+    } else {
+      // When saving as draft, if user cleared both title and content
+      if (!rawTitle && !plainText && !hasMedia) {
+        errors.content = "Please provide an article title or content before saving draft.";
+      }
+    }
+
+    // 3. Category Validation (Required)
+    const rawCategory = (post.category || "").trim();
+    if (!rawCategory) {
+      errors.category = "Category is required. Please select a valid category.";
+    }
+
+    // 4. Slug / Permalink Validation
+    const rawSlug = (post.slug || "").trim();
+    if (!rawSlug && !rawTitle) {
+      errors.slug = "Permalink / URL slug cannot be empty.";
+    }
+
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors
+    };
+  };
+
   // Save current post to DB
   const handleSaveArticle = (statusOverride?: "published" | "draft", silent = false) => {
     if (!currentPost) return;
 
     const newStatus = statusOverride || currentPost.status || "published";
-    const postTitle = (currentPost.title || "").trim() || "Untitled Article";
-    const postSlug = (currentPost.slug || "").trim() || postTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const isPublishing = newStatus === "published";
+
+    // 1. Input Validation - Ensure all required data is present before submission
+    const { isValid, errors } = validateArticle(currentPost, isPublishing);
+
+    if (!isValid) {
+      setValidationErrors(errors);
+
+      // In silent auto-save timer mode, silently block saving invalid blank data to prevent corrupted null states
+      if (silent) {
+        return;
+      }
+
+      // Display actionable validation toast
+      const errorList = Object.values(errors);
+      showToast(`⚠️ Please complete required fields:\n• ${errorList.join("\n• ")}`);
+
+      // Automatically focus and scroll to first invalid field
+      if (errors.title) {
+        const titleEl = document.getElementById("article-title-input");
+        if (titleEl) {
+          titleEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          titleEl.focus();
+        }
+      } else if (errors.content) {
+        const visualCanvas = document.getElementById("visual-editor-canvas");
+        const textarea = document.getElementById("gutenberg-content-textarea");
+        const targetEl = visualCanvas || textarea;
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          targetEl.focus();
+        }
+      }
+      return;
+    }
+
+    // Clear validation errors on valid submission
+    setValidationErrors({});
+
+    const postTitle = (currentPost.title || "").trim();
+    const rawSlug = (currentPost.slug || "").trim();
+    const postSlug = rawSlug || postTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `article-${Date.now()}`;
     const cleanExcerpt = cleanHTMLToExcerpt(currentPost.content || "", currentPost.excerpt);
     const validImage = currentPost.coverImage || currentPost.featuredImage || DEFAULT_POST_IMAGE;
     const todayFormatted = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const postCategory = (currentPost.category || "").trim() || "Tajweed Rules";
 
     const updatedPost: BlogPost = {
       ...currentPost,
+      id: currentPost.id || `post-${Date.now()}`,
       title: postTitle,
       slug: postSlug,
-      excerpt: cleanExcerpt,
+      content: currentPost.content || "",
+      excerpt: cleanExcerpt || `${postTitle} - Truth Quran Academy`,
       coverImage: validImage,
       featuredImage: validImage,
       ogImage: validImage,
-      category: currentPost.category || "Tajweed Rules",
-      date: currentPost.date || todayFormatted,
-      readTime: currentPost.readTime || contentStats.readingTime || "5 min read",
+      category: postCategory,
+      date: currentPost.date?.trim() || todayFormatted,
+      readTime: currentPost.readTime?.trim() || contentStats.readingTime || "5 min read",
       author: {
-        name: currentPost.author?.name || "Muhammad Zain",
+        name: (currentPost.author?.name || "").trim() || "Muhammad Zain",
         avatar: currentPost.author?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
-        role: currentPost.author?.role || "Senior Quran Scholar"
+        role: (currentPost.author?.role || "").trim() || "Senior Quran Scholar"
       },
-      tags: currentPost.tags && currentPost.tags.length > 0 ? currentPost.tags : ["Tajweed Rules"],
+      tags: Array.isArray(currentPost.tags) && currentPost.tags.length > 0 ? currentPost.tags.filter((t) => Boolean(t && t.trim())) : ["Tajweed Rules"],
       status: newStatus,
       lastUpdated: new Date().toISOString().split("T")[0],
-      wordCount: contentStats.words,
-      sentenceCount: contentStats.sentences,
-      paragraphCount: contentStats.paragraphs,
-      seoScore: seoAnalysis.score,
+      wordCount: contentStats.words || 0,
+      sentenceCount: contentStats.sentences || 0,
+      paragraphCount: contentStats.paragraphs || 0,
+      seoScore: seoAnalysis.score || 0,
       attachments: currentPost.attachments || [],
       videoUrls: currentPost.videoUrls || [],
       pdfUrls: currentPost.pdfUrls || [],
-      customLinks: currentPost.customLinks || []
+      customLinks: currentPost.customLinks || [],
+      metaTitle: (currentPost.metaTitle || postTitle).slice(0, 70),
+      metaDescription: (currentPost.metaDescription || cleanExcerpt).slice(0, 160),
+      focusKeyword: (currentPost.focusKeyword || "").trim(),
+      robotsMeta: currentPost.robotsMeta || "index, follow"
     };
 
     let updatedPosts = [...posts];
@@ -697,6 +808,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     }
     setSelectedPostId(newId);
     setCurrentPost(newPost);
+    setValidationErrors({});
     showToast("New blank draft created.");
   };
 
@@ -705,6 +817,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     if (!currentPost) return;
     if (!window.confirm(`Are you sure you want to delete "${currentPost.title || "this article"}"?`)) return;
 
+    setValidationErrors({});
     const remaining = posts.filter((p) => p.id !== currentPost.id);
     const updatedCMSData = {
       ...cmsData,
@@ -2720,7 +2833,10 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
             <span className="w-2 h-2 rounded-full bg-[#d9b45c] animate-pulse"></span>
             <select
               value={selectedPostId}
-              onChange={(e) => setSelectedPostId(e.target.value)}
+              onChange={(e) => {
+                setValidationErrors({});
+                setSelectedPostId(e.target.value);
+              }}
               className="bg-transparent text-xs font-bold text-[#f2d98a] border-none outline-none cursor-pointer max-w-[200px] truncate"
             >
               {posts.map((p) => (
@@ -2871,27 +2987,70 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         {/* LEFT COLUMN: MAIN CONTENT EDITING CANVAS (LG: COL-SPAN-8) */}
         <main className="lg:col-span-8 space-y-6">
           
+          {/* VALIDATION ERRORS ALERT BANNER */}
+          {Object.keys(validationErrors).length > 0 && (
+            <div className="bg-rose-950/70 border-2 border-rose-500/60 rounded-2xl p-4 shadow-2xl flex items-start justify-between text-rose-200 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-rose-500/20 rounded-xl text-rose-400 shrink-0 mt-0.5">
+                  <AlertCircle size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-rose-300">Required Article Fields Missing</h4>
+                  <p className="text-xs text-rose-200/80 mt-0.5">
+                    Please provide the required article information before saving or publishing:
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {Object.entries(validationErrors).map(([fieldKey, errMsg]) => (
+                      <li key={fieldKey} className="flex items-center space-x-2 text-xs text-rose-300 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0"></span>
+                        <span>{errMsg}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setValidationErrors({})}
+                className="p-1 hover:bg-rose-500/20 text-rose-400 hover:text-white rounded-lg transition-colors text-xs"
+                title="Dismiss warning"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           {/* ARTICLE TITLE FIELD */}
-          <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl p-6 shadow-2xl space-y-3">
+          <div className={`bg-[#12141b] border ${validationErrors.title ? "border-rose-500/80 ring-2 ring-rose-500/30" : "border-[#d9b45c]/20"} rounded-2xl p-6 shadow-2xl space-y-3 transition-all`}>
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#d9b45c]">
-                Article Post Title
+              <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#d9b45c] flex items-center space-x-1.5">
+                <span>Article Post Title</span>
+                <span className="text-rose-400 font-bold" title="Required">*</span>
               </label>
               <span className="text-[10px] font-mono text-[#c9c2ab]/70">
                 {(currentPost.title || "").length} chars
               </span>
             </div>
             <input
+              id="article-title-input"
               type="text"
               value={currentPost.title}
               onChange={(e) => handleUpdateField("title", e.target.value)}
-              placeholder="Add title"
-              className="w-full text-xl md:text-2xl font-serif font-bold text-white bg-transparent border-b border-white/10 hover:border-white/20 focus:border-[#d9b45c] pb-2.5 outline-none placeholder-white/30 transition-all tracking-tight"
+              placeholder="Add article title (required)..."
+              className={`w-full text-xl md:text-2xl font-serif font-bold text-white bg-transparent border-b ${
+                validationErrors.title ? "border-rose-500/80 placeholder-rose-300/40" : "border-white/10 hover:border-white/20 focus:border-[#d9b45c]"
+              } pb-2.5 outline-none placeholder-white/30 transition-all tracking-tight`}
             />
+            {validationErrors.title && (
+              <div className="flex items-center space-x-1.5 text-xs text-rose-400 font-semibold pt-1 animate-in fade-in">
+                <AlertCircle size={14} className="flex-shrink-0" />
+                <span>{validationErrors.title}</span>
+              </div>
+            )}
 
             {/* PERMALINK / URL SLUG BAR */}
             <div className="pt-2 flex flex-wrap items-center justify-between text-xs text-[#c9c2ab]">
-              <div className="flex items-center space-x-2 font-mono text-[11px] bg-[#07080b] px-3 py-1.5 rounded-xl border border-white/5 w-full sm:w-auto overflow-x-auto">
+              <div className={`flex items-center space-x-2 font-mono text-[11px] bg-[#07080b] px-3 py-1.5 rounded-xl border ${validationErrors.slug ? "border-rose-500/70" : "border-white/5"} w-full sm:w-auto overflow-x-auto`}>
                 <span className="text-white/40">https://truthquranacademy.com/blog/</span>
                 <input
                   type="text"
@@ -2914,10 +3073,16 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                 <span>Copy URL</span>
               </button>
             </div>
+            {validationErrors.slug && (
+              <div className="flex items-center space-x-1 text-[11px] text-rose-400 font-medium">
+                <AlertCircle size={12} className="flex-shrink-0" />
+                <span>{validationErrors.slug}</span>
+              </div>
+            )}
           </div>
 
           {/* RICH FORMATTING TOOLBAR & EDITOR CANVAS */}
-          <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl shadow-2xl overflow-hidden">
+          <div className={`bg-[#12141b] border ${validationErrors.content ? "border-rose-500/80 ring-2 ring-rose-500/30" : "border-[#d9b45c]/20"} rounded-2xl shadow-2xl overflow-hidden transition-all`}>
             
             {/* TOOLBAR */}
             <div className="bg-[#0e1017] border-b border-[#d9b45c]/20 p-2.5 px-3 flex flex-wrap items-center justify-between gap-2">
@@ -3433,6 +3598,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* CONTENT VALIDATION ERROR NOTICE */}
+              {validationErrors.content && (
+                <div className="mx-4 mt-3 mb-1 px-3.5 py-2.5 bg-rose-950/70 border border-rose-500/50 rounded-xl flex items-center space-x-2 text-xs text-rose-300 font-medium animate-in fade-in">
+                  <AlertCircle size={16} className="text-rose-400 shrink-0" />
+                  <span>{validationErrors.content}</span>
                 </div>
               )}
 
@@ -4185,13 +4358,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
               {/* CATEGORY */}
               <div>
-                <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider">
-                  Category
+                <label className="text-[10px] font-bold text-[#c9c2ab] uppercase tracking-wider flex items-center space-x-1">
+                  <span>Category</span>
+                  <span className="text-rose-400 font-bold">*</span>
                 </label>
                 <select
                   value={currentPost.category}
                   onChange={(e) => handleUpdateField("category", e.target.value)}
-                  className="w-full mt-1 bg-[#07080b] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
+                  className={`w-full mt-1 bg-[#07080b] border ${validationErrors.category ? "border-rose-500 ring-1 ring-rose-500/40" : "border-white/10"} rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#d9b45c]`}
                 >
                   <option value="Tajweed Rules">Tajweed Rules</option>
                   <option value="Quranic Studies">Quranic Studies</option>
@@ -4199,6 +4373,12 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                   <option value="Kids Education">Kids Education</option>
                   <option value="Tafseer">Tafseer</option>
                 </select>
+                {validationErrors.category && (
+                  <div className="flex items-center space-x-1 text-[10px] text-rose-400 font-medium mt-1">
+                    <AlertCircle size={11} className="shrink-0" />
+                    <span>{validationErrors.category}</span>
+                  </div>
+                )}
               </div>
 
               {/* TAGS */}
