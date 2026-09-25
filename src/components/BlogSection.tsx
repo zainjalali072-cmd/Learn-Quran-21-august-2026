@@ -54,6 +54,10 @@ export function formatArticleBody(rawContent: string): string {
     
     links.forEach((a) => {
       const href = a.getAttribute("href") || "#";
+      if (href.startsWith("#")) {
+        a.classList.add("text-[#f2d98a]", "hover:text-[#d9b45c]", "underline", "cursor-pointer");
+        return;
+      }
       if (!a.classList.contains("text-[#FACC15]")) {
         a.classList.add("text-[#FACC15]", "underline", "hover:text-[#FEF08A]", "font-semibold", "cursor-pointer");
       }
@@ -605,6 +609,31 @@ export default function BlogSection({
         {/* ARTICLE CONTENT CONTAINER (OPTIMIZED FOR READABILITY: ~750-850PX) */}
         <div className="max-w-[820px] mx-auto space-y-6">
           <div 
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              const toggleBtn = target.closest(".toc-toggle-button");
+              if (toggleBtn) {
+                const tocBlock = toggleBtn.closest(".rank-math-block");
+                const nav = tocBlock?.querySelector(".rank-math-toc-nav");
+                if (nav) {
+                  const isHidden = nav.classList.toggle("hidden");
+                  const span = toggleBtn.querySelector("span");
+                  if (span) span.textContent = isHidden ? "[Show]" : "[Hide]";
+                }
+                return;
+              }
+              const anchor = target.closest("a");
+              if (anchor) {
+                const href = anchor.getAttribute("href");
+                if (href && href.startsWith("#")) {
+                  e.preventDefault();
+                  const targetEl = document.getElementById(href.substring(1));
+                  if (targetEl) {
+                    targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }
+              }
+            }}
             className="prose prose-invert max-w-none text-sm md:text-base text-[#F3F4F6] leading-relaxed font-sans
               [&>h1]:font-serif [&>h1]:text-3xl [&>h1]:md:text-4xl [&>h1]:text-[#FFFFFF] [&>h1]:font-bold [&>h1]:mt-10 [&>h1]:mb-4
               [&>h2]:font-serif [&>h2]:text-2xl [&>h2]:md:text-3xl [&>h2]:text-[#FFFFFF] [&>h2]:font-bold [&>h2]:mt-10 [&>h2]:mb-4 [&>h2]:border-b [&>h2]:border-[#d9b45c]/30 [&>h2]:pb-2
@@ -625,6 +654,11 @@ export default function BlogSection({
               [&_.cta-button-block]:my-10 [&_.cta-button-block_a]:no-underline [&_.cta-button-block_a]:hover:no-underline
               [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold [&>a]:cursor-pointer [&>a]:pointer-events-auto
               [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold [&_a]:cursor-pointer [&_a]:pointer-events-auto
+              [&_figure.wp-block-image]:my-8 [&_figure.wp-block-image]:text-center
+              [&_figure.wp-block-image_img]:w-full [&_figure.wp-block-image_img]:max-w-[760px] [&_figure.wp-block-image_img]:mx-auto [&_figure.wp-block-image_img]:rounded-xl [&_figure.wp-block-image_img]:border [&_figure.wp-block-image_img]:border-[#d9b45c]/25 [&_figure.wp-block-image_img]:shadow-xl
+              [&_figure.wp-block-image_figcaption]:text-xs [&_figure.wp-block-image_figcaption]:text-[#c9c2ab] [&_figure.wp-block-image_figcaption]:mt-2 [&_figure.wp-block-image_figcaption]:italic
+              [&_img]:max-w-[760px] [&_img]:w-full [&_img]:mx-auto [&_img]:rounded-xl [&_img]:my-6
+              [&_.rank-math-block]:my-8 [&_.rank-math-block]:p-6 [&_.rank-math-block]:bg-[#12141b] [&_.rank-math-block]:border-2 [&_.rank-math-block]:border-[#d9b45c]/40 [&_.rank-math-block]:rounded-2xl [&_.rank-math-block]:shadow-xl
               [&>pre]:bg-[#07080b] [&>pre]:p-4 [&>pre]:rounded-xl [&>pre]:text-[#f2d98a] [&>pre]:font-mono [&>pre]:text-xs [&>pre]:overflow-x-auto [&>pre]:border [&>pre]:border-white/10"
             dangerouslySetInnerHTML={{ __html: formatArticleBody(post.content) }}
           />

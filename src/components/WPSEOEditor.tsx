@@ -280,7 +280,27 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   const linkPopupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [showMediaLibraryModal, setShowMediaLibraryModal] = useState(false);
-  const [mediaTargetField, setMediaTargetField] = useState<"featured" | "internal">("featured");
+  const [mediaTargetField, setMediaTargetField] = useState<"featured" | "internal" | "replace_inline">("featured");
+
+  // Visual Editor Cursor & Selection Memory for Pinpoint Inserter
+  const savedVisualRange = useRef<Range | null>(null);
+
+  // Floating Image Controls & Selection in Visual Editor Canvas
+  const [selectedImageEl, setSelectedImageEl] = useState<HTMLImageElement | null>(null);
+  const [hoveredImageEl, setHoveredImageEl] = useState<HTMLImageElement | null>(null);
+  const [imageToolbarPos, setImageToolbarPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const lastActiveImageRef = useRef<HTMLImageElement | null>(null);
+  const [showPostImagesModal, setShowPostImagesModal] = useState(false);
+
+  // Rank Math SEO Table of Contents (TOC) State
+  const [showRankMathTocModal, setShowRankMathTocModal] = useState(false);
+  const [rankMathTocTitle, setRankMathTocTitle] = useState("Table of Contents");
+  const [rankMathTocIncludeH2, setRankMathTocIncludeH2] = useState(true);
+  const [rankMathTocIncludeH3, setRankMathTocIncludeH3] = useState(true);
+  const [rankMathTocIncludeH4, setRankMathTocIncludeH4] = useState(false);
+  const [rankMathTocStyle, setRankMathTocStyle] = useState<"decimal" | "disc">("decimal");
+  const [rankMathTocAllowToggle, setRankMathTocAllowToggle] = useState(true);
+  const [rankMathTocPosition, setRankMathTocPosition] = useState<"before_content" | "cursor">("before_content");
 
   // Media & Attachments State
   const [newVideoUrlInput, setNewVideoUrlInput] = useState("");
@@ -338,6 +358,38 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       }
     }
   }, [currentPost?.content, currentPost?.id, editorMode, viewLayoutMode]);
+
+  // Synchronize gold selection ring on active selected image in visual editor
+  useEffect(() => {
+    if (!visualEditorRef.current) return;
+    const imgs = visualEditorRef.current.querySelectorAll("img");
+    imgs.forEach((img) => {
+      if (img === selectedImageEl) {
+        img.classList.add("active-selected-img");
+        img.style.outline = "3px solid #d9b45c";
+        img.style.borderRadius = "0.75rem";
+      } else {
+        img.classList.remove("active-selected-img");
+        img.style.outline = "";
+      }
+    });
+  }, [selectedImageEl]);
+
+  // Visual editor cursor & selection memory helper
+  const saveVisualSelection = () => {
+    if (editorMode !== "visual") return;
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && visualEditorRef.current) {
+      try {
+        const range = sel.getRangeAt(0);
+        if (visualEditorRef.current.contains(range.commonAncestorContainer)) {
+          savedVisualRange.current = range.cloneRange();
+        }
+      } catch (err) {
+        // Ignore cross-boundary range errors
+      }
+    }
+  };
 
   // Field updater
   const handleUpdateField = (field: keyof BlogPost, value: any) => {
@@ -465,6 +517,16 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       passed: titleLenPassed,
       feedback: titleLenPassed ? `Title length: ${titleLen} chars.` : `Title length: ${titleLen} chars (Ideal 25-65).`,
       points: 15
+    });
+
+    const hasToc = htmlContent.includes("rank-math-toc") || htmlContent.includes("data-rankmath-toc") || htmlContent.includes("rank-math-block");
+    rules.push({
+      id: "rank_math_toc",
+      label: "Rank Math Table of Contents",
+      category: "Structure SEO",
+      passed: Boolean(hasToc),
+      feedback: hasToc ? "Rank Math Table of Contents included." : "Add a Rank Math Table of Contents before content for enhanced SEO.",
+      points: 10
     });
 
     const totalAchieved = rules.reduce((acc, r) => acc + (r.passed ? r.points : 0), 0);
@@ -1083,6 +1145,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         keywords: ["table", "grid", "comparison", "pricing", "data"]
       },
       {
+        id: "rankmath_toc",
+        label: "Rank Math Table (TOC)",
+        desc: "SEO Table of Contents with jump links before content",
+        badge: "RankMath",
+        icon: TableIcon,
+        keywords: ["rankmath", "toc", "table of contents", "table", "summary", "seo", "rank"]
+      },
+      {
         id: "link",
         label: "Hyperlink / Anchor Link",
         desc: "Insert internal/external link with Yellow (#FACC15) anchor styling",
@@ -1153,6 +1223,10 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     } else if (item.id === "table") {
       setShowTableModal(true);
       replacement = ``;
+    } else if (item.id === "rankmath_toc") {
+      setShowRankMathTocModal(true);
+      setShowSlashMenu(false);
+      return;
     } else if (item.id === "link") {
       openLinkModal();
       replacement = ``;
@@ -1172,7 +1246,361 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     showToast(`Inserted ${item.label}`);
   };
 
-  // Media selection callback for Featured & Inline images
+  // Embedded images scanned in article content for easy review & 1-click removal
+  const embeddedImages = useMemo(() => {
+    if (!currentPost?.content) return [];
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(currentPost.content, "text/html");
+      const imgs = Array.from(doc.querySelectorAll("img"));
+      return imgs.map((img, idx) => ({
+        index: idx,
+        src: img.getAttribute("src") || "",
+        alt: img.getAttribute("alt") || `Article Image ${idx + 1}`,
+        caption: img.closest("figure")?.querySelector("figcaption")?.textContent || ""
+      }));
+    } catch (e) {
+      return [];
+    }
+  }, [currentPost?.content]);
+
+  // Remove image by index (used in Post Images Manager modal)
+  const handleRemoveImageByIndex = (index: number) => {
+    if (!currentPost?.content) return;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${currentPost.content}</div>`, "text/html");
+      const container = doc.body.firstElementChild as HTMLElement;
+      if (!container) return;
+      const imgs = Array.from(container.querySelectorAll("img"));
+      if (imgs[index]) {
+        const targetImg = imgs[index];
+        const block = targetImg.closest("figure.wp-block-image") || targetImg.closest("div.my-6") || targetImg.closest("figure") || (targetImg.parentElement?.tagName === "P" && targetImg.parentElement.children.length === 1 ? targetImg.parentElement : targetImg);
+        block.remove();
+        const updatedHtml = container.innerHTML;
+        handleUpdateField("content", updatedHtml);
+        pushHistory(updatedHtml);
+        if (visualEditorRef.current) {
+          visualEditorRef.current.innerHTML = updatedHtml;
+        }
+        setSelectedImageEl(null);
+        setImageToolbarPos(null);
+        showToast("🗑 Image successfully removed from article!");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Delete image directly from editor canvas or floating toolbar
+  const handleDeleteImage = (imgEl?: HTMLImageElement | null) => {
+    const target = imgEl || selectedImageEl || lastActiveImageRef.current;
+    if (!target) return;
+
+    const targetSrc = target.getAttribute("src") || target.src;
+    let updatedHtml = "";
+
+    // 1. If visual editor is present and contains the target element
+    if (visualEditorRef.current && visualEditorRef.current.contains(target)) {
+      const block = target.closest("figure.wp-block-image") || target.closest("div.my-6") || target.closest("figure") || (target.parentElement?.tagName === "P" && target.parentElement.children.length === 1 ? target.parentElement : target);
+      block.remove();
+      updatedHtml = visualEditorRef.current.innerHTML;
+    } else if (currentPost?.content) {
+      // 2. Parse HTML and remove matching img and its wrapper figure/p
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<div>${currentPost.content}</div>`, "text/html");
+        const container = doc.body.firstElementChild;
+        if (container) {
+          const imgs = Array.from(container.querySelectorAll("img"));
+          const match = imgs.find(im => (im.getAttribute("src") === targetSrc) || (im.src === targetSrc));
+          if (match) {
+            const block = match.closest("figure.wp-block-image") || match.closest("div.my-6") || match.closest("figure") || (match.parentElement?.tagName === "P" && match.parentElement.children.length === 1 ? match.parentElement : match);
+            block.remove();
+            updatedHtml = container.innerHTML;
+          }
+        }
+      } catch (err) {
+        console.error("DOM removal error", err);
+      }
+    }
+
+    if (updatedHtml) {
+      handleUpdateField("content", updatedHtml);
+      pushHistory(updatedHtml);
+      if (visualEditorRef.current) {
+        visualEditorRef.current.innerHTML = updatedHtml;
+      }
+    }
+
+    setSelectedImageEl(null);
+    setHoveredImageEl(null);
+    setImageToolbarPos(null);
+    lastActiveImageRef.current = null;
+    showToast("🗑 Image deleted from article!");
+  };
+
+  // Move image block above preceding block
+  const handleMoveImageUp = (imgEl?: HTMLImageElement | null) => {
+    const target = imgEl || selectedImageEl || lastActiveImageRef.current;
+    if (!target) return;
+    const block = target.closest("figure.wp-block-image") || target.closest("div.my-6") || target.closest("figure") || (target.parentElement?.tagName === "P" && target.parentElement.children.length === 1 ? target.parentElement : target);
+    const prev = block.previousElementSibling;
+    if (prev && block.parentNode) {
+      block.parentNode.insertBefore(block, prev);
+      if (visualEditorRef.current) {
+        const updated = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", updated);
+        pushHistory(updated);
+        updateImageToolbarPos(target);
+      }
+      showToast("⬆ Image moved above preceding section!");
+    } else {
+      showToast("Image is already at the very top of the article!");
+    }
+  };
+
+  // Move image block below following block
+  const handleMoveImageDown = (imgEl?: HTMLImageElement | null) => {
+    const target = imgEl || selectedImageEl || lastActiveImageRef.current;
+    if (!target) return;
+    const block = target.closest("figure.wp-block-image") || target.closest("div.my-6") || target.closest("figure") || (target.parentElement?.tagName === "P" && target.parentElement.children.length === 1 ? target.parentElement : target);
+    const next = block.nextElementSibling;
+    if (next && block.parentNode) {
+      block.parentNode.insertBefore(next, block);
+      if (visualEditorRef.current) {
+        const updated = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", updated);
+        pushHistory(updated);
+        updateImageToolbarPos(target);
+      }
+      showToast("⬇ Image moved below following section!");
+    } else {
+      showToast("Image is already at the bottom of the article!");
+    }
+  };
+
+  // Replace image in-place from Media Library
+  const handleReplaceImage = (imgEl?: HTMLImageElement | null) => {
+    const target = imgEl || selectedImageEl || lastActiveImageRef.current;
+    if (!target) return;
+    lastActiveImageRef.current = target;
+    setMediaTargetField("replace_inline");
+    setShowMediaLibraryModal(true);
+  };
+
+  // Set WordPress post image size presets
+  const handleSetImageSize = (size: "large" | "medium" | "full", imgEl?: HTMLImageElement | null) => {
+    const target = imgEl || selectedImageEl || lastActiveImageRef.current;
+    if (!target) return;
+    target.classList.remove("max-w-[760px]", "max-w-[480px]", "max-w-full", "max-w-2xl");
+    if (size === "large") {
+      target.classList.add("w-full", "max-w-[760px]", "mx-auto");
+    } else if (size === "medium") {
+      target.classList.add("w-full", "max-w-[480px]", "mx-auto");
+    } else {
+      target.classList.add("w-full", "max-w-full");
+    }
+    if (visualEditorRef.current) {
+      const updated = visualEditorRef.current.innerHTML;
+      handleUpdateField("content", updated);
+      pushHistory(updated);
+      updateImageToolbarPos(target);
+    }
+    showToast(`📐 Image size set to ${size === "large" ? "WordPress Large (760px standard)" : size === "medium" ? "Medium (480px)" : "Full Width"}!`);
+  };
+
+  // Recalculate floating image toolbar position over target image
+  const updateImageToolbarPos = (img: HTMLImageElement) => {
+    if (!visualEditorRef.current) return;
+    const parentRect = visualEditorRef.current.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
+    const top = Math.max(10, imgRect.top - parentRect.top + visualEditorRef.current.scrollTop - 48);
+    const left = Math.max(10, Math.min(imgRect.left - parentRect.left, parentRect.width - 460));
+    setImageToolbarPos({ top, left, width: imgRect.width });
+  };
+
+  // Extract all headings from current post content for Rank Math Table of Contents
+  const detectedHeadings = useMemo(() => {
+    if (!currentPost?.content) return [];
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(currentPost.content, "text/html");
+      const headers = Array.from(doc.querySelectorAll("h2, h3, h4"));
+      return headers.map((h, idx) => {
+        const text = h.textContent?.trim() || `Section ${idx + 1}`;
+        let id = h.getAttribute("id");
+        if (!id) {
+          id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `heading-${idx + 1}`;
+        }
+        return {
+          tag: h.tagName.toLowerCase(),
+          level: h.tagName === "H2" ? 2 : h.tagName === "H3" ? 3 : 4,
+          text,
+          id
+        };
+      });
+    } catch (e) {
+      return [];
+    }
+  }, [currentPost?.content]);
+
+  // Insert or update Rank Math Table of Contents (TOC)
+  const handleApplyRankMathToc = () => {
+    if (!currentPost) return;
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${currentPost.content || ""}</div>`, "text/html");
+    const container = doc.body.firstElementChild as HTMLElement;
+    if (!container) return;
+
+    // Filter headings based on selected levels
+    const selectedHeaders = Array.from(container.querySelectorAll("h2, h3, h4")).filter((h) => {
+      const tag = h.tagName.toLowerCase();
+      if (tag === "h2" && rankMathTocIncludeH2) return true;
+      if (tag === "h3" && rankMathTocIncludeH3) return true;
+      if (tag === "h4" && rankMathTocIncludeH4) return true;
+      return false;
+    });
+
+    if (selectedHeaders.length === 0) {
+      showToast("⚠️ No matching H2/H3 headings found in content to build Table of Contents!");
+      return;
+    }
+
+    // Assign IDs to headings in the document for jump anchors
+    const itemsData: Array<{ text: string; id: string; level: number }> = [];
+    selectedHeaders.forEach((h, idx) => {
+      const text = h.textContent?.trim() || `Section ${idx + 1}`;
+      let id = h.getAttribute("id");
+      if (!id) {
+        id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `section-${idx + 1}`;
+        h.setAttribute("id", id);
+      }
+      const level = h.tagName === "H2" ? 2 : h.tagName === "H3" ? 3 : 4;
+      itemsData.push({ text, id, level });
+    });
+
+    // Build the items list HTML
+    const listClass = rankMathTocStyle === "decimal" ? "list-decimal" : "list-disc";
+    const itemsHtml = itemsData.map((item) => {
+      const indentClass = item.level === 3 ? "ml-4 text-white/90" : item.level === 4 ? "ml-8 text-white/70" : "font-semibold text-white";
+      return `<li class="${indentClass}"><a href="#${item.id}" class="text-[#f2d98a] hover:text-[#d9b45c] underline font-medium cursor-pointer transition-colors" title="Jump to: ${item.text}">${item.text}</a></li>`;
+    }).join("\n        ");
+
+    const toggleHtml = rankMathTocAllowToggle 
+      ? `<button type="button" class="toc-toggle-button text-xs text-[#c9c2ab] hover:text-[#d9b45c] font-semibold transition-colors flex items-center space-x-1 cursor-pointer bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-lg border border-white/10"><span>[Hide]</span></button>` 
+      : "";
+
+    const tocBlockHtml = `<div class="rank-math-block my-8 p-6 bg-[#12141b] border-2 border-[#d9b45c]/40 rounded-2xl shadow-xl font-sans" id="rank-math-toc" data-rankmath-toc="true">
+  <div class="flex items-center justify-between pb-3.5 mb-4 border-b border-[#d9b45c]/20">
+    <div class="flex items-center space-x-2.5">
+      <span class="text-base text-[#d9b45c]">📋</span>
+      <h3 class="text-sm md:text-base font-bold text-[#f2d98a] !my-0 tracking-wide font-sans">${rankMathTocTitle || "Table of Contents"}</h3>
+      <span class="text-[9px] bg-[#d9b45c]/20 text-[#d9b45c] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Rank Math SEO</span>
+    </div>
+    ${toggleHtml}
+  </div>
+  <nav class="rank-math-toc-nav">
+    <ul class="space-y-2 text-xs md:text-sm text-[#F3F4F6] ${listClass} pl-5 marker:text-[#d9b45c] marker:font-bold">
+      ${itemsHtml}
+    </ul>
+  </nav>
+</div>`;
+
+    // Remove any existing rankmath-toc block in content so it never duplicates
+    const existingToc = container.querySelector("#rank-math-toc, [data-rankmath-toc='true'], .rank-math-block");
+    if (existingToc) {
+      existingToc.remove();
+    }
+
+    let finalContent = "";
+    if (rankMathTocPosition === "before_content") {
+      // Place at the very top before content (User explicit requirement)
+      const remainingHtml = container.innerHTML.trim();
+      finalContent = `${tocBlockHtml}\n\n${remainingHtml}`;
+    } else {
+      // Insert at cursor
+      if (editorMode === "visual" && savedVisualRange.current && visualEditorRef.current) {
+        try {
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(savedVisualRange.current);
+            document.execCommand("insertHTML", false, tocBlockHtml);
+            finalContent = visualEditorRef.current.innerHTML;
+          } else {
+            finalContent = `${tocBlockHtml}\n\n${container.innerHTML.trim()}`;
+          }
+        } catch (e) {
+          finalContent = `${tocBlockHtml}\n\n${container.innerHTML.trim()}`;
+        }
+      } else {
+        finalContent = `${tocBlockHtml}\n\n${container.innerHTML.trim()}`;
+      }
+    }
+
+    handleUpdateField("content", finalContent);
+    pushHistory(finalContent);
+    if (visualEditorRef.current) {
+      visualEditorRef.current.innerHTML = finalContent;
+    }
+    setShowRankMathTocModal(false);
+    showToast("✅ Rank Math Table of Contents added before content!");
+  };
+
+  const handleRemoveRankMathToc = () => {
+    if (!currentPost?.content) return;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${currentPost.content}</div>`, "text/html");
+      const container = doc.body.firstElementChild;
+      const existing = container?.querySelector("#rank-math-toc, [data-rankmath-toc='true'], .rank-math-block");
+      if (existing) {
+        existing.remove();
+        const updated = container?.innerHTML || "";
+        handleUpdateField("content", updated);
+        pushHistory(updated);
+        if (visualEditorRef.current) {
+          visualEditorRef.current.innerHTML = updated;
+        }
+        showToast("🗑 Rank Math Table of Contents removed.");
+      } else {
+        showToast("No Table of Contents found in post.");
+      }
+      setShowRankMathTocModal(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleInsertSampleHeadings = () => {
+    const sample = `<h2>1. Understanding the Core Tajweed Rules</h2>
+<p>Tajweed means to pronounce every letter from its proper articulation point (Makhraj) with all of its intrinsic characteristics.</p>
+
+<h2>2. Common Mistakes Beginners Make When Learning Quran Online</h2>
+<p>Many online Quran learners inadvertently rush their recitation, skip Ghunnah, or mispronounce heavy letters (Tafkheem) vs light letters (Tarqeeq).</p>
+
+<h3>2.1 Mistakes in Noon Sakinah and Tanween Rules</h3>
+<p>Recognizing the difference between Izhar, Idgham, Iqlab, and Ikhfa is vital for every beginner student.</p>
+
+<h3>2.2 Makharij al-Huroof (Proper Articulation Points)</h3>
+<p>Failing to distinguish between similar sounding Arabic letters such as 'Qaf' vs 'Kaf' or 'Daad' vs 'Zaad' alters the sacred meaning.</p>
+
+<h2>3. Step-by-Step Daily Practice Routine with Online Scholars</h2>
+<p>Commit to 20 minutes of daily guided repetition with certified Jamia teachers to lock in your tajweed habits.</p>`;
+
+    const current = currentPost?.content || "";
+    const updated = current ? `${current}\n\n${sample}` : sample;
+    handleUpdateField("content", updated);
+    pushHistory(updated);
+    if (visualEditorRef.current) {
+      visualEditorRef.current.innerHTML = updated;
+    }
+    showToast("✨ Sample Quran & Tajweed headings inserted!");
+  };
+
+  // Media selection callback for Featured, Inline & Replaced images
   const handleMediaSelect = (imageDetails: { url: string; alt: string; title: string; caption?: string; description?: string }) => {
     if (!currentPost) return;
 
@@ -1187,35 +1615,114 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       return;
     }
 
-    // Inline image insertion
-    const altText = imageDetails.alt || imageDetails.title || currentPost.title || "Quran Tajweed Article Illustration";
-    const captionHtml = imageDetails.caption ? `<p class="text-xs text-[#c9c2ab] mt-2 italic text-center">${imageDetails.caption}</p>` : "";
-    const imageHtml = `\n<div class="my-6 text-center">\n  <img src="${imageDetails.url}" alt="${altText}" class="w-full max-w-2xl mx-auto rounded-2xl border border-[#d9b45c]/30 shadow-2xl object-cover" />\n  ${captionHtml}\n</div>\n\n`;
-
-    const content = currentPost.content || "";
-    let newContent = "";
-
-    if (slashCursorIndex !== null) {
-      const before = content.substring(0, slashCursorIndex);
-      const after = content.substring(slashCursorIndex + 1 + slashQuery.length);
-      newContent = before + imageHtml + after;
-      setSlashCursorIndex(null);
-      setSlashQuery("");
-    } else {
-      const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
-      if (textarea && textarea.selectionStart !== undefined) {
-        const pos = textarea.selectionStart;
-        newContent = content.substring(0, pos) + imageHtml + content.substring(pos);
-      } else {
-        newContent = content + imageHtml;
+    if (mediaTargetField === "replace_inline" && lastActiveImageRef.current) {
+      lastActiveImageRef.current.src = imageDetails.url;
+      if (imageDetails.alt) lastActiveImageRef.current.alt = imageDetails.alt;
+      const figure = lastActiveImageRef.current.closest("figure.wp-block-image") || lastActiveImageRef.current.closest("figure");
+      if (figure && imageDetails.caption) {
+        let cap = figure.querySelector("figcaption");
+        if (!cap) {
+          cap = document.createElement("figcaption");
+          cap.className = "text-xs text-[#c9c2ab] mt-2 italic text-center";
+          figure.appendChild(cap);
+        }
+        cap.textContent = imageDetails.caption;
       }
+      if (visualEditorRef.current) {
+        const updatedHtml = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", updatedHtml);
+        pushHistory(updatedHtml);
+      }
+      showToast("✅ Image replaced successfully in-place!");
+      setShowMediaLibraryModal(false);
+      return;
     }
 
-    handleUpdateField("content", newContent);
-    pushHistory(newContent);
+    // Standard WordPress Post Image Figure Block (760px standard container)
+    const altText = imageDetails.alt || imageDetails.title || currentPost.title || "Quran Tajweed Article Illustration";
+    const captionHtml = imageDetails.caption ? `<figcaption class="text-xs text-[#c9c2ab] mt-2 italic text-center">${imageDetails.caption}</figcaption>` : "";
+    const imageHtml = `\n<figure class="wp-block-image size-large my-6 text-center" data-wp-image="true">\n  <img src="${imageDetails.url}" alt="${altText}" class="w-full max-w-[760px] mx-auto rounded-xl border border-[#d9b45c]/25 shadow-xl object-cover hover:ring-2 hover:ring-[#d9b45c] transition-all cursor-pointer" />\n  ${captionHtml}\n</figure>\n\n`;
+
+    if (editorMode === "visual" && viewLayoutMode === "editor") {
+      if (visualEditorRef.current) {
+        visualEditorRef.current.focus();
+        let inserted = false;
+
+        // Try direct DOM range insertion first for 100% accurate cursor placement
+        if (savedVisualRange.current && visualEditorRef.current.contains(savedVisualRange.current.commonAncestorContainer)) {
+          try {
+            const range = savedVisualRange.current;
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = imageHtml.trim();
+            const figureNode = tempDiv.firstElementChild;
+            if (figureNode) {
+              range.deleteContents();
+              range.insertNode(figureNode);
+              // Insert spacer paragraph after figure so user can keep typing smoothly
+              const spacerP = document.createElement("p");
+              spacerP.innerHTML = "<br>";
+              if (figureNode.nextSibling) {
+                figureNode.parentNode?.insertBefore(spacerP, figureNode.nextSibling);
+              } else {
+                figureNode.parentNode?.appendChild(spacerP);
+              }
+              inserted = true;
+            }
+          } catch (domErr) {
+            console.warn("Direct DOM range insertion fallback", domErr);
+          }
+        }
+
+        // Fallback to execCommand if direct node insert didn't run
+        if (!inserted && savedVisualRange.current) {
+          try {
+            const sel = window.getSelection();
+            if (sel) {
+              sel.removeAllRanges();
+              sel.addRange(savedVisualRange.current);
+              document.execCommand("insertHTML", false, imageHtml);
+              inserted = true;
+            }
+          } catch (e) {
+            console.warn("Could not insertHTML at saved range", e);
+          }
+        }
+
+        if (!inserted) {
+          // If range couldn't be restored, append cleanly to the visual editor
+          const currentHtml = visualEditorRef.current.innerHTML;
+          visualEditorRef.current.innerHTML = currentHtml ? `${currentHtml}\n${imageHtml}` : imageHtml;
+        }
+
+        const newHtml = visualEditorRef.current.innerHTML;
+        handleUpdateField("content", newHtml);
+        pushHistory(newHtml);
+      }
+    } else {
+      const content = currentPost.content || "";
+      let newContent = "";
+      if (slashCursorIndex !== null) {
+        const before = content.substring(0, slashCursorIndex);
+        const after = content.substring(slashCursorIndex + 1 + slashQuery.length);
+        newContent = before + imageHtml + after;
+        setSlashCursorIndex(null);
+        setSlashQuery("");
+      } else {
+        const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+        if (textarea && textarea.selectionStart !== undefined) {
+          const pos = textarea.selectionStart;
+          newContent = content.substring(0, pos) + imageHtml + content.substring(pos);
+        } else {
+          newContent = content ? `${content}\n${imageHtml}` : imageHtml;
+        }
+      }
+      handleUpdateField("content", newContent);
+      pushHistory(newContent);
+    }
+
     setShowMediaLibraryModal(false);
     setShowSlashMenu(false);
-    showToast("✅ Inline image inserted smoothly!");
+    showToast("✅ Image inserted at cursor position!");
   };
 
   // Content Input Handlers for Slash Commands, Smart Auto-Headings, Hyperlink Preservation, and Pasting
@@ -1401,6 +1908,22 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
   const handleVisualMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
+
+    // Check if hovering over an image in visual canvas
+    if (target?.tagName === "IMG") {
+      const img = target as HTMLImageElement;
+      setHoveredImageEl(img);
+      if (!selectedImageEl) {
+        updateImageToolbarPos(img);
+      }
+    } else {
+      const isToolbar = target?.closest("#floating-image-toolbar");
+      if (!isToolbar && !selectedImageEl) {
+        setHoveredImageEl(null);
+        setImageToolbarPos(null);
+      }
+    }
+
     const anchor = (target?.tagName === "A" ? target : target?.closest("a")) as HTMLAnchorElement | null;
     if (anchor && visualEditorRef.current) {
       if (linkPopupTimeoutRef.current) {
@@ -1418,23 +1941,57 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     }
   };
 
-  const handleVisualMouseLeave = () => {
+  const handleVisualMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+    const related = e.relatedTarget as HTMLElement | null;
+    if (related?.closest("#floating-image-toolbar") || related?.closest("#floating-link-popup")) {
+      return;
+    }
     if (linkPopupTimeoutRef.current) {
       clearTimeout(linkPopupTimeoutRef.current);
     }
     linkPopupTimeoutRef.current = setTimeout(() => {
       setActiveLinkPopup(null);
     }, 400);
+
+    if (!selectedImageEl) {
+      setHoveredImageEl(null);
+      setImageToolbarPos(null);
+    }
   };
 
   const handleVisualClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    saveVisualSelection();
     const target = e.target as HTMLElement | null;
+
+    // Check if clicked directly on an Image
+    if (target?.tagName === "IMG") {
+      const img = target as HTMLImageElement;
+      setSelectedImageEl(img);
+      lastActiveImageRef.current = img;
+      updateImageToolbarPos(img);
+      return;
+    } else {
+      const isToolbar = target?.closest("#floating-image-toolbar");
+      if (!isToolbar) {
+        setSelectedImageEl(null);
+        setImageToolbarPos(null);
+      }
+    }
+
     const anchor = (target?.tagName === "A" ? target : target?.closest("a")) as HTMLAnchorElement | null;
     if (anchor) {
+      const href = anchor.getAttribute("href");
+      if (href && href.startsWith("#")) {
+        e.preventDefault();
+        const targetEl = document.getElementById(href.substring(1));
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        return;
+      }
       // If user holds Ctrl/Cmd or clicks with link popup, permit opening or clicking
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const href = anchor.getAttribute("href");
         if (href) {
           window.open(href, "_blank", "noopener,noreferrer");
         }
@@ -1471,6 +2028,16 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
   };
 
   const handleVisualKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // If an image is selected and user presses Backspace or Delete, remove it cleanly!
+    if (selectedImageEl && (e.key === "Backspace" || e.key === "Delete")) {
+      e.preventDefault();
+      handleDeleteImage(selectedImageEl);
+      return;
+    }
+
+    // Save visual cursor position on every key stroke
+    setTimeout(saveVisualSelection, 10);
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       openLinkModal();
@@ -1681,18 +2248,49 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     }
     html += `  </tbody>\n</table>\n</div>\n`;
 
-    const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
-    let newContent = "";
-    if (textarea && textarea.selectionStart !== undefined) {
-      const pos = textarea.selectionStart;
-      const content = currentPost.content || "";
-      newContent = content.substring(0, pos) + `\n\n${html}\n\n` + content.substring(pos);
+    if (editorMode === "visual" && viewLayoutMode === "editor" && visualEditorRef.current) {
+      visualEditorRef.current.focus();
+      let inserted = false;
+      if (savedVisualRange.current && visualEditorRef.current.contains(savedVisualRange.current.commonAncestorContainer)) {
+        try {
+          const temp = document.createElement("div");
+          temp.innerHTML = html.trim();
+          const tableNode = temp.firstElementChild;
+          if (tableNode) {
+            savedVisualRange.current.deleteContents();
+            savedVisualRange.current.insertNode(tableNode);
+            const spacer = document.createElement("p");
+            spacer.innerHTML = "<br>";
+            if (tableNode.nextSibling) {
+              tableNode.parentNode?.insertBefore(spacer, tableNode.nextSibling);
+            } else {
+              tableNode.parentNode?.appendChild(spacer);
+            }
+            inserted = true;
+          }
+        } catch (e) {
+          console.warn("Table direct insert fallback", e);
+        }
+      }
+      if (!inserted) {
+        visualEditorRef.current.innerHTML += `\n\n${html}\n\n`;
+      }
+      const newContent = visualEditorRef.current.innerHTML;
+      handleUpdateField("content", newContent);
+      pushHistory(newContent);
     } else {
-      newContent = `${currentPost.content || ""}\n\n${html}`;
+      const textarea = document.getElementById("gutenberg-content-textarea") as HTMLTextAreaElement | null;
+      let newContent = "";
+      if (textarea && textarea.selectionStart !== undefined) {
+        const pos = textarea.selectionStart;
+        const content = currentPost.content || "";
+        newContent = content.substring(0, pos) + `\n\n${html}\n\n` + content.substring(pos);
+      } else {
+        newContent = `${currentPost.content || ""}\n\n${html}`;
+      }
+      handleUpdateField("content", newContent);
+      pushHistory(newContent);
     }
-
-    handleUpdateField("content", newContent);
-    pushHistory(newContent);
     setShowTableModal(false);
     showToast("Table inserted into article!");
   };
@@ -1948,10 +2546,35 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       reader.onload = (uploadEvent) => {
         const dataUrl = uploadEvent.target?.result as string;
         if (dataUrl) {
-          const imgHtml = `<p><img src="${dataUrl}" alt="Uploaded Image" class="w-full rounded-2xl border border-[#d9b45c]/30 my-6 shadow-2xl" /></p>`;
-          const newContent = `${currentPost?.content || ""}\n${imgHtml}`;
-          handleUpdateField("content", newContent);
-          pushHistory(newContent);
+          const imgHtml = `\n<figure class="wp-block-image size-large my-6 text-center" data-wp-image="true">\n  <img src="${dataUrl}" alt="Uploaded Image" class="w-full max-w-[760px] mx-auto rounded-xl border border-[#d9b45c]/25 shadow-xl object-cover hover:ring-2 hover:ring-[#d9b45c] transition-all cursor-pointer" />\n</figure>\n\n`;
+          if (editorMode === "visual" && visualEditorRef.current) {
+            visualEditorRef.current.focus();
+            let inserted = false;
+            if (savedVisualRange.current) {
+              try {
+                const sel = window.getSelection();
+                if (sel) {
+                  sel.removeAllRanges();
+                  sel.addRange(savedVisualRange.current);
+                  document.execCommand("insertHTML", false, imgHtml);
+                  inserted = true;
+                }
+              } catch (err) {
+                // fallback
+              }
+            }
+            if (!inserted) {
+              const currentHtml = visualEditorRef.current.innerHTML;
+              visualEditorRef.current.innerHTML = currentHtml ? `${currentHtml}\n${imgHtml}` : imgHtml;
+            }
+            const updated = visualEditorRef.current.innerHTML;
+            handleUpdateField("content", updated);
+            pushHistory(updated);
+          } else {
+            const newContent = `${currentPost?.content || ""}\n${imgHtml}`;
+            handleUpdateField("content", newContent);
+            pushHistory(newContent);
+          }
           showToast("Image inserted into article!");
         }
       };
@@ -2377,19 +3000,50 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
                 <div className="h-5 w-[1px] bg-white/10 my-auto mx-0.5"></div>
 
-                {/* Insert Image / Media Button */}
+                {/* Insert Image / Media Button with Cursor Tracking */}
                 <button
                   type="button"
+                  onMouseDown={() => saveVisualSelection()}
                   onClick={() => {
+                    saveVisualSelection();
                     setMediaTargetField("internal");
                     setShowMediaLibraryModal(true);
                   }}
-                  className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm"
-                  title="Insert Media / Internal Image"
+                  className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#f2d98a] hover:text-white border border-[#d9b45c]/30 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Insert Media / Internal Image at Cursor Position"
                 >
                   <ImageIcon size={14} className="text-[#d9b45c]" />
                   <span>Media</span>
                 </button>
+
+                {/* Rank Math Table of Contents (TOC) Button */}
+                <button
+                  type="button"
+                  onMouseDown={() => saveVisualSelection()}
+                  onClick={() => {
+                    saveVisualSelection();
+                    setShowRankMathTocModal(true);
+                  }}
+                  className="px-2.5 py-1.5 bg-[#d9b45c]/10 hover:bg-[#d9b45c]/25 text-[#f2d98a] hover:text-white border border-[#d9b45c]/40 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm group cursor-pointer"
+                  title="Insert Rank Math Table of Contents (TOC) before content"
+                >
+                  <span className="text-xs">📋</span>
+                  <span>Rank Math Table</span>
+                  <span className="text-[9px] bg-[#d9b45c]/20 text-[#d9b45c] px-1 rounded font-mono font-bold group-hover:bg-[#d9b45c] group-hover:text-black">TOC</span>
+                </button>
+
+                {/* Article Embedded Images Manager */}
+                {embeddedImages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPostImagesModal(true)}
+                    className="px-2.5 py-1.5 bg-white/5 hover:bg-white/15 text-[#c9c2ab] hover:text-white border border-white/15 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer"
+                    title={`View, review and delete from ${embeddedImages.length} images in this article`}
+                  >
+                    <Layers size={13} className="text-[#d9b45c]" />
+                    <span>Images ({embeddedImages.length})</span>
+                  </button>
+                )}
 
                 <div className="h-5 w-[1px] bg-white/10 my-auto mx-0.5"></div>
 
@@ -2419,6 +3073,28 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       </div>
 
                       <div className="space-y-0.5">
+                        {/* Rank Math TOC */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            saveVisualSelection();
+                            setShowRankMathTocModal(true);
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c] text-sm">
+                              📋
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Rank Math Table of Contents</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Place SEO TOC box before content</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-[#d9b45c]/20 text-[#d9b45c] px-1.5 py-0.5 rounded font-mono font-bold">/rankmath</span>
+                        </button>
+
                         {/* Auto-Format & Parse */}
                         <button
                           type="button"
@@ -2957,6 +3633,93 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     </div>
                   )}
 
+                  {/* Floating WordPress-Style Image Control & Delete Toolbar */}
+                  {imageToolbarPos && (selectedImageEl || hoveredImageEl) && (
+                    <div
+                      id="floating-image-toolbar"
+                      style={{
+                        top: `${imageToolbarPos.top}px`,
+                        left: `${imageToolbarPos.left}px`,
+                      }}
+                      className="absolute z-50 bg-[#12141b]/98 border-2 border-[#d9b45c]/90 rounded-2xl px-3 py-1.5 shadow-2xl flex flex-wrap items-center gap-1.5 text-xs backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black"
+                    >
+                      <div className="flex items-center space-x-1.5 text-[#d9b45c] font-bold text-[11px] pr-2 border-r border-white/10">
+                        <ImageIcon size={13} />
+                        <span>WP Image</span>
+                      </div>
+
+                      {/* Move Up */}
+                      <button
+                        type="button"
+                        onClick={() => handleMoveImageUp(selectedImageEl || hoveredImageEl)}
+                        className="p-1.5 hover:bg-white/10 text-white rounded-lg flex items-center space-x-1 transition-colors text-[10px] font-bold cursor-pointer"
+                        title="Move image up above preceding paragraph"
+                      >
+                        <ChevronUp size={14} className="text-[#d9b45c]" />
+                        <span className="hidden sm:inline">Up</span>
+                      </button>
+
+                      {/* Move Down */}
+                      <button
+                        type="button"
+                        onClick={() => handleMoveImageDown(selectedImageEl || hoveredImageEl)}
+                        className="p-1.5 hover:bg-white/10 text-white rounded-lg flex items-center space-x-1 transition-colors text-[10px] font-bold cursor-pointer"
+                        title="Move image down below following paragraph"
+                      >
+                        <ChevronDown size={14} className="text-[#d9b45c]" />
+                        <span className="hidden sm:inline">Down</span>
+                      </button>
+
+                      <div className="h-4 w-[1px] bg-white/15"></div>
+
+                      {/* Sizing presets: Standard WordPress Post Size */}
+                      <div className="flex items-center space-x-1 bg-white/5 rounded-lg p-0.5 border border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => handleSetImageSize("large", selectedImageEl || hoveredImageEl)}
+                          className="px-2 py-0.5 hover:bg-[#d9b45c] hover:text-black text-[#f2d98a] rounded text-[10px] font-bold transition-all cursor-pointer"
+                          title="WordPress Post Standard Width (760px)"
+                        >
+                          760px (Standard)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetImageSize("medium", selectedImageEl || hoveredImageEl)}
+                          className="px-2 py-0.5 hover:bg-[#d9b45c] hover:text-black text-[#c9c2ab] rounded text-[10px] font-bold transition-all cursor-pointer"
+                          title="Medium (480px)"
+                        >
+                          480px
+                        </button>
+                      </div>
+
+                      <div className="h-4 w-[1px] bg-white/15"></div>
+
+                      {/* Replace Image */}
+                      <button
+                        type="button"
+                        onClick={() => handleReplaceImage(selectedImageEl || hoveredImageEl)}
+                        className="px-2 py-1 hover:bg-white/10 text-[#f2d98a] hover:text-white rounded-lg flex items-center space-x-1 transition-colors text-[10px] font-bold cursor-pointer"
+                        title="Replace this image from Media Library"
+                      >
+                        <RefreshCw size={11} />
+                        <span className="hidden sm:inline">Replace</span>
+                      </button>
+
+                      <div className="h-4 w-[1px] bg-white/15"></div>
+
+                      {/* Delete / Remove Image button */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteImage(selectedImageEl || hoveredImageEl)}
+                        className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white font-extrabold rounded-lg text-[10px] uppercase tracking-wider flex items-center space-x-1 shadow-lg transition-all cursor-pointer"
+                        title="Delete and remove this image from the article"
+                      >
+                        <Trash2 size={13} />
+                        <span>Delete Image</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* WYSIWYG Rich Visual Canvas */}
                   <div
                     ref={visualEditorRef}
@@ -2969,6 +3732,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                     onMouseMove={handleVisualMouseMove}
                     onMouseLeave={handleVisualMouseLeave}
                     onClick={handleVisualClick}
+                    onSelect={saveVisualSelection}
+                    onKeyUp={saveVisualSelection}
+                    onMouseUp={saveVisualSelection}
                     data-placeholder="Start typing your English article here, or paste any text for automatic heading and paragraph detection..."
                     className="prose prose-invert max-w-none min-h-[400px] outline-none text-[#F3F4F6] font-sans text-sm md:text-base leading-relaxed
                       [&>h1]:font-serif [&>h1]:text-2xl [&>h1]:md:text-3xl [&>h1]:text-white [&>h1]:font-bold [&>h1]:mt-6 [&>h1]:mb-3
@@ -2986,7 +3752,12 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       [&_th]:bg-[#1c202b] [&_th]:text-[#f2d98a] [&_th]:font-serif [&_th]:font-bold [&_th]:p-3 [&_th]:border-b [&_th]:border-[#d9b45c]/30 [&_th]:border-r [&_th]:border-white/10
                       [&_td]:p-3 [&_td]:text-xs [&_td]:md:text-sm [&_td]:text-[#F3F4F6] [&_td]:border-b [&_td]:border-white/5 [&_td]:border-r [&_td]:border-white/5
                       [&>a]:text-[#FACC15] [&>a]:underline [&>a]:hover:text-[#FEF08A] [&>a]:font-semibold [&>a]:cursor-pointer [&>a]:pointer-events-auto
-                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold [&_a]:cursor-pointer [&_a]:pointer-events-auto"
+                      [&_a]:text-[#FACC15] [&_a]:underline [&_a]:hover:text-[#FEF08A] [&_a]:font-semibold [&_a]:cursor-pointer [&_a]:pointer-events-auto
+                      [&_figure.wp-block-image]:my-6 [&_figure.wp-block-image]:text-center
+                      [&_figure.wp-block-image_img]:max-w-[760px] [&_figure.wp-block-image_img]:w-full [&_figure.wp-block-image_img]:mx-auto [&_figure.wp-block-image_img]:rounded-xl [&_figure.wp-block-image_img]:border [&_figure.wp-block-image_img]:border-[#d9b45c]/25 [&_figure.wp-block-image_img]:shadow-xl [&_figure.wp-block-image_img]:cursor-pointer [&_figure.wp-block-image_img:hover]:ring-2 [&_figure.wp-block-image_img:hover]:ring-[#d9b45c]
+                      [&_img]:max-w-[760px] [&_img]:w-full [&_img]:mx-auto [&_img]:rounded-xl [&_img]:my-6 [&_img]:cursor-pointer [&_img:hover]:ring-2 [&_img:hover]:ring-[#d9b45c]
+                      [&_img.active-selected-img]:ring-4 [&_img.active-selected-img]:ring-[#d9b45c]
+                      [&_.rank-math-block]:my-8 [&_.rank-math-block]:p-6 [&_.rank-math-block]:bg-[#12141b] [&_.rank-math-block]:border-2 [&_.rank-math-block]:border-[#d9b45c]/40 [&_.rank-math-block]:rounded-2xl [&_.rank-math-block]:shadow-xl"
                   />
                   {/* Hidden textarea reference for seamless fallback and compatibility */}
                   <textarea
@@ -4564,6 +5335,271 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                   <span>Apply Yellow Link</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. RANK MATH TABLE OF CONTENTS (TOC) MODAL */}
+      {showRankMathTocModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#12141b] border-2 border-[#d9b45c]/50 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#d9b45c]/20 text-[#d9b45c] flex items-center justify-center text-lg">
+                  📋
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">Rank Math Table of Contents (TOC)</h3>
+                    <span className="text-[9px] bg-[#d9b45c]/20 text-[#d9b45c] px-2 py-0.5 rounded font-mono font-bold">SEO Block</span>
+                  </div>
+                  <p className="text-[11px] text-[#c9c2ab]">Insert an SEO-optimized jump-link table before your article content</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRankMathTocModal(false)}
+                className="p-1.5 text-[#c9c2ab] hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-4 text-xs">
+              
+              {/* Placement Selector */}
+              <div>
+                <label className="text-[#f2d98a] font-bold block mb-1.5 uppercase text-[10px] tracking-wider">
+                  Table Placement Position
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRankMathTocPosition("before_content")}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start space-x-2.5 ${
+                      rankMathTocPosition === "before_content"
+                        ? "bg-[#d9b45c]/15 border-[#d9b45c] text-white shadow-md"
+                        : "bg-white/5 border-white/10 text-[#c9c2ab] hover:bg-white/10"
+                    }`}
+                  >
+                    <span className="text-base">📌</span>
+                    <div>
+                      <span className="font-bold block text-white text-xs">Before Content (Top of Article)</span>
+                      <span className="text-[10px] text-[#c9c2ab]">Rank Math standard: inserted before post body</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRankMathTocPosition("cursor")}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start space-x-2.5 ${
+                      rankMathTocPosition === "cursor"
+                        ? "bg-[#d9b45c]/15 border-[#d9b45c] text-white shadow-md"
+                        : "bg-white/5 border-white/10 text-[#c9c2ab] hover:bg-white/10"
+                    }`}
+                  >
+                    <span className="text-base">📍</span>
+                    <div>
+                      <span className="font-bold block text-white text-xs">At Current Cursor Position</span>
+                      <span className="text-[10px] text-[#c9c2ab]">Insert right where your cursor is positioned</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* TOC Box Title */}
+              <div>
+                <label className="text-[#f2d98a] font-bold block mb-1">
+                  Table Title Heading
+                </label>
+                <input
+                  type="text"
+                  value={rankMathTocTitle}
+                  onChange={(e) => setRankMathTocTitle(e.target.value)}
+                  placeholder="Table of Contents"
+                  className="w-full bg-[#07080b] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-[#d9b45c]"
+                />
+              </div>
+
+              {/* Options */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                <label className="flex items-center space-x-2 p-2 bg-[#07080b] border border-white/5 rounded-xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rankMathTocIncludeH2}
+                    onChange={(e) => setRankMathTocIncludeH2(e.target.checked)}
+                    className="accent-[#d9b45c] rounded"
+                  />
+                  <span className="text-[11px] text-white">Include H2 Headings</span>
+                </label>
+                <label className="flex items-center space-x-2 p-2 bg-[#07080b] border border-white/5 rounded-xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rankMathTocIncludeH3}
+                    onChange={(e) => setRankMathTocIncludeH3(e.target.checked)}
+                    className="accent-[#d9b45c] rounded"
+                  />
+                  <span className="text-[11px] text-white">Include H3 Sub-headings</span>
+                </label>
+                <label className="flex items-center space-x-2 p-2 bg-[#07080b] border border-white/5 rounded-xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rankMathTocAllowToggle}
+                    onChange={(e) => setRankMathTocAllowToggle(e.target.checked)}
+                    className="accent-[#d9b45c] rounded"
+                  />
+                  <span className="text-[11px] text-white">[Hide/Show] Toggle</span>
+                </label>
+              </div>
+
+              {/* Detected Headings Preview */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] uppercase font-bold text-[#c9c2ab]">
+                    Detected Headings in Article ({detectedHeadings.length})
+                  </label>
+                  {detectedHeadings.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={handleInsertSampleHeadings}
+                      className="text-[10px] text-[#d9b45c] hover:underline font-bold"
+                    >
+                      + Insert Sample Tajweed Headings
+                    </button>
+                  )}
+                </div>
+
+                <div className="bg-[#07080b] border border-white/10 rounded-2xl p-3 max-h-40 overflow-y-auto space-y-1.5 font-mono text-[11px]">
+                  {detectedHeadings.length > 0 ? (
+                    detectedHeadings.map((h, i) => (
+                      <div key={i} className="flex items-center justify-between text-white/80 py-0.5 border-b border-white/5 last:border-0">
+                        <div className="flex items-center space-x-2 truncate">
+                          <span className="text-[9px] px-1 py-0.5 bg-[#d9b45c]/20 text-[#d9b45c] rounded font-bold">{h.tag.toUpperCase()}</span>
+                          <span className={`truncate ${h.tag === "h3" ? "pl-2 text-white/70" : "font-medium"}`}>{h.text}</span>
+                        </div>
+                        <span className="text-[9px] text-[#c9c2ab]/50 truncate max-w-[120px]">#{h.id}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-[#c9c2ab]/60 space-y-1">
+                      <p>No H2 or H3 headings detected in this post yet.</p>
+                      <p className="text-[10px] text-white/40">Headings like &lt;h2&gt; are automatically indexed by Rank Math.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={handleRemoveRankMathToc}
+                className="px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-xl flex items-center space-x-1 transition-colors"
+                title="Remove existing Table of Contents from article"
+              >
+                <Trash2 size={13} />
+                <span>Remove TOC</span>
+              </button>
+
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRankMathTocModal(false)}
+                  className="px-4 py-2 text-xs text-[#c9c2ab] hover:text-white rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyRankMathToc}
+                  className="px-5 py-2.5 bg-gradient-to-r from-[#d9b45c] to-[#f2d98a] text-black font-extrabold text-xs rounded-xl shadow-lg hover:brightness-110 flex items-center space-x-1.5 transition-all cursor-pointer"
+                >
+                  <span>📋</span>
+                  <span>Insert Rank Math Table</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 10. ARTICLE IMAGES MANAGER MODAL */}
+      {showPostImagesModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#12141b] border-2 border-[#d9b45c]/50 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#d9b45c]/20 text-[#d9b45c] flex items-center justify-center">
+                  <ImageIcon size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                    Embedded Images in Article ({embeddedImages.length})
+                  </h3>
+                  <p className="text-[11px] text-[#c9c2ab]">Quickly review, reposition, or delete unwanted duplicate images</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPostImagesModal(false)}
+                className="p-1.5 text-[#c9c2ab] hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto space-y-3 py-1">
+              {embeddedImages.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-[#07080b] border border-white/10 rounded-2xl flex items-center justify-between gap-3 group hover:border-[#d9b45c]/40 transition-colors"
+                >
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-16 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-black">
+                      <img src={img.src} alt={img.alt} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-[#d9b45c] font-mono block">Image #{idx + 1}</span>
+                      <p className="text-xs text-white truncate max-w-[200px]">{img.alt || "Inline illustration"}</p>
+                      {img.caption && <p className="text-[10px] text-[#c9c2ab] truncate max-w-[200px] italic">{img.caption}</p>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImageByIndex(idx)}
+                      className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all cursor-pointer"
+                      title="Remove this image from the article"
+                    >
+                      <Trash2 size={13} />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {embeddedImages.length === 0 && (
+                <div className="p-6 text-center text-xs text-[#c9c2ab]/60">
+                  No images currently embedded inside the article content.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowPostImagesModal(false)}
+                className="px-4 py-2 bg-white/10 text-white rounded-xl text-xs font-bold hover:bg-white/20 transition-all cursor-pointer"
+              >
+                Close Manager
+              </button>
             </div>
           </div>
         </div>
