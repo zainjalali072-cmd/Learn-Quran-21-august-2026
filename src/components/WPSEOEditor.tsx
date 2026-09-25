@@ -67,7 +67,7 @@ import {
 
 interface WPSEOEditorProps {
   cmsData: CMSData;
-  onSave: (newData: CMSData) => void;
+  onSave: (newData: CMSData, customMsg?: string) => void;
   externalPostId?: string | null;
 }
 
@@ -599,8 +599,11 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       blogPosts: updatedPosts
     };
 
-    saveCMSData(updatedCMSData);
-    onSave(updatedCMSData);
+    if (onSave) {
+      onSave(updatedCMSData, `✅ Article "${updatedPost.title}" updated and saved successfully!`);
+    } else {
+      saveCMSData(updatedCMSData);
+    }
     setCurrentPost(updatedPost);
     setSelectedPostId(updatedPost.id);
     setIsDirty(false);
@@ -687,8 +690,11 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       blogPosts: [newPost, ...posts]
     };
 
-    saveCMSData(updatedCMSData);
-    onSave(updatedCMSData);
+    if (onSave) {
+      onSave(updatedCMSData, "✅ New blank draft created!");
+    } else {
+      saveCMSData(updatedCMSData);
+    }
     setSelectedPostId(newId);
     setCurrentPost(newPost);
     showToast("New blank draft created.");
@@ -705,8 +711,11 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       blogPosts: remaining
     };
 
-    saveCMSData(updatedCMSData);
-    onSave(updatedCMSData);
+    if (onSave) {
+      onSave(updatedCMSData, "🗑 Article deleted successfully!");
+    } else {
+      saveCMSData(updatedCMSData);
+    }
     if (remaining.length > 0) {
       setSelectedPostId(remaining[0].id);
       setCurrentPost(remaining[0]);

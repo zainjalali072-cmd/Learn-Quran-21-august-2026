@@ -318,14 +318,6 @@
       "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
       "registeredDate": "2026-07-21",
       "passwordHash": "5d1f9e1f5b5949ed6741606081c7ac81c13c192492c635fa2c4949e9100de121"
-    },
-    {
-      "id": "u-zain-admin",
-      "name": "Zain Jalali",
-      "email": "zainjalali072@gmail.com",
-      "role": "Administrator",
-      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
-      "registeredDate": "2026-09-24"
     }
   ],
   "siteSettings": {
@@ -400,8 +392,8 @@
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
     },
     {
-      "id": "hit_1790255693414_w08mt",
-      "timestamp": "2026-09-24T13:14:53.414Z",
+      "id": "hit_1790335455995_f7h69",
+      "timestamp": "2026-09-25T11:24:15.995Z",
       "ip": "103.207.84.231",
       "country": "CA",
       "countryName": "Canada",
@@ -414,8 +406,8 @@
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     },
     {
-      "id": "hit_1790255693819_p0j1z",
-      "timestamp": "2026-09-24T13:14:53.819Z",
+      "id": "hit_1790335455997_vw0sa",
+      "timestamp": "2026-09-25T11:24:15.997Z",
       "ip": "103.207.84.231",
       "country": "CA",
       "countryName": "Canada",
@@ -428,8 +420,8 @@
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     },
     {
-      "id": "hit_1790256186103_82hvz",
-      "timestamp": "2026-09-24T13:23:06.103Z",
+      "id": "hit_1790336242184_nlqi0",
+      "timestamp": "2026-09-25T11:37:22.184Z",
       "ip": "103.207.84.231",
       "country": "CA",
       "countryName": "Canada",
@@ -442,8 +434,64 @@
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     },
     {
-      "id": "hit_1790256186105_oyjyq",
-      "timestamp": "2026-09-24T13:23:06.105Z",
+      "id": "hit_1790336242189_39c2r",
+      "timestamp": "2026-09-25T11:37:22.189Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790078188549_fd3z47p",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790336722626_48oei",
+      "timestamp": "2026-09-25T11:45:22.626Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790078188549_fd3z47p",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790336723039_a5zae",
+      "timestamp": "2026-09-25T11:45:23.039Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790078188549_fd3z47p",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790337126584_jbim1",
+      "timestamp": "2026-09-25T11:52:06.584Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790078188549_fd3z47p",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790337126593_czn03",
+      "timestamp": "2026-09-25T11:52:06.593Z",
       "ip": "103.207.84.231",
       "country": "CA",
       "countryName": "Canada",
@@ -575,5 +623,6 @@
       "indexNowStatus": "Verified",
       "httpCode": 200
     }
-  }
+  },
+  "test": 1
 }

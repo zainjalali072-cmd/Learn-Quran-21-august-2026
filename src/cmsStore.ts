@@ -894,8 +894,14 @@ export const getCMSData = (): CMSData => {
         const merged = mergePreservingUserData(cachedParsed, serverData);
         const mergedStr = JSON.stringify(merged);
         if (cachedRaw !== mergedStr) {
-          localStorage.setItem(STORAGE_KEY, mergedStr);
-          window.dispatchEvent(new Event("cms_data_updated"));
+          try {
+            localStorage.setItem(STORAGE_KEY, mergedStr);
+          } catch (storageErr) {
+            console.warn("Could not save to localStorage (quota or sandboxed):", storageErr);
+          }
+          try {
+            window.dispatchEvent(new Event("cms_data_updated"));
+          } catch (e) {}
         }
 
         // If local cache had user posts that the server was missing, sync merged data to server
@@ -944,8 +950,14 @@ export const fetchCMSDataFromServer = async (): Promise<CMSData> => {
         } catch (e) {}
       }
       const merged = mergePreservingUserData(cachedParsed, serverData);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      window.dispatchEvent(new Event("cms_data_updated"));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      } catch (storageErr) {
+        console.warn("Could not save to localStorage:", storageErr);
+      }
+      try {
+        window.dispatchEvent(new Event("cms_data_updated"));
+      } catch (e) {}
       return merged;
     }
   } catch (err) {
@@ -955,10 +967,23 @@ export const fetchCMSDataFromServer = async (): Promise<CMSData> => {
 };
 
 export const saveCMSData = async (data: CMSData): Promise<boolean> => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  // Dispatch a custom event to notify React components of changes
-  window.dispatchEvent(new Event("cms_data_updated"));
+  if (!data) return false;
 
+  // 1. Safe localStorage caching with QuotaExceededError protection
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (storageErr) {
+    console.warn("Could not save to localStorage (quota or sandboxed):", storageErr);
+  }
+
+  // 2. Safe event dispatch
+  try {
+    window.dispatchEvent(new Event("cms_data_updated"));
+  } catch (eventErr) {
+    console.warn("Error dispatching cms_data_updated event:", eventErr);
+  }
+
+  // 3. Sync to server database
   try {
     const res = await fetch("/api/cms-data", {
       method: "POST",
@@ -970,12 +995,13 @@ export const saveCMSData = async (data: CMSData): Promise<boolean> => {
       body: JSON.stringify(data)
     });
     if (!res.ok) {
-      console.error("Failed to sync save with server database");
+      const errText = await res.text().catch(() => "");
+      console.warn("Failed to sync save with server database:", res.status, errText);
       return false;
     }
     return true;
   } catch (err) {
-    console.error("Error syncing save with server database:", err);
+    console.warn("Network error syncing save with server database:", err);
     return true;
   }
 };
