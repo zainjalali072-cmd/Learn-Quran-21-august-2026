@@ -2773,7 +2773,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     img.src = imgSrc;
     img.onload = () => {
       const targetWidth = 1200;
-      const targetHeight = 800;
+      const targetHeight = 675;
 
       const canvas = document.createElement("canvas");
       canvas.width = targetWidth;
@@ -2798,7 +2798,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
 
       setShowCropModal(false);
       setPendingCropImage(null);
-      showToast("Featured image cropped & optimized to 1200 × 800 px (3:2 Ratio)!");
+      showToast("Featured image cropped & optimized to 1200 × 675 px (16:9 WordPress Standard)!");
     };
   };
 
@@ -4203,12 +4203,12 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                       Featured Image
                     </span>
                   </div>
-                  <span className="text-[10px] text-[#c9c2ab] font-mono">1200×800 (3:2)</span>
+                  <span className="text-[10px] text-[#c9c2ab] font-mono">1200×675 (16:9)</span>
                 </div>
 
                 {currentPost.coverImage || currentPost.featuredImage ? (
                   <div className="space-y-3">
-                    <div className="relative rounded-xl overflow-hidden border border-[#d9b45c]/30 aspect-[3/2] bg-black flex items-center justify-center group">
+                    <div className="relative rounded-xl overflow-hidden border border-[#d9b45c]/30 aspect-[16/9] bg-black flex items-center justify-center group">
                       <img
                         src={currentPost.coverImage || currentPost.featuredImage}
                         alt={currentPost.imageAltText || "Featured Image"}
@@ -4224,7 +4224,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                           className="px-2.5 py-1.5 bg-black/90 backdrop-blur-md text-[#f2d98a] border border-[#d9b45c]/40 rounded-lg text-[11px] font-bold hover:bg-black flex items-center space-x-1"
                         >
                           <Crop size={12} />
-                          <span>Crop (3:2)</span>
+                          <span>Crop (16:9)</span>
                         </button>
                         <button
                           type="button"
@@ -4251,7 +4251,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                         className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-[#f2d98a] border border-[#d9b45c]/30 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1 transition-all"
                       >
                         <Crop size={11} />
-                        <span>Crop Studio (3:2)</span>
+                        <span>Crop Studio (16:9)</span>
                       </button>
                       <button
                         type="button"
@@ -5306,7 +5306,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#12141b] border border-[#d9b45c]/30 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-bold text-white uppercase">Crop & Optimize (3:2 Aspect Ratio)</h3>
+              <h3 className="text-sm font-bold text-white uppercase">Crop & Optimize (16:9 WordPress Ratio)</h3>
               <button onClick={() => setShowCropModal(false)} className="text-[#c9c2ab] hover:text-white"><X size={18} /></button>
             </div>
 
@@ -5343,7 +5343,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
                 onClick={handleApplyCropAndOptimize}
                 className="px-5 py-2.5 bg-[#d9b45c] text-black font-bold text-xs rounded-xl"
               >
-                Apply 1200 × 800 px Crop
+                Apply 1200 × 675 px Crop (16:9)
               </button>
             </div>
           </div>

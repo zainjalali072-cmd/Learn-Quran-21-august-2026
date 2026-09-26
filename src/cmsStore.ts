@@ -753,84 +753,132 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
   }
 
   // 1. Strict Blog Posts Preservation: Never overwrite or delete user created posts!
-  let mergedPosts: BlogPost[] = [];
-  if (cached.blogPosts && Array.isArray(cached.blogPosts) && cached.blogPosts.length > 0) {
-    const cachedPostsMap = new Map<string, BlogPost>();
-    cached.blogPosts.forEach(p => {
-      if (p && (p.id || p.slug)) {
-        const key = p.id || p.slug!;
-        cachedPostsMap.set(key, ensureBlogPostSEO(p));
+  const postsMap = new Map<string, BlogPost>();
+
+  // Add all base defaults first
+  baseDefaults.blogPosts.forEach(p => {
+    const key = p.id || p.slug;
+    if (key) postsMap.set(key, ensureBlogPostSEO(p));
+  });
+
+  // Overlay incoming posts from server database (source of truth)
+  if (incoming.blogPosts && Array.isArray(incoming.blogPosts)) {
+    incoming.blogPosts.forEach(incPost => {
+      if (!incPost) return;
+      const key = incPost.id || incPost.slug;
+      if (key) postsMap.set(key, ensureBlogPostSEO(incPost));
+    });
+  }
+
+  // Overlay user edits from cache without dropping server posts or original IDs
+  if (cached.blogPosts && Array.isArray(cached.blogPosts)) {
+    cached.blogPosts.forEach(cachedPost => {
+      if (!cachedPost) return;
+      const key = cachedPost.id || cachedPost.slug;
+      if (!key) return;
+
+      if (postsMap.has(key)) {
+        const existing = postsMap.get(key)!;
+        postsMap.set(key, ensureBlogPostSEO({
+          ...existing,
+          ...cachedPost,
+          id: existing.id || cachedPost.id,
+          slug: existing.slug || cachedPost.slug,
+          title: cachedPost.title || existing.title,
+          content: cachedPost.content !== undefined ? cachedPost.content : existing.content,
+          excerpt: cachedPost.excerpt || existing.excerpt,
+          coverImage: cachedPost.coverImage || existing.coverImage,
+          featuredImage: cachedPost.featuredImage || existing.featuredImage,
+          category: cachedPost.category || existing.category,
+          tags: (cachedPost.tags && cachedPost.tags.length > 0) ? cachedPost.tags : existing.tags,
+          author: cachedPost.author || existing.author,
+          seoTitle: cachedPost.seoTitle || existing.seoTitle,
+          metaTitle: cachedPost.metaTitle || existing.metaTitle,
+          metaDescription: cachedPost.metaDescription || existing.metaDescription,
+          focusKeyword: cachedPost.focusKeyword || existing.focusKeyword,
+          canonicalUrl: cachedPost.canonicalUrl || existing.canonicalUrl,
+          attachments: cachedPost.attachments || existing.attachments || [],
+          videoUrls: cachedPost.videoUrls || existing.videoUrls || [],
+          pdfUrls: cachedPost.pdfUrls || existing.pdfUrls || [],
+          customLinks: cachedPost.customLinks || existing.customLinks || []
+        }));
+      } else {
+        // User created post exists in local cache only -> Preserve it!
+        postsMap.set(key, ensureBlogPostSEO(cachedPost));
       }
     });
-
-    if (incoming.blogPosts && Array.isArray(incoming.blogPosts)) {
-      incoming.blogPosts.forEach(incPost => {
-        if (!incPost) return;
-        const key = incPost.id || incPost.slug;
-        if (key && cachedPostsMap.has(key)) {
-          const existing = cachedPostsMap.get(key)!;
-          // Deep merge: new properties added, but existing user edits & content are preserved
-          cachedPostsMap.set(key, ensureBlogPostSEO({
-            ...incPost,
-            ...existing,
-            title: existing.title || incPost.title,
-            content: existing.content !== undefined ? existing.content : incPost.content,
-            excerpt: existing.excerpt || incPost.excerpt,
-            coverImage: existing.coverImage || incPost.coverImage,
-            featuredImage: existing.featuredImage || incPost.featuredImage,
-            attachments: existing.attachments || incPost.attachments || [],
-            videoUrls: existing.videoUrls || incPost.videoUrls || [],
-            pdfUrls: existing.pdfUrls || incPost.pdfUrls || [],
-            customLinks: existing.customLinks || incPost.customLinks || []
-          }));
-        }
-      });
-    }
-
-    mergedPosts = Array.from(cachedPostsMap.values());
-  } else if (incoming.blogPosts && incoming.blogPosts.length > 0) {
-    mergedPosts = incoming.blogPosts.map(ensureBlogPostSEO);
-  } else {
-    mergedPosts = baseDefaults.blogPosts.map(ensureBlogPostSEO);
   }
+
+  const mergedPosts = Array.from(postsMap.values());
 
   // 2. Strict Custom Video Preservation
-  let mergedVideos: WPVideo[] = [];
-  if (cached.videos && Array.isArray(cached.videos) && cached.videos.length > 0) {
-    const videoMap = new Map<string, WPVideo>();
-    (incoming.videos || baseDefaults.videos).forEach(v => {
-      if (v && v.id) videoMap.set(v.id, v);
-    });
-    // Cached user videos strictly take precedence
-    cached.videos.forEach(v => {
-      if (v && v.id) videoMap.set(v.id, v);
-    });
-    mergedVideos = Array.from(videoMap.values());
-  } else {
-    mergedVideos = incoming.videos || baseDefaults.videos;
-  }
+  const videoMap = new Map<string, WPVideo>();
+  baseDefaults.videos.forEach(v => { if (v && v.id) videoMap.set(v.id, v); });
+  (incoming.videos || []).forEach(v => { if (v && v.id) videoMap.set(v.id, v); });
+  (cached.videos || []).forEach(v => { if (v && v.id) videoMap.set(v.id, v); });
+  const mergedVideos = Array.from(videoMap.values());
 
   // 3. Strict Media Library Preservation (never delete user-uploaded media)
-  let mergedMedia: WPMedia[] = [];
-  if (cached.mediaLibrary && Array.isArray(cached.mediaLibrary) && cached.mediaLibrary.length > 0) {
-    const mediaMap = new Map<string, WPMedia>();
-    (incoming.mediaLibrary || baseDefaults.mediaLibrary).forEach(m => {
-      if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m);
-    });
-    cached.mediaLibrary.forEach(m => {
-      if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m);
-    });
-    mergedMedia = Array.from(mediaMap.values());
-  } else {
-    mergedMedia = incoming.mediaLibrary || baseDefaults.mediaLibrary;
-  }
+  const mediaMap = new Map<string, WPMedia>();
+  baseDefaults.mediaLibrary.forEach(m => { if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m); });
+  (incoming.mediaLibrary || []).forEach(m => { if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m); });
+  (cached.mediaLibrary || []).forEach(m => { if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m); });
+  const mergedMedia = Array.from(mediaMap.values());
 
-  // 4. Safe Merging for Configuration Objects & Metadata
+  // 4. Strict Courses Preservation
+  const coursesMap = new Map<string, Course>();
+  baseDefaults.courses.forEach(c => { if (c && c.id) coursesMap.set(c.id, ensureCourse(c)); });
+  (incoming.courses || []).forEach(c => { if (c && c.id) coursesMap.set(c.id, ensureCourse(c)); });
+  (cached.courses || []).forEach(c => { if (c && c.id) coursesMap.set(c.id, ensureCourse({ ...(coursesMap.get(c.id) || {}), ...c })); });
+  const mergedCourses = Array.from(coursesMap.values());
+
+  // 5. Strict Teachers Preservation
+  const teachersMap = new Map<string, WPTeacher>();
+  baseDefaults.teachers.forEach(t => { if (t && t.id) teachersMap.set(t.id, t); });
+  (incoming.teachers || []).forEach(t => { if (t && t.id) teachersMap.set(t.id, t); });
+  (cached.teachers || []).forEach(t => { if (t && t.id) teachersMap.set(t.id, { ...(teachersMap.get(t.id) || {}), ...t }); });
+  const mergedTeachers = Array.from(teachersMap.values());
+
+  // 6. Strict FAQs Preservation
+  const faqsMap = new Map<string, FAQItem>();
+  baseDefaults.faqs.forEach(f => { if (f && f.id) faqsMap.set(f.id, f); });
+  (incoming.faqs || []).forEach(f => { if (f && f.id) faqsMap.set(f.id, f); });
+  (cached.faqs || []).forEach(f => { if (f && f.id) faqsMap.set(f.id, { ...(faqsMap.get(f.id) || {}), ...f }); });
+  const mergedFaqs = Array.from(faqsMap.values());
+
+  // 7. Strict Testimonials Preservation
+  const testMap = new Map<string, Testimonial>();
+  baseDefaults.testimonials.forEach(t => { if (t && t.id) testMap.set(t.id, t); });
+  (incoming.testimonials || []).forEach(t => { if (t && t.id) testMap.set(t.id, t); });
+  (cached.testimonials || []).forEach(t => { if (t && t.id) testMap.set(t.id, { ...(testMap.get(t.id) || {}), ...t }); });
+  const mergedTestimonials = Array.from(testMap.values());
+
+  // 8. Strict Pricing Plans Preservation
+  const pricingMap = new Map<string, PricingPlan>();
+  baseDefaults.pricingPlans.forEach(p => { if (p && p.id) pricingMap.set(p.id, p); });
+  (incoming.pricingPlans || []).forEach(p => { if (p && p.id) pricingMap.set(p.id, p); });
+  (cached.pricingPlans || []).forEach(p => { if (p && p.id) pricingMap.set(p.id, { ...(pricingMap.get(p.id) || {}), ...p }); });
+  const mergedPricing = Array.from(pricingMap.values());
+
+  // 9. Strict Why Us Preservation
+  const whyUsMap = new Map<string, WhyUsPoint>();
+  baseDefaults.whyUs.forEach(w => { if (w && w.id) whyUsMap.set(w.id, w); });
+  (incoming.whyUs || []).forEach(w => { if (w && w.id) whyUsMap.set(w.id, w); });
+  (cached.whyUs || []).forEach(w => { if (w && w.id) whyUsMap.set(w.id, { ...(whyUsMap.get(w.id) || {}), ...w }); });
+  const mergedWhyUs = Array.from(whyUsMap.values());
+
+  // 10. Safe Merging for Configuration Objects & Metadata
   return {
     ...baseDefaults,
     ...incoming,
     ...cached,
     blogPosts: mergedPosts,
+    courses: mergedCourses,
+    teachers: mergedTeachers,
+    faqs: mergedFaqs,
+    testimonials: mergedTestimonials,
+    pricingPlans: mergedPricing,
+    whyUs: mergedWhyUs,
     videos: mergedVideos,
     mediaLibrary: mergedMedia,
     sectionsVisibility: {
@@ -863,13 +911,7 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
       ...baseDefaults.customImages,
       ...(incoming.customImages || {}),
       ...(cached.customImages || {})
-    },
-    courses: ((cached.courses && cached.courses.length > 0) ? cached.courses : (incoming.courses || baseDefaults.courses)).map(ensureCourse),
-    pricingPlans: (cached.pricingPlans && cached.pricingPlans.length > 0) ? cached.pricingPlans : (incoming.pricingPlans || baseDefaults.pricingPlans),
-    teachers: (cached.teachers && cached.teachers.length > 0) ? cached.teachers : (incoming.teachers || baseDefaults.teachers),
-    testimonials: (cached.testimonials && cached.testimonials.length > 0) ? cached.testimonials : (incoming.testimonials || baseDefaults.testimonials),
-    faqs: (cached.faqs && cached.faqs.length > 0) ? cached.faqs : (incoming.faqs || baseDefaults.faqs),
-    whyUs: (cached.whyUs && cached.whyUs.length > 0) ? cached.whyUs : (incoming.whyUs || baseDefaults.whyUs),
+    }
   };
 };
 
@@ -1073,6 +1115,238 @@ export const pingSitemaps = async (): Promise<{ success: boolean; message: strin
     return { success: false, message: "Failed to ping sitemaps to search engines." };
   } catch (err: any) {
     return { success: false, message: err.message || "Network error while pinging sitemaps." };
+  }
+};
+
+// ==========================================
+// CLIENT DATA PERSISTENCE & BACKUP HELPERS
+// ==========================================
+
+export interface BackupMetadata {
+  fileName: string;
+  sizeBytes: number;
+  sizeKb: number;
+  createdAt: string;
+  isRollback: boolean;
+  isInitial: boolean;
+}
+
+/**
+ * Validates whether an uploaded JSON object represents a valid Truth Quran backup.
+ */
+export const validateBackupPayload = (jsonObj: any): { valid: boolean; error?: string; stats?: any; data?: any } => {
+  if (!jsonObj || typeof jsonObj !== "object") {
+    return { valid: false, error: "Invalid backup format. File must contain a valid JSON object." };
+  }
+
+  const data = jsonObj.database || jsonObj.data || jsonObj;
+  const hasArticles = Array.isArray(data.blogPosts) && data.blogPosts.length > 0;
+  const hasCourses = Array.isArray(data.courses) && data.courses.length > 0;
+  const hasSettings = typeof data.siteSettings === "object" || typeof data.themeColors === "object";
+
+  if (!hasArticles && !hasCourses && !hasSettings) {
+    return { valid: false, error: "Validation failed: No recognizable website data found in file." };
+  }
+
+  return {
+    valid: true,
+    data,
+    stats: {
+      articlesCount: Array.isArray(data.blogPosts) ? data.blogPosts.length : 0,
+      coursesCount: Array.isArray(data.courses) ? data.courses.length : 0,
+      teachersCount: Array.isArray(data.teachers) ? data.teachers.length : 0,
+      faqsCount: Array.isArray(data.faqs) ? data.faqs.length : 0,
+      mediaCount: Array.isArray(data.mediaLibrary) ? data.mediaLibrary.length : 0,
+      exportDate: jsonObj.meta?.exportDate || jsonObj.exportDate || "Unknown"
+    }
+  };
+};
+
+/**
+ * Downloads the full database backup JSON file directly to the user's computer.
+ */
+export const exportDatabaseBackup = async (currentData?: CMSData): Promise<{ success: boolean; filename: string }> => {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `truth_quran_database_backup_${timestamp}.json`;
+
+  try {
+    // Attempt download from server API for official snapshot
+    const res = await fetch("/api/database/export", {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
+      }
+    });
+
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return { success: true, filename };
+    }
+  } catch (err) {
+    console.warn("Could not export from server API, falling back to local snapshot:", err);
+  }
+
+  // Fallback: Local snapshot from state
+  const data = currentData || getCMSData();
+  const backupObject = {
+    meta: {
+      generator: "Truth Quran CMS Client Backup Engine v2.5",
+      version: "2.5.0",
+      exportDate: new Date().toISOString(),
+      timestamp,
+      stats: {
+        totalArticles: (data.blogPosts || []).length,
+        totalCourses: (data.courses || []).length
+      }
+    },
+    database: data
+  };
+
+  const blob = new Blob([JSON.stringify(backupObject, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  return { success: true, filename };
+};
+
+/**
+ * Safely imports a database backup file, verifying data integrity and triggering backend sync.
+ */
+export const importDatabaseBackup = async (
+  backupPayload: any,
+  mode: "merge" | "replace" = "merge",
+  confirmed = false
+): Promise<{ success: boolean; message: string; stats?: any }> => {
+  const validation = validateBackupPayload(backupPayload);
+  if (!validation.valid) {
+    return { success: false, message: validation.error || "Invalid backup payload." };
+  }
+
+  try {
+    const res = await fetch("/api/database/import", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
+      },
+      body: JSON.stringify({
+        ...backupPayload,
+        mode,
+        confirmed
+      })
+    });
+
+    if (res.ok) {
+      const serverResult = await res.json();
+      // Fetch latest merged data from server
+      await fetchCMSDataFromServer();
+      return {
+        success: true,
+        message: serverResult.message || "Database successfully restored and synchronized!",
+        stats: serverResult.stats
+      };
+    } else {
+      const err = await res.json().catch(() => ({ error: "Server error during import." }));
+      return { success: false, message: err.error || "Failed to process import on server." };
+    }
+  } catch (err: any) {
+    console.warn("Server import error, performing safe local merge:", err);
+    // Fallback: Safe local merge
+    const current = getCMSData();
+    const imported = validation.data;
+    const merged = mergePreservingUserData(current, imported);
+    await saveCMSData(merged);
+    return {
+      success: true,
+      message: "Database safely imported and preserved locally!",
+      stats: validation.stats
+    };
+  }
+};
+
+/**
+ * Fetches list of available automatic database backups from server.
+ */
+export const fetchDatabaseBackups = async (): Promise<BackupMetadata[]> => {
+  try {
+    const res = await fetch("/api/database/backups", {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.backups || [];
+    }
+  } catch (e) {
+    console.warn("Could not fetch server backups list:", e);
+  }
+  return [];
+};
+
+/**
+ * Creates an on-demand manual database snapshot on the server.
+ */
+export const createDatabaseSnapshot = async (label = "manual_snapshot"): Promise<{ success: boolean; message: string; fileName?: string }> => {
+  try {
+    const res = await fetch("/api/database/create-backup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
+      },
+      body: JSON.stringify({ label })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    const err = await res.json().catch(() => ({ error: "Snapshot creation failed." }));
+    return { success: false, message: err.error || "Failed to create snapshot." };
+  } catch (e: any) {
+    return { success: false, message: e.message || "Network error creating snapshot." };
+  }
+};
+
+/**
+ * Restores database from a specific server-side backup snapshot.
+ */
+export const restoreDatabaseSnapshot = async (fileName: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const res = await fetch("/api/database/restore-backup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
+      },
+      body: JSON.stringify({ fileName })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      await fetchCMSDataFromServer();
+      return { success: true, message: data.message };
+    }
+    const err = await res.json().catch(() => ({ error: "Failed to restore backup snapshot." }));
+    return { success: false, message: err.error || "Failed to restore backup." };
+  } catch (e: any) {
+    return { success: false, message: e.message || "Network error restoring snapshot." };
   }
 };
 

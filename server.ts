@@ -7,6 +7,51 @@ import { createServer as createViteServer } from "vite";
 const app = express();
 const PORT = 3000;
 const DB_FILE = path.join(process.cwd(), "db.json");
+const BACKUPS_DIR = path.join(process.cwd(), "backups");
+if (!fs.existsSync(BACKUPS_DIR)) {
+  try {
+    fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  } catch (_) {}
+}
+
+// Automatic and Safe Database Snapshot Creation
+const createAutoBackup = (sourceData: any, label = "auto_snapshot") => {
+  try {
+    if (!fs.existsSync(BACKUPS_DIR)) {
+      fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const backupFileName = `${label}_${timestamp}.json`;
+    const backupFilePath = path.join(BACKUPS_DIR, backupFileName);
+    fs.writeFileSync(backupFilePath, JSON.stringify(sourceData, null, 2), "utf8");
+
+    // Also update a fixed "latest_safe_backup.json"
+    const latestPath = path.join(BACKUPS_DIR, "latest_safe_backup.json");
+    fs.writeFileSync(latestPath, JSON.stringify(sourceData, null, 2), "utf8");
+
+    // Maintain recent snapshots rotation (keep up to 30 backups)
+    const files = fs.readdirSync(BACKUPS_DIR)
+      .filter(f => f.endsWith(".json") && f !== "latest_safe_backup.json" && f !== "db_initial_safe_backup.json")
+      .map(f => {
+        try {
+          return { name: f, time: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs };
+        } catch (_) {
+          return { name: f, time: 0 };
+        }
+      })
+      .sort((a, b) => b.time - a.time);
+
+    if (files.length > 30) {
+      files.slice(30).forEach(f => {
+        try { fs.unlinkSync(path.join(BACKUPS_DIR, f.name)); } catch (_) {}
+      });
+    }
+    return backupFileName;
+  } catch (err) {
+    console.error("[Database Persistence] Backup snapshot error:", err);
+    return null;
+  }
+};
 
 // Password hashing utility
 const hashPassword = (password: string): string => {
@@ -356,8 +401,24 @@ const getDatabase = () => {
       const raw = fs.readFileSync(DB_FILE, "utf8");
       db = JSON.parse(raw);
     } catch (e) {
-      console.error("Error loading database:", e);
-      db = {};
+      console.error("[Database Persistence] Error loading db.json, attempting auto-recovery:", e);
+      const latestBackup = path.join(BACKUPS_DIR, "latest_safe_backup.json");
+      const initialBackup = path.join(BACKUPS_DIR, "db_initial_safe_backup.json");
+      if (fs.existsSync(latestBackup)) {
+        try {
+          db = JSON.parse(fs.readFileSync(latestBackup, "utf8"));
+          console.warn("[Database Persistence] Recovered database successfully from latest_safe_backup.json!");
+          saveDatabase(db, true);
+        } catch (_) { db = {}; }
+      } else if (fs.existsSync(initialBackup)) {
+        try {
+          db = JSON.parse(fs.readFileSync(initialBackup, "utf8"));
+          console.warn("[Database Persistence] Recovered database successfully from db_initial_safe_backup.json!");
+          saveDatabase(db, true);
+        } catch (_) { db = {}; }
+      } else {
+        db = {};
+      }
     }
   }
 
@@ -576,11 +637,37 @@ const getDatabase = () => {
   return db;
 };
 
-const saveDatabase = (db: any) => {
+const saveDatabase = (db: any, skipBackup = false) => {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf8");
+    if (!db || typeof db !== "object") {
+      console.error("[Database Persistence] Aborting save: Invalid empty database object.");
+      return false;
+    }
+
+    // Safety: Pre-save snapshot of existing valid file
+    if (!skipBackup && fs.existsSync(DB_FILE)) {
+      try {
+        const existingRaw = fs.readFileSync(DB_FILE, "utf8");
+        const existingParsed = JSON.parse(existingRaw);
+        if (existingParsed && typeof existingParsed === "object" && Object.keys(existingParsed).length > 0) {
+          createAutoBackup(existingParsed, "pre_save");
+        }
+      } catch (_) {}
+    }
+
+    const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tmpFile, JSON.stringify(db, null, 2), "utf8");
+    fs.renameSync(tmpFile, DB_FILE);
+    return true;
   } catch (e) {
-    console.error("Error saving database:", e);
+    console.error("Error atomically saving database:", e);
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf8");
+      return true;
+    } catch (fallbackErr) {
+      console.error("Critical: Fallback direct write failed:", fallbackErr);
+      return false;
+    }
   }
 };
 
@@ -1367,6 +1454,381 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
     message: "WP DB fully synchronized!", 
     autoIndexedUrls: autoIndexUrls 
   });
+});
+
+// ==========================================
+// DATA PERSISTENCE & IMPORT / EXPORT API
+// ==========================================
+
+// 1. Export Full Database Backup with Metadata & Verification
+app.get("/api/database/export", (req, res) => {
+  const session = validateSession(req);
+  const isValidAdminToken = req.headers["x-wp-admin-token"] === "SECURE_WP_WPSECRET_2026";
+  if (!session && !isValidAdminToken) {
+    return res.status(401).json({ error: "Unauthorized session. Please login to WordPress Admin." });
+  }
+
+  const db = getDatabase();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  
+  const backupPayload = {
+    meta: {
+      generator: "Truth Quran CMS Data Persistence & Backup Engine v2.5",
+      version: "2.5.0",
+      exportDate: new Date().toISOString(),
+      timestamp,
+      siteUrl: "https://truthquranacademy.com",
+      stats: {
+        totalArticles: (db.blogPosts || []).length,
+        totalCourses: (db.courses || []).length,
+        totalTeachers: (db.teachers || []).length,
+        totalTestimonials: (db.testimonials || []).length,
+        totalFaqs: (db.faqs || []).length,
+        totalMedia: (db.mediaLibrary || []).length,
+        totalUsers: (db.userProfiles || []).length,
+        totalInquiries: (db.comments || []).length
+      }
+    },
+    database: {
+      siteLogoText: db.siteLogoText,
+      siteLogoSubText: db.siteLogoSubText,
+      heroKicker: db.heroKicker,
+      heroTitle: db.heroTitle,
+      heroDescription: db.heroDescription,
+      heroPrimaryBtnText: db.heroPrimaryBtnText,
+      heroSecondaryBtnText: db.heroSecondaryBtnText,
+      contactPhone: db.contactPhone,
+      contactEmail: db.contactEmail,
+      contactAddress: db.contactAddress,
+      whatsappLink: db.whatsappLink,
+      facebookLink: db.facebookLink,
+      instagramLink: db.instagramLink,
+      linkedinLink: db.linkedinLink,
+      courses: db.courses || [],
+      whyUs: db.whyUs || [],
+      pricingPlans: db.pricingPlans || [],
+      testimonials: db.testimonials || [],
+      faqs: db.faqs || [],
+      blogPosts: db.blogPosts || [],
+      teachers: db.teachers || [],
+      developerName: db.developerName,
+      developerRole: db.developerRole,
+      developerAvatar: db.developerAvatar,
+      seoSettings: db.seoSettings || {},
+      videos: db.videos || [],
+      integrations: db.integrations || {},
+      sectionsVisibility: db.sectionsVisibility || {},
+      sectionsOrder: db.sectionsOrder || [],
+      themeColors: db.themeColors || {},
+      themeTypography: db.themeTypography || {},
+      comments: db.comments || [],
+      mediaLibrary: db.mediaLibrary || [],
+      userProfiles: (db.userProfiles || []).map((u: any) => ({ ...u, passwordHash: undefined })),
+      siteSettings: db.siteSettings || {},
+      indexingSettings: db.indexingSettings || {}
+    }
+  };
+
+  // Provide as downloadable JSON
+  res.setHeader("Content-Disposition", `attachment; filename="truth_quran_database_backup_${timestamp}.json"`);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  return res.send(JSON.stringify(backupPayload, null, 2));
+});
+
+// 2. Safe Database Import with Validation and Rollback Snapshot
+app.post("/api/database/import", csrfProtection, (req, res) => {
+  const session = validateSession(req);
+  const isValidAdminToken = req.headers["x-wp-admin-token"] === "SECURE_WP_WPSECRET_2026";
+  if (!session && !isValidAdminToken) {
+    return res.status(401).json({ error: "Unauthorized session. Please login to WordPress Admin." });
+  }
+
+  const payload = req.body;
+  if (!payload || typeof payload !== "object") {
+    return res.status(400).json({ error: "Invalid import payload. Expected JSON backup object." });
+  }
+
+  // Handle both wrapped export format ({ meta, database }) or direct raw DB object
+  const importData = payload.database || payload.data || payload;
+  const mode = payload.mode === "replace" ? "replace" : "merge";
+
+  // Strict Validation: Ensure at least one standard collection or setting exists
+  const hasValidCollection = 
+    (Array.isArray(importData.blogPosts) && importData.blogPosts.length > 0) ||
+    (Array.isArray(importData.courses) && importData.courses.length > 0) ||
+    (Array.isArray(importData.teachers) && importData.teachers.length > 0) ||
+    (Array.isArray(importData.faqs) && importData.faqs.length > 0) ||
+    typeof importData.siteSettings === "object" ||
+    typeof importData.themeColors === "object";
+
+  if (!hasValidCollection) {
+    return res.status(400).json({ 
+      error: "Validation failed: Uploaded file does not contain recognized Truth Quran CMS database tables." 
+    });
+  }
+
+  const db = getDatabase();
+
+  // 1. Mandatory Pre-Import Rollback Snapshot
+  const preImportBackup = createAutoBackup(db, "pre_import_rollback");
+
+  // 2. Execute Import According to Mode
+  if (mode === "replace") {
+    if (!payload.confirmed) {
+      return res.status(400).json({ 
+        error: "Confirmation required for Full Database Replace mode." 
+      });
+    }
+
+    const preservedProfiles = (db.userProfiles || []).map((u: any) => ({ ...u }));
+    const preservedTraffic = db.traffic_logs || [];
+    const preservedIndexing = db.indexingLogs || [];
+    const preservedStatus = db.indexingStatus || {};
+
+    const newDb = {
+      ...db,
+      ...importData,
+      traffic_logs: preservedTraffic,
+      indexingLogs: preservedIndexing,
+      indexingStatus: preservedStatus,
+      userProfiles: (importData.userProfiles && Array.isArray(importData.userProfiles) && importData.userProfiles.length > 0)
+        ? importData.userProfiles.map((impU: any) => {
+            const existing = preservedProfiles.find((p: any) => p.email === impU.email || p.id === impU.id);
+            return {
+              ...impU,
+              passwordHash: existing?.passwordHash || impU.passwordHash || hashPassword("MuhammadZain786..")
+            };
+          })
+        : preservedProfiles
+    };
+
+    saveDatabase(newDb);
+
+    return res.json({
+      success: true,
+      mode: "replace",
+      message: `Database completely restored from backup. A pre-import rollback snapshot was saved as '${preImportBackup}'.`,
+      backupFile: preImportBackup,
+      stats: {
+        articles: (newDb.blogPosts || []).length,
+        courses: (newDb.courses || []).length,
+        teachers: (newDb.teachers || []).length,
+        faqs: (newDb.faqs || []).length
+      }
+    });
+  } else {
+    // Mode: "merge" (Default Safe Mode - Never deletes existing records!)
+    const postsMap = new Map<string, any>();
+    (db.blogPosts || []).forEach((p: any) => {
+      if (p && (p.id || p.slug)) postsMap.set(p.id || p.slug, p);
+    });
+
+    if (Array.isArray(importData.blogPosts)) {
+      importData.blogPosts.forEach((impPost: any) => {
+        if (!impPost) return;
+        const key = impPost.id || impPost.slug;
+        if (key && postsMap.has(key)) {
+          const existing = postsMap.get(key);
+          postsMap.set(key, { 
+            ...existing, 
+            ...impPost, 
+            id: existing.id || impPost.id, 
+            slug: existing.slug || impPost.slug 
+          });
+        } else if (key) {
+          postsMap.set(key, impPost);
+        }
+      });
+    }
+
+    // Merge Courses
+    const coursesMap = new Map<string, any>();
+    (db.courses || []).forEach((c: any) => { if (c && c.id) coursesMap.set(c.id, c); });
+    if (Array.isArray(importData.courses)) {
+      importData.courses.forEach((c: any) => {
+        if (c && c.id) {
+          coursesMap.set(c.id, { ...(coursesMap.get(c.id) || {}), ...c });
+        }
+      });
+    }
+
+    // Merge Media Library
+    const mediaMap = new Map<string, any>();
+    (db.mediaLibrary || []).forEach((m: any) => { if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m); });
+    if (Array.isArray(importData.mediaLibrary)) {
+      importData.mediaLibrary.forEach((m: any) => {
+        if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, { ...(mediaMap.get(m.id || m.url) || {}), ...m });
+      });
+    }
+
+    // Merge FAQs
+    const faqsMap = new Map<string, any>();
+    (db.faqs || []).forEach((f: any) => { if (f && (f.id || f.question)) faqsMap.set(f.id || f.question, f); });
+    if (Array.isArray(importData.faqs)) {
+      importData.faqs.forEach((f: any) => {
+        if (f && (f.id || f.question)) faqsMap.set(f.id || f.question, { ...(faqsMap.get(f.id || f.question) || {}), ...f });
+      });
+    }
+
+    // Merge Teachers
+    const teachersMap = new Map<string, any>();
+    (db.teachers || []).forEach((t: any) => { if (t && (t.id || t.name)) teachersMap.set(t.id || t.name, t); });
+    if (Array.isArray(importData.teachers)) {
+      importData.teachers.forEach((t: any) => {
+        if (t && (t.id || t.name)) teachersMap.set(t.id || t.name, { ...(teachersMap.get(t.id || t.name) || {}), ...t });
+      });
+    }
+
+    // Merge Testimonials
+    const testMap = new Map<string, any>();
+    (db.testimonials || []).forEach((t: any) => { if (t && (t.id || t.name)) testMap.set(t.id || t.name, t); });
+    if (Array.isArray(importData.testimonials)) {
+      importData.testimonials.forEach((t: any) => {
+        if (t && (t.id || t.name)) testMap.set(t.id || t.name, { ...(testMap.get(t.id || t.name) || {}), ...t });
+      });
+    }
+
+    const mergedDb = {
+      ...db,
+      ...importData,
+      blogPosts: Array.from(postsMap.values()),
+      courses: Array.from(coursesMap.values()),
+      mediaLibrary: Array.from(mediaMap.values()),
+      faqs: Array.from(faqsMap.values()),
+      teachers: Array.from(teachersMap.values()),
+      testimonials: Array.from(testMap.values()),
+      siteSettings: { ...(db.siteSettings || {}), ...(importData.siteSettings || {}) },
+      seoSettings: { ...(db.seoSettings || {}), ...(importData.seoSettings || {}) },
+      themeColors: { ...(db.themeColors || {}), ...(importData.themeColors || {}) },
+      themeTypography: { ...(db.themeTypography || {}), ...(importData.themeTypography || {}) },
+      traffic_logs: db.traffic_logs,
+      indexingLogs: db.indexingLogs,
+      indexingStatus: db.indexingStatus,
+      userProfiles: db.userProfiles
+    };
+
+    saveDatabase(mergedDb);
+
+    return res.json({
+      success: true,
+      mode: "merge",
+      message: `Database safely merged! All existing content was preserved. A rollback snapshot was created as '${preImportBackup}'.`,
+      backupFile: preImportBackup,
+      stats: {
+        articles: mergedDb.blogPosts.length,
+        courses: mergedDb.courses.length,
+        teachers: mergedDb.teachers.length,
+        faqs: mergedDb.faqs.length
+      }
+    });
+  }
+});
+
+// 3. List Available Database Snapshots
+app.get("/api/database/backups", (req, res) => {
+  const session = validateSession(req);
+  const isValidAdminToken = req.headers["x-wp-admin-token"] === "SECURE_WP_WPSECRET_2026";
+  if (!session && !isValidAdminToken) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+
+  try {
+    if (!fs.existsSync(BACKUPS_DIR)) {
+      fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+    }
+    const files = fs.readdirSync(BACKUPS_DIR)
+      .filter(f => f.endsWith(".json"))
+      .map(fileName => {
+        const fullPath = path.join(BACKUPS_DIR, fileName);
+        const stats = fs.statSync(fullPath);
+        return {
+          fileName,
+          sizeBytes: stats.size,
+          sizeKb: Math.max(1, Math.round(stats.size / 1024)),
+          createdAt: stats.mtime.toISOString(),
+          isRollback: fileName.includes("rollback") || fileName.includes("pre_save"),
+          isInitial: fileName.includes("initial")
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return res.json({ success: true, backups: files });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "Failed to list backups" });
+  }
+});
+
+// 4. Create On-Demand Manual Backup Snapshot
+app.post("/api/database/create-backup", csrfProtection, (req, res) => {
+  const session = validateSession(req);
+  const isValidAdminToken = req.headers["x-wp-admin-token"] === "SECURE_WP_WPSECRET_2026";
+  if (!session && !isValidAdminToken) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+
+  const label = (req.body?.label || "manual_snapshot").replace(/[^a-zA-Z0-9_-]/g, "");
+  const db = getDatabase();
+  const backupFileName = createAutoBackup(db, label);
+  if (!backupFileName) {
+    return res.status(500).json({ error: "Failed to create backup snapshot." });
+  }
+
+  return res.json({
+    success: true,
+    message: `Manual backup snapshot '${backupFileName}' created successfully!`,
+    fileName: backupFileName
+  });
+});
+
+// 5. Restore Database from a Specific Backup Snapshot
+app.post("/api/database/restore-backup", csrfProtection, (req, res) => {
+  const session = validateSession(req);
+  const isValidAdminToken = req.headers["x-wp-admin-token"] === "SECURE_WP_WPSECRET_2026";
+  if (!session && !isValidAdminToken) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+
+  const fileName = req.body?.fileName;
+  if (!fileName || typeof fileName !== "string" || fileName.includes("..") || fileName.includes("/")) {
+    return res.status(400).json({ error: "Invalid backup file name." });
+  }
+
+  const targetPath = path.join(BACKUPS_DIR, fileName);
+  if (!fs.existsSync(targetPath)) {
+    return res.status(404).json({ error: "Backup file not found." });
+  }
+
+  try {
+    const raw = fs.readFileSync(targetPath, "utf8");
+    const parsed = JSON.parse(raw);
+    const restoredData = parsed.database || parsed.data || parsed;
+
+    if (!restoredData || typeof restoredData !== "object") {
+      return res.status(400).json({ error: "Invalid backup content." });
+    }
+
+    const currentDb = getDatabase();
+    // Safety: Pre-restore rollback snapshot
+    const rollback = createAutoBackup(currentDb, "pre_restore_rollback");
+
+    const merged = {
+      ...currentDb,
+      ...restoredData,
+      traffic_logs: currentDb.traffic_logs,
+      indexingLogs: currentDb.indexingLogs,
+      indexingStatus: currentDb.indexingStatus
+    };
+
+    saveDatabase(merged, true);
+
+    return res.json({
+      success: true,
+      message: `Database successfully restored from '${fileName}'. Pre-restore safety snapshot saved as '${rollback}'.`,
+      rollbackFile: rollback
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to parse or restore backup: " + err.message });
+  }
 });
 
 // Helper for Indexing Pipeline Execution

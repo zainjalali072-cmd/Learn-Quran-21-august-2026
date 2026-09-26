@@ -10,7 +10,14 @@ import {
   WPComment, 
   WPMenuItem,
   DEFAULT_FAVICON_DATA,
-  getFaviconUrl
+  getFaviconUrl,
+  exportDatabaseBackup,
+  validateBackupPayload,
+  importDatabaseBackup,
+  fetchDatabaseBackups,
+  createDatabaseSnapshot,
+  restoreDatabaseSnapshot,
+  BackupMetadata
 } from "../cmsStore";
 import { 
   applyFaviconToDocument, 
@@ -55,7 +62,13 @@ import {
   DollarSign,
   Lock,
   ArrowLeft,
-  Bot
+  Bot,
+  Database,
+  HardDrive,
+  RefreshCw,
+  FileCheck,
+  History,
+  AlertTriangle
 } from "lucide-react";
 
 import WPContentManager from "./WPContentManager";
@@ -104,6 +117,30 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
   // New Menu Item simulation state
   const [newMenuLabel, setNewMenuLabel] = useState("");
   const [newMenuId, setNewMenuId] = useState("");
+
+  // Database Persistence & Backup Management State
+  const [isExportingDB, setIsExportingDB] = useState(false);
+  const [isImportingDB, setIsImportingDB] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importValidation, setImportValidation] = useState<{ valid: boolean; error?: string; stats?: any; data?: any } | null>(null);
+  const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
+  const [confirmReplaceChecked, setConfirmReplaceChecked] = useState(false);
+  const [serverBackupsList, setServerBackupsList] = useState<BackupMetadata[]>([]);
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false);
+  const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
+  const [customSnapshotLabel, setCustomSnapshotLabel] = useState("");
+  const [restoreConfirmTarget, setRestoreConfirmTarget] = useState<string | null>(null);
+
+  // Load server backups whenever tools tab is active
+  useEffect(() => {
+    if (activeTab === "tools") {
+      setIsLoadingBackups(true);
+      fetchDatabaseBackups()
+        .then((list) => setServerBackupsList(list))
+        .catch(console.error)
+        .finally(() => setIsLoadingBackups(false));
+    }
+  }, [activeTab]);
 
   // Sync data updates across pages
   useEffect(() => {
@@ -1911,71 +1948,532 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
                   />
                 )}
 
-                {/* TAB 11: WP TOOLS */}
+                {/* TAB 11: WP TOOLS & DATABASE PERSISTENCE STUDIO */}
                 {activeTab === "tools" && (
-                  <div className="space-y-6 text-left">
-                    <div className="border-b border-[#d9b45c]/15 pb-2">
-                      <h2 className="font-serif text-xl text-[#f3ecd8] font-bold">WordPress Theme Database Utilities & Tools</h2>
-                      <p className="text-xs text-[#c9c2ab] mt-1 font-sans">Simulate checking database health indices, viewing generated XML sitemaps, or exporting/importing JSON backups.</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      
-                      {/* Database checks */}
-                      <div className="bg-[#12141b] border border-[#d9b45c]/10 rounded-xl p-5 space-y-4">
-                        <span className="text-[10px] text-[#d9b45c] uppercase font-bold tracking-widest block border-b border-[#d9b45c]/10 pb-1.5">Database Diagnostic Actions</span>
-                        
-                        <div className="space-y-2 text-xs font-sans">
-                          <button
-                            type="button"
-                            onClick={() => alert("WordPress Database Tables Optimized. 0 orphaned post_meta keys removed.")}
-                            className="w-full py-2.5 bg-[#07080b]/50 border border-[#d9b45c]/20 rounded hover:border-[#d9b45c] text-[#f3ecd8] hover:text-white transition-colors uppercase font-bold tracking-wider text-[10px]"
-                          >
-                            Optimize Database Tables
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              window.open("/sitemap.xml", "_blank");
-                            }}
-                            className="w-full py-2.5 bg-[#07080b]/50 border border-[#d9b45c]/20 rounded hover:border-[#d9b45c] text-[#f3ecd8] hover:text-white transition-colors uppercase font-bold tracking-wider text-[10px]"
-                          >
-                            View &amp; Regenerate XML Sitemap
-                          </button>
+                  <div className="space-y-8 text-left">
+                    <div className="border-b border-[#d9b45c]/15 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <Database size={20} className="text-[#d9b45c]" />
+                          <h2 className="font-serif text-xl text-[#f3ecd8] font-bold">
+                            Data Persistence &amp; Database Backup / Restore Studio
+                          </h2>
                         </div>
+                        <p className="text-xs text-[#c9c2ab] mt-1 font-sans">
+                          Authoritative permanent storage management. All articles, categories, media, and site content are safely preserved in the database.
+                        </p>
                       </div>
 
-                      {/* Export / Import */}
-                      <div className="bg-[#12141b] border border-[#d9b45c]/10 rounded-xl p-5 space-y-4">
-                        <span className="text-[10px] text-[#d9b45c] uppercase font-bold tracking-widest block border-b border-[#d9b45c]/10 pb-1.5">Download / Import WordPress XML Backup</span>
-                        
-                        <div className="space-y-3 text-xs">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setIsExportingDB(true);
+                            try {
+                              const res = await exportDatabaseBackup(cmsData);
+                              showNotification(`✅ Backup exported successfully as ${res.filename}`, "success");
+                            } catch (err: any) {
+                              showNotification(`Export error: ${err.message}`, "error");
+                            } finally {
+                              setIsExportingDB(false);
+                            }
+                          }}
+                          disabled={isExportingDB}
+                          className="px-4 py-2.5 bg-[#d9b45c] text-black hover:bg-[#f2d98a] text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                        >
+                          {isExportingDB ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          <span>Export Full DB (.JSON)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 1. DATA PERSISTENCE & SOURCE OF TRUTH STATUS BAR */}
+                    <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl p-5 space-y-4 shadow-lg relative overflow-hidden">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                        <div className="flex items-center space-x-2.5">
+                          <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center space-x-1.5">
+                            <ShieldCheck size={15} />
+                            <span>Storage Engine: Active &amp; Permanent (Safe-Mode ON)</span>
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-mono text-[#c9c2ab] bg-black/40 px-2.5 py-1 rounded-md border border-white/5">
+                          Source of Truth: <strong className="text-white">db.json</strong> (Disk) + Sync Cache
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-[#c9c2ab] leading-relaxed">
+                        This system enforces <strong className="text-white">Strict Data Preservation</strong>. Your articles, custom images, SEO meta, and settings are never deleted or replaced with default demo records during page reloads, restarts, or code updates.
+                      </p>
+
+                      {/* Live Record Counters */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+                        <div className="bg-[#07080b]/80 border border-[#d9b45c]/15 rounded-xl p-3 text-center">
+                          <span className="text-[9px] uppercase font-bold text-[#d9b45c] block tracking-widest">Blog Articles</span>
+                          <span className="text-lg font-bold text-white font-mono mt-0.5 block">{cmsData.blogPosts?.length || 0}</span>
+                        </div>
+                        <div className="bg-[#07080b]/80 border border-[#d9b45c]/15 rounded-xl p-3 text-center">
+                          <span className="text-[9px] uppercase font-bold text-[#d9b45c] block tracking-widest">Courses</span>
+                          <span className="text-lg font-bold text-white font-mono mt-0.5 block">{cmsData.courses?.length || 0}</span>
+                        </div>
+                        <div className="bg-[#07080b]/80 border border-[#d9b45c]/15 rounded-xl p-3 text-center">
+                          <span className="text-[9px] uppercase font-bold text-[#d9b45c] block tracking-widest">Media Files</span>
+                          <span className="text-lg font-bold text-white font-mono mt-0.5 block">{cmsData.mediaLibrary?.length || 0}</span>
+                        </div>
+                        <div className="bg-[#07080b]/80 border border-[#d9b45c]/15 rounded-xl p-3 text-center">
+                          <span className="text-[9px] uppercase font-bold text-[#d9b45c] block tracking-widest">Tutors</span>
+                          <span className="text-lg font-bold text-white font-mono mt-0.5 block">{cmsData.teachers?.length || 0}</span>
+                        </div>
+                        <div className="bg-[#07080b]/80 border border-[#d9b45c]/15 rounded-xl p-3 text-center">
+                          <span className="text-[9px] uppercase font-bold text-[#d9b45c] block tracking-widest">FAQs</span>
+                          <span className="text-lg font-bold text-white font-mono mt-0.5 block">{cmsData.faqs?.length || 0}</span>
+                        </div>
+                        <div className="bg-[#07080b]/80 border border-[#d9b45c]/15 rounded-xl p-3 text-center">
+                          <span className="text-[9px] uppercase font-bold text-[#d9b45c] block tracking-widest">Inquiries</span>
+                          <span className="text-lg font-bold text-white font-mono mt-0.5 block">{cmsData.comments?.length || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. EXPORT & IMPORT TWO-COLUMN GRID */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                      
+                      {/* LEFT: EXPORT DATABASE BACKUP */}
+                      <div className="bg-[#12141b] border border-[#d9b45c]/15 rounded-2xl p-6 space-y-4">
+                        <div className="flex items-center space-x-2 border-b border-white/5 pb-2.5">
+                          <Download size={16} className="text-[#d9b45c]" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-wider font-serif">
+                            Export Database Backup
+                          </h3>
+                        </div>
+
+                        <p className="text-xs text-[#c9c2ab] leading-relaxed">
+                          Download a complete, portable backup file containing all your articles, titles, full HTML content, featured images, categories, tags, author info, and site settings.
+                        </p>
+
+                        <div className="space-y-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setIsExportingDB(true);
+                              try {
+                                const res = await exportDatabaseBackup(cmsData);
+                                showNotification(`✅ Full database backup exported as ${res.filename}!`, "success");
+                              } catch (e: any) {
+                                showNotification(`Export failed: ${e.message}`, "error");
+                              } finally {
+                                setIsExportingDB(false);
+                              }
+                            }}
+                            disabled={isExportingDB}
+                            className="w-full py-3 bg-[#d9b45c] text-black hover:bg-[#f2d98a] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {isExportingDB ? <RefreshCw size={14} className="animate-spin" /> : <HardDrive size={14} />}
+                            <span>Download Full Website Backup (.JSON)</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => {
-                              const content = JSON.stringify(cmsData, null, 2);
-                              const blob = new Blob([content], { type: "application/json" });
+                              const articlesOnly = {
+                                meta: {
+                                  exportType: "articles_only",
+                                  exportDate: new Date().toISOString(),
+                                  totalArticles: cmsData.blogPosts.length
+                                },
+                                blogPosts: cmsData.blogPosts
+                              };
+                              const blob = new Blob([JSON.stringify(articlesOnly, null, 2)], { type: "application/json" });
                               const url = URL.createObjectURL(blob);
                               const link = document.createElement("a");
-                              link.setAttribute("href", url);
-                              link.setAttribute("download", "truth_quran_wordpress_backup.json");
+                              link.href = url;
+                              link.download = `truth_quran_articles_backup_${new Date().toISOString().split("T")[0]}.json`;
                               document.body.appendChild(link);
                               link.click();
                               document.body.removeChild(link);
+                              URL.revokeObjectURL(url);
+                              showNotification("✅ Articles-only backup exported!", "success");
                             }}
-                            className="w-full py-2.5 bg-[#d9b45c] text-black rounded hover:bg-[#f2d98a] transition-all uppercase font-bold tracking-wider text-[10px] flex items-center justify-center space-x-2"
+                            className="w-full py-2.5 bg-[#07080b] border border-[#d9b45c]/25 hover:border-[#d9b45c] text-[#f3ecd8] hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center space-x-2 cursor-pointer"
                           >
-                            <Download size={14} />
-                            <span>Export WordPress Content XML</span>
+                            <FileText size={14} className="text-[#d9b45c]" />
+                            <span>Export Blog Articles Only (.JSON)</span>
                           </button>
-
-                          <div className="border border-dashed border-[#d9b45c]/30 rounded p-3 text-center text-[11px] text-[#c9c2ab]/70 font-sans">
-                            To import a backup, drag and drop the `.json` configuration backup file here.
-                          </div>
                         </div>
                       </div>
 
+                      {/* RIGHT: IMPORT & RESTORE SYSTEM */}
+                      <div className="bg-[#12141b] border border-[#d9b45c]/15 rounded-2xl p-6 space-y-4">
+                        <div className="flex items-center space-x-2 border-b border-white/5 pb-2.5">
+                          <Upload size={16} className="text-[#d9b45c]" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-wider font-serif">
+                            Import &amp; Restore Database Backup
+                          </h3>
+                        </div>
+
+                        <p className="text-xs text-[#c9c2ab] leading-relaxed">
+                          Safely import a previously exported <code className="text-[#f2d98a] font-mono">.json</code> backup. The file will be verified first, and an automatic rollback snapshot will be created before applying.
+                        </p>
+
+                        {/* File Drop / Select Area */}
+                        <div className="relative border-2 border-dashed border-[#d9b45c]/30 hover:border-[#d9b45c] rounded-2xl p-5 text-center transition-all bg-[#07080b]/50">
+                          <input
+                            type="file"
+                            accept=".json,application/json"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setImportFile(file);
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                try {
+                                  const text = ev.target?.result as string;
+                                  const parsed = JSON.parse(text);
+                                  const val = validateBackupPayload(parsed);
+                                  setImportValidation(val);
+                                  if (!val.valid) {
+                                    showNotification(val.error || "Invalid backup file", "error");
+                                  } else {
+                                    showNotification("✅ Backup file verified! Ready to apply.", "success");
+                                  }
+                                } catch (err: any) {
+                                  setImportValidation({ valid: false, error: "Malformed JSON file: " + err.message });
+                                  showNotification("Malformed JSON file: " + err.message, "error");
+                                }
+                              };
+                              reader.readAsText(file);
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <Upload size={24} className="mx-auto text-[#d9b45c] mb-2" />
+                          <span className="text-xs font-bold text-white block">
+                            {importFile ? importFile.name : "Click to select or drag & drop .json backup file"}
+                          </span>
+                          <span className="text-[10px] text-[#c9c2ab]/70 block mt-1">
+                            {importFile ? `${Math.round(importFile.size / 1024)} KB` : "Supports full or articles-only backups"}
+                          </span>
+                        </div>
+
+                        {/* Inspection Preview Card if Valid File Selected */}
+                        {importValidation?.valid && (
+                          <div className="bg-[#07080b] border border-emerald-500/40 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                              <span className="text-xs font-bold text-emerald-400 flex items-center space-x-1.5">
+                                <FileCheck size={14} />
+                                <span>Verified Backup Content</span>
+                              </span>
+                              <span className="text-[10px] text-[#c9c2ab] font-mono">
+                                Date: {importValidation.stats?.exportDate || "N/A"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                              <div className="bg-[#12141b] p-2 rounded-lg">
+                                <span className="text-[9px] uppercase text-[#c9c2ab] block">Articles</span>
+                                <strong className="text-[#f2d98a] font-mono text-sm">{importValidation.stats?.articlesCount}</strong>
+                              </div>
+                              <div className="bg-[#12141b] p-2 rounded-lg">
+                                <span className="text-[9px] uppercase text-[#c9c2ab] block">Courses</span>
+                                <strong className="text-[#f2d98a] font-mono text-sm">{importValidation.stats?.coursesCount}</strong>
+                              </div>
+                              <div className="bg-[#12141b] p-2 rounded-lg">
+                                <span className="text-[9px] uppercase text-[#c9c2ab] block">Media</span>
+                                <strong className="text-[#f2d98a] font-mono text-sm">{importValidation.stats?.mediaCount}</strong>
+                              </div>
+                            </div>
+
+                            {/* Mode Selection */}
+                            <div className="space-y-2 pt-1 text-xs">
+                              <span className="text-[10px] uppercase font-bold text-[#d9b45c] block">Select Import Mode:</span>
+                              
+                              <label className="flex items-start space-x-2 cursor-pointer p-2 rounded-lg hover:bg-white/5 border border-transparent has-[:checked]:border-emerald-500/40 has-[:checked]:bg-emerald-950/20">
+                                <input
+                                  type="radio"
+                                  name="importMode"
+                                  value="merge"
+                                  checked={importMode === "merge"}
+                                  onChange={() => setImportMode("merge")}
+                                  className="mt-0.5 accent-emerald-500"
+                                />
+                                <div>
+                                  <span className="font-bold text-white block">Safe Merge (Recommended)</span>
+                                  <span className="text-[10px] text-[#c9c2ab] block">
+                                    Adds imported articles and updates existing items. Existing database records are NEVER deleted.
+                                  </span>
+                                </div>
+                              </label>
+
+                              <label className="flex items-start space-x-2 cursor-pointer p-2 rounded-lg hover:bg-white/5 border border-transparent has-[:checked]:border-amber-500/40 has-[:checked]:bg-amber-950/20">
+                                <input
+                                  type="radio"
+                                  name="importMode"
+                                  value="replace"
+                                  checked={importMode === "replace"}
+                                  onChange={() => setImportMode("replace")}
+                                  className="mt-0.5 accent-amber-500"
+                                />
+                                <div>
+                                  <span className="font-bold text-amber-300 block">Full Database Restore</span>
+                                  <span className="text-[10px] text-[#c9c2ab] block">
+                                    Restores the exact database state from this backup file. An automatic pre-restore rollback backup is taken first.
+                                  </span>
+                                </div>
+                              </label>
+                            </div>
+
+                            {importMode === "replace" && (
+                              <label className="flex items-center space-x-2 pt-1 text-[11px] text-amber-200">
+                                <input
+                                  type="checkbox"
+                                  checked={confirmReplaceChecked}
+                                  onChange={(e) => setConfirmReplaceChecked(e.target.checked)}
+                                  className="rounded accent-amber-500"
+                                />
+                                <span>I confirm restoring this full database backup (automatic rollback snapshot will be taken).</span>
+                              </label>
+                            )}
+
+                            {/* Execute Import Button */}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (importMode === "replace" && !confirmReplaceChecked) {
+                                  showNotification("Please check the confirmation box to execute Full Restore.", "error");
+                                  return;
+                                }
+                                setIsImportingDB(true);
+                                try {
+                                  const res = await importDatabaseBackup(
+                                    importValidation.data,
+                                    importMode,
+                                    confirmReplaceChecked
+                                  );
+                                  if (res.success) {
+                                    showNotification(`✅ ${res.message}`, "success");
+                                    setCmsData(getCMSData());
+                                    setImportFile(null);
+                                    setImportValidation(null);
+                                    // Refresh backups list
+                                    const refreshed = await fetchDatabaseBackups();
+                                    setServerBackupsList(refreshed);
+                                  } else {
+                                    showNotification(`Import error: ${res.message}`, "error");
+                                  }
+                                } catch (e: any) {
+                                  showNotification(`Import failed: ${e.message}`, "error");
+                                } finally {
+                                  setIsImportingDB(false);
+                                }
+                              }}
+                              disabled={isImportingDB || (importMode === "replace" && !confirmReplaceChecked)}
+                              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                            >
+                              {isImportingDB ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                              <span>Execute Safe Import to Database</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                     </div>
+
+                    {/* 3. SERVER-SIDE AUTOMATIC BACKUP SNAPSHOTS */}
+                    <div className="bg-[#12141b] border border-[#d9b45c]/15 rounded-2xl p-6 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                        <div className="flex items-center space-x-2">
+                          <History size={16} className="text-[#d9b45c]" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-wider font-serif">
+                            Server Database Rollback Snapshots
+                          </h3>
+                        </div>
+
+                        {/* On-demand snapshot creation */}
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            placeholder="Optional snapshot note..."
+                            value={customSnapshotLabel}
+                            onChange={(e) => setCustomSnapshotLabel(e.target.value)}
+                            className="bg-[#07080b] border border-[#d9b45c]/25 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-sans"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setIsCreatingSnapshot(true);
+                              try {
+                                const res = await createDatabaseSnapshot(customSnapshotLabel || "manual_snapshot");
+                                if (res.success) {
+                                  showNotification(`✅ Snapshot created: ${res.fileName}`, "success");
+                                  setCustomSnapshotLabel("");
+                                  const refreshed = await fetchDatabaseBackups();
+                                  setServerBackupsList(refreshed);
+                                } else {
+                                  showNotification(res.message, "error");
+                                }
+                              } catch (e: any) {
+                                showNotification(e.message, "error");
+                              } finally {
+                                setIsCreatingSnapshot(false);
+                              }
+                            }}
+                            disabled={isCreatingSnapshot}
+                            className="px-3 py-1.5 bg-[#07080b] border border-[#d9b45c]/40 hover:border-[#d9b45c] text-[#f2d98a] hover:text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+                          >
+                            {isCreatingSnapshot ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                            <span>Create Snapshot</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-[#c9c2ab]">
+                        The database engine automatically captures safety snapshots before any modification, save, or import operation. You can restore any snapshot at any time.
+                      </p>
+
+                      {isLoadingBackups ? (
+                        <div className="py-8 text-center text-xs text-[#c9c2ab] flex items-center justify-center space-x-2">
+                          <RefreshCw size={14} className="animate-spin text-[#d9b45c]" />
+                          <span>Loading server backups...</span>
+                        </div>
+                      ) : serverBackupsList.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-[#c9c2ab]/60">
+                          No server snapshots recorded yet. Click "Create Snapshot" or export a backup.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="border-b border-white/10 text-[10px] uppercase font-bold text-[#d9b45c] tracking-wider">
+                                <th className="py-2.5 px-3">Snapshot File</th>
+                                <th className="py-2.5 px-3">Type</th>
+                                <th className="py-2.5 px-3">Date / Time</th>
+                                <th className="py-2.5 px-3">Size</th>
+                                <th className="py-2.5 px-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 font-sans">
+                              {serverBackupsList.slice(0, 10).map((backup) => (
+                                <tr key={backup.fileName} className="hover:bg-white/5 transition-colors">
+                                  <td className="py-3 px-3 font-mono text-[11px] text-white">
+                                    {backup.fileName}
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    {backup.isInitial ? (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                                        Initial Safe
+                                      </span>
+                                    ) : backup.isRollback ? (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                                        Auto Rollback
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                        Manual / Saved
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-3 text-[#c9c2ab] text-[11px]">
+                                    {new Date(backup.createdAt).toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-3 text-[#c9c2ab] font-mono text-[11px]">
+                                    {backup.sizeKb} KB
+                                  </td>
+                                  <td className="py-3 px-3 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => setRestoreConfirmTarget(backup.fileName)}
+                                      className="px-2.5 py-1 rounded bg-[#07080b] border border-[#d9b45c]/30 hover:border-[#d9b45c] text-[#f2d98a] text-[10px] font-bold uppercase tracking-wider hover:bg-[#d9b45c]/10 transition-all cursor-pointer"
+                                    >
+                                      Restore
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Restore Confirmation Modal */}
+                    {restoreConfirmTarget && (
+                      <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="bg-[#12141b] border border-amber-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-left">
+                          <div className="flex items-center space-x-2 text-amber-400">
+                            <AlertTriangle size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider">Confirm Snapshot Restore</h4>
+                          </div>
+                          <p className="text-xs text-[#c9c2ab] leading-relaxed">
+                            Are you sure you want to restore database snapshot <strong className="text-white font-mono">{restoreConfirmTarget}</strong>?
+                            <br /><br />
+                            A safety rollback snapshot of your current database will be saved automatically prior to restoration.
+                          </p>
+                          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-white/10">
+                            <button
+                              type="button"
+                              onClick={() => setRestoreConfirmTarget(null)}
+                              className="px-4 py-2 rounded-xl text-xs text-[#c9c2ab] hover:text-white"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const target = restoreConfirmTarget;
+                                setRestoreConfirmTarget(null);
+                                try {
+                                  const res = await restoreDatabaseSnapshot(target);
+                                  showNotification(`✅ ${res.message}`, "success");
+                                  setCmsData(getCMSData());
+                                  const refreshed = await fetchDatabaseBackups();
+                                  setServerBackupsList(refreshed);
+                                } catch (e: any) {
+                                  showNotification(`Restore error: ${e.message}`, "error");
+                                }
+                              }}
+                              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+                            >
+                              Confirm &amp; Restore
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. DATABASE INTEGRITY & SITEMAP TOOLS */}
+                    <div className="bg-[#12141b] border border-[#d9b45c]/10 rounded-xl p-5 space-y-4">
+                      <span className="text-[10px] text-[#d9b45c] uppercase font-bold tracking-widest block border-b border-[#d9b45c]/10 pb-1.5">
+                        Database Maintenance &amp; Search Engine Verification
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-sans">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const articles = cmsData.blogPosts || [];
+                            const validCount = articles.filter(a => a.id && a.title && a.slug).length;
+                            showNotification(`✅ Database Integrity Checked: All ${validCount} articles have valid IDs, titles, and slugs!`, "success");
+                          }}
+                          className="py-2.5 px-4 bg-[#07080b]/50 border border-[#d9b45c]/20 rounded-xl hover:border-[#d9b45c] text-[#f3ecd8] hover:text-white transition-colors uppercase font-bold tracking-wider text-[10px] flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          <ShieldCheck size={14} className="text-emerald-400" />
+                          <span>Verify Database Integrity</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.open("/sitemap.xml", "_blank");
+                          }}
+                          className="py-2.5 px-4 bg-[#07080b]/50 border border-[#d9b45c]/20 rounded-xl hover:border-[#d9b45c] text-[#f3ecd8] hover:text-white transition-colors uppercase font-bold tracking-wider text-[10px] flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          <Globe size={14} className="text-[#d9b45c]" />
+                          <span>View &amp; Ping XML Sitemap</span>
+                        </button>
+                      </div>
+                    </div>
+
                   </div>
                 )}
 

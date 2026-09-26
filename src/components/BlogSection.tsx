@@ -132,7 +132,7 @@ export function BlogCard({ post, index, onClick }: BlogCardProps) {
         className="flex flex-col h-full flex-1 no-underline text-inherit"
       >
         {/* 1. Media Card Cover & Featured Image */}
-        <div className="w-full aspect-[3/2] bg-[#07080b] relative overflow-hidden">
+        <div className="w-full aspect-[16/9] bg-[#07080b] relative overflow-hidden">
           <img
             src={cardImg}
             alt={post.title || "Blog Article"}
@@ -556,7 +556,7 @@ export default function BlogSection({
 
         {/* FEATURED IMAGE & CAPTION */}
         <div className="w-full mb-8">
-          <div className="w-full aspect-[16/9] md:aspect-[21/9] rounded-2xl overflow-hidden border border-[#d9b45c]/20 shadow-xl relative bg-[#07080b]">
+          <div className="w-full aspect-[16/9] rounded-2xl overflow-hidden border border-[#d9b45c]/20 shadow-xl relative bg-[#07080b]">
             <img
               src={postCoverImage}
               alt={post.imageAltText || post.title}
@@ -999,7 +999,7 @@ export default function BlogSection({
                     onClick={() => handlePostClick(rel.id)}
                     className="bg-[#12141b]/80 border border-[#d9b45c]/15 rounded-xl overflow-hidden hover:border-[#d9b45c]/40 transition-all cursor-pointer group flex flex-col justify-between"
                   >
-                    <div className="aspect-[3/2] overflow-hidden bg-[#07080b] relative">
+                    <div className="aspect-[16/9] overflow-hidden bg-[#07080b] relative">
                       <img
                         src={relImage}
                         alt={rel.title}

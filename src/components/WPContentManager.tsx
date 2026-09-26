@@ -39,11 +39,16 @@ import {
   Wrench,
   FileCode,
   ArrowUpDown,
-  BookOpen
+  BookOpen,
+  Download,
+  Upload,
+  Database,
+  HardDrive
 } from "lucide-react";
 import WPSEOEditor from "./WPSEOEditor";
 import WPAnalytics from "./WPAnalytics";
 import { WPMediaLibraryModal } from "./WPMediaLibraryModal";
+import { exportDatabaseBackup } from "../cmsStore";
 
 interface WPContentManagerProps {
   cmsData: CMSData;
@@ -81,6 +86,91 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
 
   // Add / Edit form state
   const [formData, setFormData] = useState<any>({});
+
+  // Articles Backup & Import States
+  const articlesFileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [isImportingArticles, setIsImportingArticles] = useState(false);
+
+  const handleExportArticles = () => {
+    const articlesBackup = {
+      meta: {
+        exportType: "truth_quran_articles_backup",
+        version: "2.5.0",
+        exportDate: new Date().toISOString(),
+        siteUrl: "https://truthquranacademy.com",
+        totalArticles: (cmsData.blogPosts || []).length
+      },
+      blogPosts: cmsData.blogPosts || []
+    };
+    const blob = new Blob([JSON.stringify(articlesBackup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `truth_quran_articles_backup_${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportArticlesFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const parsed = JSON.parse(text);
+        const importedPosts: BlogPost[] = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed.blogPosts)
+          ? parsed.blogPosts
+          : Array.isArray(parsed.database?.blogPosts)
+          ? parsed.database.blogPosts
+          : [];
+
+        if (importedPosts.length === 0) {
+          alert("No valid articles found in this JSON backup file.");
+          return;
+        }
+
+        const confirmMerge = window.confirm(
+          `Detected ${importedPosts.length} article(s) in this file.\n\nSAFE MERGE: All your existing articles will remain preserved without deletion. Click OK to merge into database.`
+        );
+        if (!confirmMerge) return;
+
+        setIsImportingArticles(true);
+        const postsMap = new Map<string, BlogPost>();
+        (cmsData.blogPosts || []).forEach(p => {
+          if (p && (p.id || p.slug)) postsMap.set(p.id || p.slug, p);
+        });
+
+        importedPosts.forEach(imp => {
+          if (!imp) return;
+          const key = imp.id || imp.slug;
+          if (key && postsMap.has(key)) {
+            const existing = postsMap.get(key)!;
+            postsMap.set(key, { ...existing, ...imp, id: existing.id || imp.id, slug: existing.slug || imp.slug });
+          } else if (key) {
+            postsMap.set(key, imp);
+          }
+        });
+
+        const mergedPosts = Array.from(postsMap.values());
+        onSave(
+          { ...cmsData, blogPosts: mergedPosts },
+          `✅ Successfully imported ${importedPosts.length} article(s)! All existing articles preserved.`
+        );
+      } catch (err: any) {
+        alert("Failed to parse JSON file: " + err.message);
+      } finally {
+        setIsImportingArticles(false);
+        if (e.target) e.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
 
   // Advanced Media Manager Modal states
   const [isImageManagerOpen, setIsImageManagerOpen] = useState(false);
@@ -945,18 +1035,43 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
             <>
               <button 
                 onClick={() => setSubView("categories")}
-                className="px-4 py-2 bg-[#12141b] border border-[#d9b45c]/20 text-[#c9c2ab] hover:text-[#d9b45c] hover:border-[#d9b45c]/60 text-xs font-sans font-bold uppercase tracking-wider rounded-lg flex items-center space-x-1.5 transition-all"
+                className="px-3.5 py-2 bg-[#12141b] border border-[#d9b45c]/20 text-[#c9c2ab] hover:text-[#d9b45c] hover:border-[#d9b45c]/60 text-xs font-sans font-bold uppercase tracking-wider rounded-lg flex items-center space-x-1.5 transition-all"
               >
                 <Folder size={13} />
                 <span>Categories</span>
               </button>
               <button 
                 onClick={() => setSubView("tags")}
-                className="px-4 py-2 bg-[#12141b] border border-[#d9b45c]/20 text-[#c9c2ab] hover:text-[#d9b45c] hover:border-[#d9b45c]/60 text-xs font-sans font-bold uppercase tracking-wider rounded-lg flex items-center space-x-1.5 transition-all"
+                className="px-3.5 py-2 bg-[#12141b] border border-[#d9b45c]/20 text-[#c9c2ab] hover:text-[#d9b45c] hover:border-[#d9b45c]/60 text-xs font-sans font-bold uppercase tracking-wider rounded-lg flex items-center space-x-1.5 transition-all"
               >
                 <Tag size={13} />
                 <span>Tags</span>
               </button>
+              <button
+                type="button"
+                onClick={handleExportArticles}
+                title="Export all blog articles to JSON backup"
+                className="px-3.5 py-2 bg-[#12141b] border border-[#d9b45c]/25 hover:border-[#d9b45c] text-[#f2d98a] hover:bg-[#d9b45c]/10 text-xs font-sans font-bold uppercase tracking-wider rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer"
+              >
+                <Download size={13} />
+                <span>Export Articles</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => articlesFileInputRef.current?.click()}
+                title="Safely import articles from JSON backup"
+                className="px-3.5 py-2 bg-[#12141b] border border-[#d9b45c]/25 hover:border-[#d9b45c] text-[#f2d98a] hover:bg-[#d9b45c]/10 text-xs font-sans font-bold uppercase tracking-wider rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer"
+              >
+                <Upload size={13} />
+                <span>Import Articles</span>
+              </button>
+              <input
+                ref={articlesFileInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportArticlesFile}
+                className="hidden"
+              />
             </>
           )}
         </div>
