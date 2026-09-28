@@ -16,7 +16,16 @@ export default function AutoOpeningQuran() {
       </div>
 
       {/* Main Container holding the entire premium calligraphic layout */}
-      <div className="relative w-[340px] h-[340px] md:w-[410px] md:h-[410px] flex items-center justify-center z-10" id="quran-emblem-container">
+      <div 
+        className="relative w-[340px] h-[340px] md:w-[410px] md:h-[410px] flex items-center justify-center z-10 cursor-pointer active:scale-[0.98] transition-transform" 
+        id="quran-emblem-container"
+        onClick={() => {
+          if (typeof window !== "undefined" && (window as any).playQuranAudioOpening) {
+            (window as any).playQuranAudioOpening(true);
+          }
+        }}
+        title="Ta'awwuz & Bismillah"
+      >
         
         {/* Outer Ring with Solid Gold Borders & Premium Shimmering Shadows */}
         <div className="absolute inset-0 rounded-full border-4 border-[#d9b45c] shadow-[0_0_60px_rgba(217,180,92,0.45)] bg-gradient-to-tr from-[#07080b] via-[#12141b] to-[#07080b] flex items-center justify-center overflow-hidden">

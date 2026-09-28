@@ -20,31 +20,83 @@
   <body>
     <div id="root"></div>
     <!-- Hidden HTML5 Audio Element for Maximum Browser & Mobile Autoplay Compatibility -->
-    <audio id="quran-audio-opening" src="/assets/audio/taawwuz_bismillah.mp3" autoplay playsinline webkit-playsinline="true" x5-playsinline="true" preload="auto" style="display:none"></audio>
+    <audio id="quran-audio-opening" src="/assets/audio/taawwuz_bismillah.mp3" preload="auto" playsinline webkit-playsinline="true" x5-playsinline="true" style="position:fixed;top:-9999px;left:-9999px;opacity:0.01;pointer-events:none;"></audio>
 
-    <!-- Taawwuz & Bismillah Automatic Opening Recitation (Mobile & Desktop Optimized) -->
+    <!-- Taawwuz & Bismillah Opening Recitation (Rock-Solid for Mobile & PC/Laptop) -->
     <script>
       (function() {
-        // Easily editable audio file paths
         var OPENING_AUDIO_PATH = "/assets/audio/taawwuz_bismillah.mp3";
         var TAAWWUZ_AUDIO_PATH = "/assets/audio/taawwuz.mp3";
         var BISMILLAH_AUDIO_PATH = "/assets/audio/bismillah.mp3";
 
-        var audio = document.getElementById("quran-audio-opening") || new Audio(OPENING_AUDIO_PATH);
+        var audio = document.getElementById("quran-audio-opening");
+        if (!audio) {
+          audio = new Audio(OPENING_AUDIO_PATH);
+          audio.id = "quran-audio-opening";
+          audio.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0.01;pointer-events:none;";
+          document.body.appendChild(audio);
+        }
+
         audio.preload = "auto";
-        audio.volume = 0.80; // Clear, calm, respectful volume
         audio.setAttribute("playsinline", "true");
         audio.setAttribute("webkit-playsinline", "true");
         audio.setAttribute("x5-playsinline", "true");
-
-        // Force browser to start downloading and buffering immediately
         try {
-          audio.load();
+          audio.volume = 0.85;
         } catch (e) {}
 
         var hasStarted = false;
+        var audioCtx = null;
+        var preloadedBuffer = null;
 
-        // If the audio source is separate taawwuz.mp3, automatically transition to bismillah.mp3 on ended
+        // Initialize Web Audio Context (industry standard for iOS Safari & Android mobile audio unlock)
+        function getAudioContext() {
+          if (!audioCtx) {
+            var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+              try {
+                audioCtx = new AudioContextClass();
+                window._quranAudioCtx = audioCtx;
+              } catch (e) {}
+            }
+          }
+          return audioCtx;
+        }
+
+        // Silent buffer unlock for mobile WebKit audio pipeline
+        function unlockAudioPipeline(ctx) {
+          if (!ctx) return;
+          try {
+            if (ctx.state === "suspended") {
+              ctx.resume().catch(function() {});
+            }
+            var silentBuf = ctx.createBuffer(1, 1, 22050);
+            var src = ctx.createBufferSource();
+            src.buffer = silentBuf;
+            src.connect(ctx.destination);
+            src.start(0);
+          } catch (e) {}
+        }
+
+        // Preload audio arraybuffer in background for instant 0ms mobile playback
+        if (typeof fetch === "function") {
+          fetch(OPENING_AUDIO_PATH)
+            .then(function(res) {
+              if (res.ok) return res.arrayBuffer();
+              throw new Error("fetch failed");
+            })
+            .then(function(ab) {
+              var ctx = getAudioContext();
+              if (ctx && ctx.decodeAudioData) {
+                ctx.decodeAudioData(ab.slice(0), function(decoded) {
+                  preloadedBuffer = decoded;
+                }, function() {});
+              }
+            })
+            .catch(function() {});
+        }
+
+        // Automatic fallback transition if separate taawwuz.mp3 is loaded
         audio.addEventListener("ended", function() {
           if (audio.src && audio.src.indexOf("taawwuz.mp3") !== -1) {
             audio.src = BISMILLAH_AUDIO_PATH;
@@ -52,102 +104,120 @@
           }
         });
 
-        function startAudio() {
+        function playViaWebAudio() {
+          var ctx = getAudioContext();
+          if (ctx && preloadedBuffer) {
+            try {
+              unlockAudioPipeline(ctx);
+              var source = ctx.createBufferSource();
+              source.buffer = preloadedBuffer;
+              var gain = ctx.createGain();
+              gain.gain.value = 0.85;
+              source.connect(gain);
+              gain.connect(ctx.destination);
+              source.start(0);
+              hasStarted = true;
+              cleanupListeners();
+              return true;
+            } catch (e) {}
+          }
+          return false;
+        }
+
+        function executePlayback() {
           if (hasStarted) return;
 
-          // Unlock Web Audio Context if available
-          try {
-            var AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) {
-              if (!window._quranAudioCtx) {
-                window._quranAudioCtx = new AudioCtx();
-              }
-              if (window._quranAudioCtx.state === "suspended") {
-                window._quranAudioCtx.resume().catch(function() {});
-              }
-            }
-          } catch (e) {}
+          var ctx = getAudioContext();
+          if (ctx) {
+            unlockAudioPipeline(ctx);
+          }
 
           try {
             var playPromise = audio.play();
-            if (playPromise !== undefined) {
+            if (playPromise && typeof playPromise.then === "function") {
               playPromise
                 .then(function() {
                   hasStarted = true;
-                  cleanupActivationListeners();
+                  cleanupListeners();
                 })
-                .catch(function() {
-                  // If unprompted autoplay was blocked by browser policy without gesture,
-                  // do NOT show any popup/overlay.
-                  // The activation listeners will smoothly start playback on the user's first natural screen touch or key.
+                .catch(function(err) {
+                  // If HTML5 audio is blocked without user gesture, try Web Audio buffer
+                  if (playViaWebAudio()) {
+                    return;
+                  }
+                  // Keep listeners active so first user tap on mobile screen will start it!
                 });
+            } else {
+              hasStarted = true;
+              cleanupListeners();
             }
-          } catch (e) {}
+          } catch (e) {
+            if (playViaWebAudio()) {
+              return;
+            }
+          }
         }
 
-        // Synchronous execution on first user gesture (essential for iOS Safari & Android Chrome)
-        function onUserActivation() {
+        // Global manual or emblem trigger
+        window.playQuranAudioOpening = function(forceRestart) {
+          if (forceRestart) {
+            hasStarted = false;
+            try {
+              audio.currentTime = 0;
+            } catch (e) {}
+          }
+          executePlayback();
+        };
+
+        // User gesture handler on mobile & desktop
+        function onUserGesture() {
           if (hasStarted) {
-            cleanupActivationListeners();
+            cleanupListeners();
             return;
           }
-          hasStarted = true;
-          cleanupActivationListeners();
-
-          try {
-            var AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx && window._quranAudioCtx && window._quranAudioCtx.state === "suspended") {
-              window._quranAudioCtx.resume().catch(function() {});
-            }
-          } catch (e) {}
-
-          try {
-            audio.play().catch(function() {});
-          } catch (e) {}
+          executePlayback();
         }
 
-        var activationEvents = [
-          "touchstart", "touchend", "pointerdown", "mousedown",
-          "keydown", "click", "scroll"
+        // High priority touch and click events supported across iOS Safari and Android Chrome
+        var gestureEvents = [
+          "touchend", "click", "pointerup", "touchstart", "keydown"
         ];
 
-        function attachActivationListeners() {
-          for (var i = 0; i < activationEvents.length; i++) {
-            var evt = activationEvents[i];
-            window.addEventListener(evt, onUserActivation, { capture: true, once: true, passive: true });
-            document.addEventListener(evt, onUserActivation, { capture: true, once: true, passive: true });
-          }
+        function attachListeners() {
+          gestureEvents.forEach(function(evt) {
+            window.addEventListener(evt, onUserGesture, { capture: true, passive: true });
+            document.addEventListener(evt, onUserGesture, { capture: true, passive: true });
+          });
         }
 
-        function cleanupActivationListeners() {
-          for (var i = 0; i < activationEvents.length; i++) {
-            var evt = activationEvents[i];
-            window.removeEventListener(evt, onUserActivation, { capture: true, passive: true });
-            document.removeEventListener(evt, onUserActivation, { capture: true, passive: true });
-          }
+        function cleanupListeners() {
+          gestureEvents.forEach(function(evt) {
+            window.removeEventListener(evt, onUserGesture, { capture: true, passive: true });
+            document.removeEventListener(evt, onUserGesture, { capture: true, passive: true });
+          });
         }
 
-        // Attach listeners immediately so any touch or scroll is caught
-        attachActivationListeners();
+        // Attach listeners immediately
+        attachListeners();
 
-        // 1. Immediate attempt right as script evaluates
-        startAudio();
+        // 1. Immediate play attempt (works on PC/laptop & permissive mobile webviews)
+        executePlayback();
 
-        // 2. Attempt as soon as DOM is ready
+        // 2. Play attempt on DOMContentLoaded
         if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", startAudio);
+          document.addEventListener("DOMContentLoaded", executePlayback);
         }
 
-        // 3. Attempt on window load
-        window.addEventListener("load", startAudio);
+        // 3. Play attempt on window load
+        window.addEventListener("load", executePlayback);
 
-        // 4. Attempt on pageshow (handles back-forward cache and tab switches)
-        window.addEventListener("pageshow", startAudio);
+        // 4. Play attempt on pageshow (handles mobile Safari bfcache)
+        window.addEventListener("pageshow", executePlayback);
 
-        // 5. Visibility change (when tab becomes active)
+        // 5. Play attempt on tab visibility change
         document.addEventListener("visibilitychange", function() {
           if (!document.hidden && !hasStarted) {
-            startAudio();
+            executePlayback();
           }
         });
       })();
