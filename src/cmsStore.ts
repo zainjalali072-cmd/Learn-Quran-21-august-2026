@@ -827,9 +827,10 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
 
   // 4. Strict Courses Preservation
   const coursesMap = new Map<string, Course>();
-  baseDefaults.courses.forEach(c => { if (c && c.id) coursesMap.set(c.id, ensureCourse(c)); });
-  (incoming.courses || []).forEach(c => { if (c && c.id) coursesMap.set(c.id, ensureCourse(c)); });
-  (cached.courses || []).forEach(c => { if (c && c.id) coursesMap.set(c.id, ensureCourse({ ...(coursesMap.get(c.id) || {}), ...c })); });
+  const isRemovedCourse = (id?: string) => id === "arabic-language";
+  baseDefaults.courses.forEach(c => { if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse(c)); });
+  (incoming.courses || []).forEach(c => { if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse(c)); });
+  (cached.courses || []).forEach(c => { if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse({ ...(coursesMap.get(c.id) || {}), ...c })); });
   const mergedCourses = Array.from(coursesMap.values());
 
   // 5. Strict Teachers Preservation

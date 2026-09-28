@@ -52,15 +52,6 @@
       "image": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg"
     },
     {
-      "id": "arabic-language",
-      "title": "Arabic Language Course",
-      "arabicGlyph": "عَرَبِيّ",
-      "tag": "Classical Fusha",
-      "description": "Master classical Quranic Arabic (Fusha). This course builds grammar, vocabulary, reading, and listening comprehension so you can understand the Quran in its native tongue.",
-      "difficulty": "Intermediate",
-      "image": "/src/assets/images/online_quran_teacher_1784116886285.jpg"
-    },
-    {
       "id": "islamic-studies",
       "title": "Islamic Studies for Kids",
       "arabicGlyph": "أَدَب",
@@ -1049,6 +1040,62 @@
     {
       "id": "hit_1790598537851_lk43z",
       "timestamp": "2026-09-28T12:28:57.851Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790427341654_4mh4suh",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790599921674_a1mcn",
+      "timestamp": "2026-09-28T12:52:01.674Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790427341654_4mh4suh",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790599921685_ko3yh",
+      "timestamp": "2026-09-28T12:52:01.685Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790427341654_4mh4suh",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790599981011_tnump",
+      "timestamp": "2026-09-28T12:53:01.011Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/fees",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790427341654_4mh4suh",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790599990028_6dxt6",
+      "timestamp": "2026-09-28T12:53:10.028Z",
       "ip": "103.207.84.231",
       "country": "CA",
       "countryName": "Canada",
