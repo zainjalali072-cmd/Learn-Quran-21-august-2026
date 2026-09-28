@@ -133,6 +133,13 @@ export default function App() {
     return () => window.removeEventListener("cms_data_updated", handleSync);
   }, []);
 
+  // Ensure Ta'awwuz and Bismillah plays on initial mount / navigation
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).playQuranAudioOpening) {
+      (window as any).playQuranAudioOpening();
+    }
+  }, [currentView]);
+
   // Track real-time page views and session activity on the server
   useEffect(() => {
     let pageName = currentView;
@@ -732,9 +739,7 @@ export default function App() {
 
                 {/* 3-Column Price Cards Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start" id="pricing-grid">
-                  {(cms.pricingPlans && cms.pricingPlans.length > 0 ? cms.pricingPlans : pricingPlans)
-                    .filter((plan, idx, arr) => arr.findIndex(p => p.id === plan.id || p.price === plan.price) === idx)
-                    .map((plan, index) => {
+                  {(cms.pricingPlans || pricingPlans).map((plan, index) => {
                     const isPopular = plan.isPopular;
                     const basePrice = parseInt((plan.price || "").replace("$", ""), 10) || 30;
                     
