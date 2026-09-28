@@ -855,9 +855,10 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
 
   // 8. Strict Pricing Plans Preservation
   const pricingMap = new Map<string, PricingPlan>();
-  baseDefaults.pricingPlans.forEach(p => { if (p && p.id) pricingMap.set(p.id, p); });
-  (incoming.pricingPlans || []).forEach(p => { if (p && p.id) pricingMap.set(p.id, p); });
-  (cached.pricingPlans || []).forEach(p => { if (p && p.id) pricingMap.set(p.id, { ...(pricingMap.get(p.id) || {}), ...p }); });
+  const isDuplicateOldPlan = (id?: string) => id === "price-1" || id === "price-2" || id === "price-3";
+  baseDefaults.pricingPlans.forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, p); });
+  (incoming.pricingPlans || []).forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, p); });
+  (cached.pricingPlans || []).forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, { ...(pricingMap.get(p.id) || {}), ...p }); });
   const mergedPricing = Array.from(pricingMap.values());
 
   // 9. Strict Why Us Preservation

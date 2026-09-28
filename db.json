@@ -20,18 +20,17 @@
       "tag": "Foundational Pathway",
       "difficulty": "Beginners (No Prereqs)",
       "rating": 5,
-      "image": "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&h=800&q=80",
+      "image": "/src/assets/images/kids_quran_learning_1784116863937.jpg",
       "description": "Master Arabic alphabet pronunciation and connecting letters with classical Tajweed rules from the absolute ground up."
     },
     {
-      "id": "tajweed-intensive",
-      "title": "Tajweed Intensive Recitation Excellence",
-      "arabicGlyph": "تجويد القرآن",
-      "tag": "Phonetic Precision",
-      "difficulty": "Intermediate level",
-      "rating": 5,
-      "image": "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?auto=format&fit=crop&w=1200&h=800&q=80",
-      "description": "A comprehensive deep dive into the rules of Noon Sakinah, Meem Sakinah, Mudood (elongations), and advanced Makharij (letter origins)."
+      "id": "tajweed-mastery",
+      "title": "Tajweed Mastery",
+      "arabicGlyph": "قُرْآن",
+      "tag": "Art of Recitation",
+      "description": "Learn the rules of Tajweed (Makharij, Sifat, Madd, and Ghunnah) to recite the Holy Quran with perfect pronunciation, mimicking the traditional scholars of Jamia Naeemia Lahore.",
+      "difficulty": "Intermediate",
+      "image": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg"
     },
     {
       "id": "quran-hifz",
@@ -40,11 +39,72 @@
       "tag": "Spiritual Retention",
       "difficulty": "All levels (Tailored)",
       "rating": 5,
-      "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&h=800&q=80",
+      "image": "/src/assets/images/parent_kids_quran_1784121554278.jpg",
       "description": "Structured, private 1-on-1 memorization plans led by certified scholars to guide retention and rapid secure recall with classical revision loops."
+    },
+    {
+      "id": "quran-tafseer",
+      "title": "Quran Translation & Tafseer",
+      "arabicGlyph": "تَفْسِير",
+      "tag": "Deep Meaning",
+      "description": "Dive deep into the theological, historical, and linguistic context of Quranic verses. Understand the divine wisdom and translate classical Arabic phrases to elevate your daily Salah.",
+      "difficulty": "Advanced",
+      "image": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg"
+    },
+    {
+      "id": "arabic-language",
+      "title": "Arabic Language Course",
+      "arabicGlyph": "عَرَبِيّ",
+      "tag": "Classical Fusha",
+      "description": "Master classical Quranic Arabic (Fusha). This course builds grammar, vocabulary, reading, and listening comprehension so you can understand the Quran in its native tongue.",
+      "difficulty": "Intermediate",
+      "image": "/src/assets/images/online_quran_teacher_1784116886285.jpg"
+    },
+    {
+      "id": "islamic-studies",
+      "title": "Islamic Studies for Kids",
+      "arabicGlyph": "أَدَب",
+      "tag": "Youth Care",
+      "description": "A comprehensive curriculum teaching fundamental Islamic beliefs (Aqeedah), practical jurisprudence (Fiqh/Salah), beautiful manners (Adab), and historical Prophetic stories.",
+      "difficulty": "Beginner",
+      "image": "/src/assets/images/kids_quran_learning_1784116863937.jpg"
+    },
+    {
+      "id": "tajweed-intensive",
+      "title": "Tajweed Intensive Recitation Excellence",
+      "arabicGlyph": "تجويد القرآن",
+      "tag": "Phonetic Precision",
+      "difficulty": "Intermediate level",
+      "rating": 5,
+      "image": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg",
+      "description": "A comprehensive deep dive into the rules of Noon Sakinah, Meem Sakinah, Mudood (elongations), and advanced Makharij (letter origins)."
     }
   ],
   "whyUs": [
+    {
+      "id": "one-on-one",
+      "title": "1-on-1 Personalized Classes",
+      "description": "Receive full undivided attention from your dedicated tutor. Lessons are paced entirely according to your unique learning speed and capacity.",
+      "iconName": "UserCheck"
+    },
+    {
+      "id": "female-tutors",
+      "title": "Female Tutors Available",
+      "description": "We host certified, highly qualified female scholars and Huffadha for our sisters, girls, and young children to ensure maximum comfort and respect.",
+      "iconName": "Shield"
+    },
+    {
+      "id": "flexible-scheduling",
+      "title": "Flexible 24/7 Scheduling",
+      "description": "Study at times that suit you. We accommodate busy work shifts, school routines, and global timezones across USA, UK, Europe, and Asia.",
+      "iconName": "Calendar"
+    },
+    {
+      "id": "certified-scholars",
+      "title": "Certified Native Tutors",
+      "description": "All teachers are certified with traditional Ijazah credentials, possessing deep academic knowledge and stellar English/Arabic communication skills.",
+      "iconName": "Award"
+    },
     {
       "id": "why-1",
       "title": "1-on-1 Private Attention",
@@ -54,47 +114,88 @@
   ],
   "pricingPlans": [
     {
-      "id": "price-1",
-      "name": "Basic Starter",
+      "id": "tier-1",
+      "name": "2 Days / Week",
       "price": "$30",
       "period": "month",
       "features": [
-        "1-on-1 Classes",
-        "2 Classes per week",
-        "Tajweed Essentials",
-        "Monthly Report Cards"
+        "8 Interactive 1-on-1 Lessons",
+        "30 Minutes Per Lesson",
+        "Personalized Student Dashboard",
+        "Male/Female Tutors Option",
+        "Monthly Progress Reports",
+        "24/7 Flexible Rescheduling",
+        "Certificate of Completion"
       ]
     },
     {
-      "id": "price-2",
-      "name": "Standard Premium",
+      "id": "tier-2",
+      "name": "3 Days / Week",
       "price": "$45",
       "period": "month",
       "features": [
-        "1-on-1 Classes",
-        "3 Classes per week",
+        "12 Interactive 1-on-1 Lessons",
+        "30 Minutes Per Lesson",
         "Custom Syllabus & Homework Files",
+        "Prioritized Tutor Matching",
         "Weekly Progress Quizzes",
-        "Parent-Teacher Meetings"
+        "Complementary Parent-Teacher Meetings",
+        "Certificate of Excellence (Ijazah Track)"
       ],
       "isPopular": true
     },
     {
-      "id": "price-3",
-      "name": "Elite Mastery",
+      "id": "tier-3",
+      "name": "5 Days / Week",
       "price": "$60",
       "period": "month",
       "features": [
-        "1-on-1 Classes",
-        "5 Classes per week",
+        "20 Interactive 1-on-1 Lessons",
+        "30 Minutes Per Lesson",
         "High-Intensity Learning Track",
         "Daily Memorization Logs & Audits",
-        "Dedicated Academic Coach",
+        "Unlimited Rescheduling Privileges",
+        "Dedicated Academic Coach Access",
         "Full Ijazah & Sanad Path Preparation"
       ]
     }
   ],
   "testimonials": [
+    {
+      "id": "t1",
+      "name": "Sarah Jenkins",
+      "quote": "Finding a female Quran teacher with such perfect English and deep Tajweed knowledge was a blessing for my daughters. They look forward to their class every week!",
+      "rating": 5,
+      "country": "London, UK"
+    },
+    {
+      "id": "t2",
+      "name": "Tariq Mahmood",
+      "quote": "I wanted to memorize Surah Al-Baqarah but had a packed work schedule. The 24/7 flexibility at Truth Quran Academy allowed me to accomplish this within 8 months. Outstanding!",
+      "rating": 5,
+      "country": "Houston, USA"
+    },
+    {
+      "id": "t3",
+      "name": "Amina Al-Farsi",
+      "quote": "The Arabic language course is absolute gold. Unlike grammar-only courses, they taught me to converse fluently and read classical Tafseer scriptures within three terms.",
+      "rating": 5,
+      "country": "Toronto, Canada"
+    },
+    {
+      "id": "t4",
+      "name": "Bilal & Maryam",
+      "quote": "We enrolled our 7-year-old son in the Noorani Qaida course. His teacher is incredibly patient, using fun quizzes and animations that keep him absolutely engaged.",
+      "rating": 5,
+      "country": "Sydney, Australia"
+    },
+    {
+      "id": "t5",
+      "name": "Sami Yusuf",
+      "quote": "The 1-on-1 structure is unmatched. No wasting time in group distractions. My teacher corrected microscopic mistakes in my recitation that I didn't even know existed.",
+      "rating": 5,
+      "country": "Birmingham, UK"
+    },
     {
       "id": "test-1",
       "name": "Kamil Al-Mansoori",
@@ -104,6 +205,31 @@
     }
   ],
   "faqs": [
+    {
+      "id": "f1",
+      "question": "Who are the instructors at Truth Quran Academy?",
+      "answer": "Our instructors are highly qualified scholars, certified Huffadh, and graduates from world-renowned Islamic universities such as Jamia Naeemia Lahore, Umm Al-Qura, and leading institutes in Pakistan. They undergo thorough vetting and pedagogical training, and possess outstanding English and Arabic communication skills suitable for students of all ages."
+    },
+    {
+      "id": "f2",
+      "question": "How do the 1-on-1 online classes take place?",
+      "answer": "Classes are conducted live exclusively over Zoom, WhatsApp, or Google Meet. The teacher shares a digital copy of the Quran, Noorani Qaida, or Islamic worksheets, utilizing digital pens to draw, highlight, and guide pronunciation in real-time. It is highly interactive and matches the physical learning experience perfectly."
+    },
+    {
+      "id": "f3",
+      "question": "Can we customize class timings or reschedule lessons?",
+      "answer": "Absolutely. We understand that students have different shifts, school schedules, or family duties. We operate 24/7. When you register, you specify your ideal time windows. If you ever need to reschedule, you can simply notify your teacher 12–24 hours in advance, and the class will be shifted at no extra charge."
+    },
+    {
+      "id": "f4",
+      "question": "Do you have certified female teachers for girls and sisters?",
+      "answer": "Yes, we have a large faculty of highly specialized, qualified female scholars and Huffadha. Sisters can request a female teacher for themselves, and parents can choose female teachers for young children to ensure absolute comfort, security, and proper learning environments."
+    },
+    {
+      "id": "f5",
+      "question": "Is there a free trial class? How do we enroll?",
+      "answer": "Yes, we offer a 100% free, 30-minute trial evaluation session. This allows you to experience our teaching style, meet your prospective instructor, and get an honest assessment of your current pronunciation level. To enroll, click any 'Free Trial' button, fill out our short contact form, or message us directly on WhatsApp."
+    },
     {
       "id": "faq-1",
       "question": "Do you offer female certified Quran tutors for children and sisters?",
@@ -117,26 +243,233 @@
   ],
   "blogPosts": [
     {
+      "id": "hifz-tips-success",
+      "title": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
+      "excerpt": "Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemia Lahore techniques to double your retention rate.",
+      "category": "Quran Memorization Tips",
+      "coverImage": "/src/assets/images/kids_quran_learning_1784116863937.jpg",
+      "author": {
+        "name": "Sheikh Abdul Rahman",
+        "avatar": "/src/assets/images/sheikh_abdul_rahman_1784121404292.jpg",
+        "role": "Head of Quranic Studies"
+      },
+      "date": "July 12, 2026",
+      "readTime": "6 min read",
+      "tags": [
+        "Hifz",
+        "Quran Memorization",
+        "Spiritual Tips",
+        "Brain Power"
+      ],
+      "arabicVerse": {
+        "arabic": "وَلَقَدْ يَسَّرْنَا الْقُرْآنَ لِلذِّكْرِ فَهَلْ مِن مُّدَّكِرٍ",
+        "translation": "And We have indeed made the Quran easy to understand and remember, then is there any that will remember?",
+        "citation": "Surah Al-Qamar, 54:17"
+      },
+      "content": "\n<p>Embarking on the journey of Quranic memorization (Hifz) is one of the most noble spiritual pursuits a believer can undertake. However, many students face struggles with memory retention, distraction, and scheduling.</p>\n\n<h3>1. Absolute Sincerity (Ikhlas)</h3>\n<p>The foundation of any Quranic endeavor is purifying your intention. When memorizing, make your sole objective seeking the pleasure of Allah SWT. Sincerity opens divine doors of memory expansion and eases cognitive blocks.</p>\n\n<h3>2. Consistent Time and Place</h3>\n<p>Your brain is highly responsive to environmental cues. Establishing a dedicated study space and a static time—ideally right after Fajr prayers when the mind is fully rested and atmospheric oxygen levels are high—dramatically improves learning speeds.</p>\n\n<blockquote>\n  \"And We have indeed made the Quran easy to understand and remember, then is there any that will remember?\"\n  <cite>Surah Al-Qamar, 54:17</cite>\n</blockquote>\n\n<h3>3. The 'Repetition of Five' (Traditional Method)</h3>\n<p>A proven Jamia Naeemia Lahore method is to recite a newly learned verse 5 times while looking at the script, then 5 times from memory, and then repeat the cycle with the entire page before going to sleep. This shifts information from short-term hippocampus pathways into the long-term neocortex memory.</p>\n\n<h3>4. Master Tajweed Rules First</h3>\n<p>Never memorize a verse with incorrect pronunciation. Unlearning a faulty recitation is twice as difficult as memorizing from scratch. Always read your new portion to a certified tutor before attempting to commit it to memory.</p>\n\n<h3>5. Daily Revision (Murooja'ah)</h3>\n<p>The Prophet Muhammad (peace be upon him) compared the Quran in the memory to a camel that might run away if not bound. A golden rule is: 'A page of revision is worth ten pages of new memorization.' Always prioritize revising your old portions before adding even a single new verse.</p>\n",
+      "attachments": [],
+      "videoUrls": [],
+      "pdfUrls": [],
+      "customLinks": [],
+      "featuredImage": "/src/assets/images/kids_quran_learning_1784116863937.jpg",
+      "ogImage": "/src/assets/images/kids_quran_learning_1784116863937.jpg",
+      "status": "published",
+      "seoTitle": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz) | Truth Quran Academy",
+      "metaTitle": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
+      "metaDescription": "Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemi",
+      "focusKeyword": "Hifz",
+      "slug": "hifz-tips-success",
+      "canonicalUrl": "https://truthquranacademy.com/blog/hifz-tips-success/",
+      "robotsMeta": "index, follow, max-image-preview:large",
+      "ogTitle": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
+      "ogDescription": "Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemia Lahore techniques to double your retention rate.",
+      "twitterTitle": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
+      "twitterDescription": "Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemia Lahore techniques to double your retention rate.",
+      "twitterCard": "summary_large_image",
+      "imageAltText": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz) cover banner",
+      "imageTitle": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz) featured photo",
+      "imageCaption": "Illustration for 5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
+      "imageDescription": "High quality featured photo for article 5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
+      "imageFileName": "image.jpg",
+      "publishDate": "July 12, 2026",
+      "lastUpdated": "July 12, 2026",
+      "wordCount": 283,
+      "sentenceCount": 17,
+      "paragraphCount": 7,
+      "internalLinksCount": 2,
+      "externalLinksCount": 1,
+      "schemaType": "Article",
+      "customSchemaJson": "{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Article\",\n  \"headline\": \"5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)\",\n  \"description\": \"Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemia Lahore techniques to double your retention rate.\",\n  \"author\": {\n    \"@type\": \"Person\",\n    \"name\": \"Sheikh Abdul Rahman\"\n  }\n}"
+    },
+    {
+      "id": "tajweed-importance",
+      "title": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
+      "excerpt": "Tajweed is not merely an optional decorative science—it is an obligation to preserve the semantic integrity of Allah's Words. Learn the absolute essential rules every Muslim must master.",
+      "category": "Tajweed Rules",
+      "coverImage": "/src/assets/images/blog_tajweed_rules_1784121484956.jpg",
+      "author": {
+        "name": "Ustadh Hafiz Zain",
+        "avatar": "/src/assets/images/ustadh_hafiz_zain_1784121424995.jpg",
+        "role": "Lead Tajweed Instructor"
+      },
+      "date": "June 28, 2026",
+      "readTime": "5 min read",
+      "tags": [
+        "Tajweed",
+        "Quran Rules",
+        "Makharij",
+        "Pronunciation"
+      ],
+      "arabicVerse": {
+        "arabic": "أَوْ زِدْ عَلَيْهِ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا",
+        "translation": "And recite the Quran with measured, beautiful recitation (Tajweed).",
+        "citation": "Surah Al-Muzzammil, 73:4"
+      },
+      "content": "\n<p>When reciting the Holy Quran, every letter carries deep spiritual weight. Mispronouncing a single syllable can completely alter the theological meaning of a verse. This is why mastering the science of Tajweed is paramount.</p>\n\n<h3>What is Tajweed?</h3>\n<p>Linguistically, Tajweed means 'proficiency' or 'doing something beautifully.' Historically, it is the systematic rules governing the recitation of the Quran as transmitted from the Angel Jibreel to the Prophet Muhammad (peace be upon him).</p>\n\n<blockquote>\n  \"And recite the Quran with measured, beautiful recitation (Tajweed).\"\n  <cite>Surah Al-Muzzammil, 73:4</cite>\n</blockquote>\n\n<h3>The Core Elements of Tajweed</h3>\n<ol>\n  <li><strong>Makharij al-Huroof (Articulation Points):</strong> Finding the exact physical origin of each letter in the throat, tongue, lips, or nasal cavity. For example, distinguishing between standard 'Ha' and deep pharyngeal 'Haa'.</li>\n  <li><strong>Sifat al-Huroof (Characteristics):</strong> How the letter behaves during pronunciation—such as whether breath should flow (Hams) or be trapped (Jahr).</li>\n  <li><strong>Ahkam al-Noon (Rules of Noon Sakinah):</strong> Managing the nasal 'noon' sounds when meeting specific subsequent letters, including merging (Idghaam) or hiding (Ikhfaa).</li>\n</ol>\n\n<h3>Why it Matters for Everyday Prayer</h3>\n<p>During the recitation of Surah Al-Fatihah in daily Salah, substituting one letter for another can transform a prayer of praise into an incorrect statement. Learning Tajweed is not a luxury—it is an essential duty to protect our worship and respect the divine scripture.</p>\n",
+      "attachments": [],
+      "videoUrls": [],
+      "pdfUrls": [],
+      "customLinks": [],
+      "featuredImage": "/src/assets/images/blog_tajweed_rules_1784121484956.jpg",
+      "ogImage": "/src/assets/images/blog_tajweed_rules_1784121484956.jpg",
+      "status": "published",
+      "seoTitle": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters | Truth Quran Academy",
+      "metaTitle": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
+      "metaDescription": "Tajweed is not merely an optional decorative science—it is an obligation to preserve the semantic integrity of Allah's Words. Learn the absolute essen",
+      "focusKeyword": "Tajweed",
+      "slug": "tajweed-importance",
+      "canonicalUrl": "https://truthquranacademy.com/blog/tajweed-importance/",
+      "robotsMeta": "index, follow, max-image-preview:large",
+      "ogTitle": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
+      "ogDescription": "Tajweed is not merely an optional decorative science—it is an obligation to preserve the semantic integrity of Allah's Words. Learn the absolute essential rules every Muslim must master.",
+      "twitterTitle": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
+      "twitterDescription": "Tajweed is not merely an optional decorative science—it is an obligation to preserve the semantic integrity of Allah's Words. Learn the absolute essential rules every Muslim must master.",
+      "twitterCard": "summary_large_image",
+      "imageAltText": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters cover banner",
+      "imageTitle": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters featured photo",
+      "imageCaption": "Illustration for Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
+      "imageDescription": "High quality featured photo for article Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
+      "imageFileName": "image.jpg",
+      "publishDate": "June 28, 2026",
+      "lastUpdated": "June 28, 2026",
+      "wordCount": 208,
+      "sentenceCount": 13,
+      "paragraphCount": 5,
+      "internalLinksCount": 2,
+      "externalLinksCount": 1,
+      "schemaType": "Article",
+      "customSchemaJson": "{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Article\",\n  \"headline\": \"Understanding the Essential Rules of Tajweed: Why Pronunciation Matters\",\n  \"description\": \"Tajweed is not merely an optional decorative science—it is an obligation to preserve the semantic integrity of Allah's Words. Learn the absolute essential rules every Muslim must master.\",\n  \"author\": {\n    \"@type\": \"Person\",\n    \"name\": \"Ustadh Hafiz Zain\"\n  }\n}"
+    },
+    {
+      "id": "benefits-of-translation",
+      "title": "The Transformative Power of Reading Quran with Tafseer & Understanding",
+      "excerpt": "Reciting Arabic is highly rewarding, but translating the text unleashes its true transformative power. Read why understanding context elevates your Salah and personal ethics.",
+      "category": "Islamic Studies",
+      "coverImage": "/src/assets/images/parent_kids_quran_1784121554278.jpg",
+      "author": {
+        "name": "Dr. Ahmed Kamal",
+        "avatar": "/src/assets/images/sheikh_abdul_rahman_1784121404292.jpg",
+        "role": "Senior Scholar"
+      },
+      "date": "May 29, 2026",
+      "readTime": "8 min read",
+      "tags": [
+        "Tafseer",
+        "Arabic Translation",
+        "Spiritual Transformation",
+        "Quran Meaning"
+      ],
+      "arabicVerse": {
+        "arabic": "كِتَابٌ أَنزَلْنَاهُ إِلَيْكَ مُبَارَكٌ لِّيَدَّبَّرُوا آيَاتِهِ",
+        "translation": "This is a blessed Book which We have revealed to you, so that they may contemplate its verses.",
+        "citation": "Surah Sad, 38:29"
+      },
+      "content": "\n<p>Many Muslims recite several pages of the Quran daily without understanding a single word. While every letter brings blessings, the core purpose of the Quran's revelation is intellectual reflection, spiritual transformation, and behavioral reform.</p>\n\n<h3>The Goal of Revelation: Tadabbur</h3>\n<p>Allah SWT says in Surah Sad: 'This is a blessed Book which We have revealed to you, so that they may contemplate its verses.' This contemplation is known as Tadabbur. It requires translating the Arabic words and reading the Tafseer (exegesis) behind them.</p>\n\n<blockquote>\n  \"This is a blessed Book which We have revealed to you, so that they may contemplate its verses.\"\n  <cite>Surah Sad, 38:29</cite>\n</blockquote>\n\n<h3>3 Key Benefits of Understanding the Quran:</h3>\n<ul>\n  <li><strong>Elevated Concentration (Khushu) in Salah:</strong> When you comprehend the verses your Imam is reciting, your mind stops drifting to worldly thoughts, and your prayers transform into intimate spiritual dialogues with your Creator.</li>\n  <li><strong>Ethical Alignment:</strong> Knowing the moral commands, historical warnings, and legal directives translates directly into how you handle business, treat parents, and support your local community.</li>\n  <li><strong>Intellectual Conviction:</strong> In an era of doubt and complex ideologies, studying Tafseer equips your intellect with answers, reinforcing your faith on logical, structural foundations.</li>\n</ul>\n\n<p>Do not let your relationship with the Quran stop at sound. Elevate it to understanding, and watch your daily life transform.</p>\n",
+      "attachments": [],
+      "videoUrls": [],
+      "pdfUrls": [],
+      "customLinks": [],
+      "featuredImage": "/src/assets/images/parent_kids_quran_1784121554278.jpg",
+      "ogImage": "/src/assets/images/parent_kids_quran_1784121554278.jpg",
+      "status": "published",
+      "seoTitle": "The Transformative Power of Reading Quran with Tafseer & Understanding | Truth Quran Academy",
+      "metaTitle": "The Transformative Power of Reading Quran with Tafseer & Understanding",
+      "metaDescription": "Reciting Arabic is highly rewarding, but translating the text unleashes its true transformative power. Read why understanding context elevates your Sa",
+      "focusKeyword": "Tafseer",
+      "slug": "benefits-of-translation",
+      "canonicalUrl": "https://truthquranacademy.com/blog/benefits-of-translation/",
+      "robotsMeta": "index, follow, max-image-preview:large",
+      "ogTitle": "The Transformative Power of Reading Quran with Tafseer & Understanding",
+      "ogDescription": "Reciting Arabic is highly rewarding, but translating the text unleashes its true transformative power. Read why understanding context elevates your Salah and personal ethics.",
+      "twitterTitle": "The Transformative Power of Reading Quran with Tafseer & Understanding",
+      "twitterDescription": "Reciting Arabic is highly rewarding, but translating the text unleashes its true transformative power. Read why understanding context elevates your Salah and personal ethics.",
+      "twitterCard": "summary_large_image",
+      "imageAltText": "The Transformative Power of Reading Quran with Tafseer & Understanding cover banner",
+      "imageTitle": "The Transformative Power of Reading Quran with Tafseer & Understanding featured photo",
+      "imageCaption": "Illustration for The Transformative Power of Reading Quran with Tafseer & Understanding",
+      "imageDescription": "High quality featured photo for article The Transformative Power of Reading Quran with Tafseer & Understanding",
+      "imageFileName": "image.jpg",
+      "publishDate": "May 29, 2026",
+      "lastUpdated": "May 29, 2026",
+      "wordCount": 212,
+      "sentenceCount": 11,
+      "paragraphCount": 5,
+      "internalLinksCount": 2,
+      "externalLinksCount": 1,
+      "schemaType": "Article",
+      "customSchemaJson": "{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Article\",\n  \"headline\": \"The Transformative Power of Reading Quran with Tafseer & Understanding\",\n  \"description\": \"Reciting Arabic is highly rewarding, but translating the text unleashes its true transformative power. Read why understanding context elevates your Salah and personal ethics.\",\n  \"author\": {\n    \"@type\": \"Person\",\n    \"name\": \"Dr. Ahmed Kamal\"\n  }\n}"
+    },
+    {
       "id": "blog-1",
       "slug": "blog-1",
       "title": "Essential Tajweed Rules for Absolute Beginners",
-      "excerpt": "Phonetics is the spiritual soul of Quranic recitation. Explore the foundational articulation points of Makharij, Noon Sakinah rules, and practical steps to recite beautifully with Divine precision.",
-      "content": "<h2>Introduction to Tajweed: The Art and Science of Quranic Recitation</h2><p>Tajweed linguistically means 'proficiency' or 'doing something well'. In the context of Quranic recitation, Tajweed refers to reciting each Arabic letter from its exact point of articulation (Makhraj) while giving it its rightful characteristics (Sifat). Reciting with Tajweed is not merely an aesthetic choice; it preserves the divine meaning revealed to Prophet Muhammad (peace be upon him) and prevents phonetic corruptions that alter the sacred message.</p><h3>1. Makharij al-Huroof: The Five Primary Articulation Points</h3><p>Before studying complex phonetic rules, a beginner must understand where Arabic letters originate from. The human vocal tract is divided into five primary regions:</p><ul><li><strong>Al-Jawf (The Empty Space):</strong> The open cavity inside the throat and mouth producing the three elongated vowel letters (Alif, Waw, and Yaa of Madd).</li><li><strong>Al-Halq (The Throat):</strong> Divided into the deepest throat (Hamzah and Haa), the middle throat (Ain and Haa), and the upper throat (Ghayn and Khaa).</li><li><strong>Al-Lisan (The Tongue):</strong> Responsible for eighteen letters across ten distinct articulation points, including heavy letters like Qaf, Saad, and Daad.</li><li><strong>Ash-Shafatan (The Two Lips):</strong> Producing Baa, Meem, Waw, and Faa.</li><li><strong>Al-Khayshum (The Nasal Cavity):</strong> The exclusive origin of Ghunnah (nasalization).</li></ul><h3>2. The Four Rules of Noon Sakinah and Tanween</h3><p>When a Noon Sakinah (a stationary Noon with Sukoon) or Tanween occurs, one of four rules must be applied based on the succeeding letter:</p><ol><li><strong>Izhar Halqi (Clear Pronunciation):</strong> If followed by any of the six throat letters (Hamzah, Haa, Ain, Haa, Ghayn, Khaa), pronounce the Noon clearly without extra nasalization.</li><li><strong>Idgham (Merging):</strong> If followed by the letters of 'Yarmaloon' (Yaa, Raa, Meem, Laam, Waw, Noon). It divides into Idgham with Ghunnah and Idgham without Ghunnah.</li><li><strong>Iqlab (Conversion):</strong> If followed by the letter Baa, the Noon transforms into a hidden Meem with a two-count nasalization.</li><li><strong>Ikhfa Haqiqi (Concealment):</strong> If followed by the remaining fifteen letters, conceal the Noon sound between Izhar and Idgham with a gentle nasal hum.</li></ol><h3>3. The Mechanism of Qalqalah (Echoing Sound)</h3><p>When any of the five letters of 'Qutb Jad' (Qaf, Taa, Baa, Jeem, Daal) carry a Sukoon, their sound must bounce or echo rather than stopping abruptly. This echoing preserves the strength and clarity of these explosive consonant sounds.</p><h3>4. Practical Daily Practice Routine for Beginners</h3><p>Mastering Tajweed requires consistent muscle training of the vocal apparatus. Listen daily to certified reciters like Sheikh Al-Husary or Sheikh Minshawi. Record your own voice while reading short Surahs like Al-Fatihah and compare your Makharij. Most importantly, practice live with a certified tutor who can provide real-time corrections.</p><p>Book a free 1-on-1 trial class with our certified scholars at Truth Quran Academy to evaluate your recitation today.</p>",
+      "excerpt": "Phonetics is the spiritual soul of Quranic recitation. Explore the foundational articulation points of Makharij and learn to read beautifully.",
+      "content": "<p>Article content details...</p>",
       "date": "2026-07-18",
       "author": {
-        "name": "Sheikh Abdul Rahman",
-        "role": "Head of Quranic Studies"
+        "name": "Muhammad Zain",
+        "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
+        "role": "Senior Quran Scholar"
       },
       "category": "Tajweed",
       "tags": [
         "Beginners",
-        "Tajweed Guide",
-        "Makharij",
-        "Quran Recitation"
+        "Tajweed Guide"
       ],
-      "featuredImage": "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&h=800&q=80",
-      "readTime": "7 min read",
-      "status": "published"
+      "featuredImage": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg",
+      "readTime": "5 min read",
+      "status": "published",
+      "attachments": [],
+      "videoUrls": [],
+      "pdfUrls": [],
+      "customLinks": [],
+      "coverImage": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg",
+      "ogImage": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg",
+      "seoTitle": "Essential Tajweed Rules for Absolute Beginners | Truth Quran Academy",
+      "metaTitle": "Essential Tajweed Rules for Absolute Beginners",
+      "metaDescription": "Phonetics is the spiritual soul of Quranic recitation. Explore the foundational articulation points of Makharij and learn to read beautifully.",
+      "focusKeyword": "Beginners",
+      "canonicalUrl": "https://truthquranacademy.com/blog/blog-1/",
+      "robotsMeta": "index, follow, max-image-preview:large",
+      "ogTitle": "Essential Tajweed Rules for Absolute Beginners",
+      "ogDescription": "Phonetics is the spiritual soul of Quranic recitation. Explore the foundational articulation points of Makharij and learn to read beautifully.",
+      "twitterTitle": "Essential Tajweed Rules for Absolute Beginners",
+      "twitterDescription": "Phonetics is the spiritual soul of Quranic recitation. Explore the foundational articulation points of Makharij and learn to read beautifully.",
+      "twitterCard": "summary_large_image",
+      "imageAltText": "Essential Tajweed Rules for Absolute Beginners cover banner",
+      "imageTitle": "Essential Tajweed Rules for Absolute Beginners featured photo",
+      "imageCaption": "Illustration for Essential Tajweed Rules for Absolute Beginners",
+      "imageDescription": "High quality featured photo for article Essential Tajweed Rules for Absolute Beginners",
+      "imageFileName": "image.jpg",
+      "publishDate": "2026-07-18",
+      "lastUpdated": "2026-07-18",
+      "wordCount": 450,
+      "sentenceCount": 1,
+      "paragraphCount": 1,
+      "internalLinksCount": 2,
+      "externalLinksCount": 1,
+      "schemaType": "Article",
+      "customSchemaJson": "{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Article\",\n  \"headline\": \"Essential Tajweed Rules for Absolute Beginners\",\n  \"description\": \"Phonetics is the spiritual soul of Quranic recitation. Explore the foundational articulation points of Makharij and learn to read beautifully.\",\n  \"author\": {\n    \"@type\": \"Person\",\n    \"name\": \"Muhammad Zain\"\n  }\n}"
     },
     {
       "id": "online-quran-academy-how-to-learn-quran-online-with-truth-quran-academy",
@@ -147,6 +480,7 @@
       "date": "2026-07-25",
       "author": {
         "name": "Muhammad Zain",
+        "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
         "role": "Founder & Senior Instructor"
       },
       "category": "Online Learning",
@@ -159,7 +493,38 @@
       ],
       "featuredImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
       "readTime": "8 min read",
-      "status": "published"
+      "status": "published",
+      "attachments": [],
+      "videoUrls": [],
+      "pdfUrls": [],
+      "customLinks": [],
+      "coverImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
+      "ogImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
+      "seoTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy | Truth Quran Academy",
+      "metaTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
+      "metaDescription": "Discover how to learn Quran online with certified 1-on-1 tutors at Truth Quran Academy. Step-by-step guide on interactive classrooms, Tajweed phonetic",
+      "focusKeyword": "Online Quran Academy",
+      "canonicalUrl": "https://truthquranacademy.com/blog/online-quran-academy-how-to-learn-quran-online-with-truth-quran-academy/",
+      "robotsMeta": "index, follow, max-image-preview:large",
+      "ogTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
+      "ogDescription": "Discover how to learn Quran online with certified 1-on-1 tutors at Truth Quran Academy. Step-by-step guide on interactive classrooms, Tajweed phonetics, flexible schedules, and free trial enrollment.",
+      "twitterTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
+      "twitterDescription": "Discover how to learn Quran online with certified 1-on-1 tutors at Truth Quran Academy. Step-by-step guide on interactive classrooms, Tajweed phonetics, flexible schedules, and free trial enrollment.",
+      "twitterCard": "summary_large_image",
+      "imageAltText": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy cover banner",
+      "imageTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy featured photo",
+      "imageCaption": "Illustration for Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
+      "imageDescription": "High quality featured photo for article Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
+      "imageFileName": "online-quran-academy-how-to-learn-quran-online-with-truth-quran-academy.jpg",
+      "publishDate": "2026-07-25",
+      "lastUpdated": "2026-07-25",
+      "wordCount": 398,
+      "sentenceCount": 21,
+      "paragraphCount": 4,
+      "internalLinksCount": 2,
+      "externalLinksCount": 1,
+      "schemaType": "Article",
+      "customSchemaJson": "{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Article\",\n  \"headline\": \"Online Quran Academy: How to Learn Quran Online with Truth Quran Academy\",\n  \"description\": \"Discover how to learn Quran online with certified 1-on-1 tutors at Truth Quran Academy. Step-by-step guide on interactive classrooms, Tajweed phonetics, flexible schedules, and free trial enrollment.\",\n  \"author\": {\n    \"@type\": \"Person\",\n    \"name\": \"Muhammad Zain\"\n  }\n}"
     }
   ],
   "teachers": [
@@ -172,6 +537,48 @@
       "rating": 5,
       "experience": "15+ Years",
       "status": "published"
+    },
+    {
+      "id": "teacher-2",
+      "name": "Ustadh Hafiz Zain",
+      "role": "Senior Hifz Instructor",
+      "bio": "Huffadh instructor certified from leading Quranic centres. Specialized in tutoring young children and adults, utilizing modern memory pathways to ensure rapid and secure retention.",
+      "photo": "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&q=80&w=300",
+      "rating": 5,
+      "experience": "8 Years",
+      "status": "published",
+      "publishDate": "2026-06-25",
+      "category": "Quran Hifz",
+      "tags": [
+        "Hifz Expert",
+        "Children Specialist",
+        "Retention Techniques"
+      ],
+      "seoTitle": "Ustadh Hafiz Zain - Senior Quran Memorization Tutor | Truth Quran Academy",
+      "metaDescription": "Memorize the Quran with Ustadh Hafiz Zain, senior Huffadh instructor specialized in rapid memory retention for children and adults.",
+      "focusKeyword": "Ustadh Hafiz Zain",
+      "slug": "ustadh-hafiz-zain"
+    },
+    {
+      "id": "teacher-3",
+      "name": "Ustadha Maryam",
+      "role": "Female Tajweed Specialist",
+      "bio": "Graduated with classical honors in Tajweed and Arabic studies. Over 10 years teaching sisters and young kids global phonetics, Makharij articulation points, and beautiful Salah modulation.",
+      "photo": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300",
+      "rating": 5,
+      "experience": "10 Years",
+      "status": "published",
+      "publishDate": "2026-07-02",
+      "category": "Tajweed Mastery",
+      "tags": [
+        "Sisters Tutor",
+        "Kids Specialist",
+        "Makharij Expert"
+      ],
+      "seoTitle": "Ustadha Maryam - Certified Female Quran & Tajweed Tutor | Truth Quran Academy",
+      "metaDescription": "Private 1-on-1 Tajweed lessons for sisters and children with Ustadha Maryam. Specialized in Makharij and Quranic phonetics.",
+      "focusKeyword": "Ustadha Maryam",
+      "slug": "ustadha-maryam"
     }
   ],
   "developerName": "Muhammad Zain",
@@ -242,7 +649,8 @@
     "testimonials": true,
     "faqs": true,
     "blog": true,
-    "contact": true
+    "contact": true,
+    "map": true
   },
   "sectionsOrder": [
     "hero",
@@ -281,7 +689,128 @@
       "type": "inquiry"
     }
   ],
-  "mediaLibrary": [],
+  "mediaLibrary": [
+    {
+      "id": "m-1",
+      "title": "Truth Quran Academy Logo Image",
+      "url": "/src/assets/images/truth_quran_new_logo_1784203145448.jpg",
+      "size": "142 KB",
+      "date": "2026-07-15",
+      "type": "image/jpeg",
+      "dimensions": "512x512",
+      "alt": "Truth Quran Academy Logo",
+      "caption": "Official Academy Logo",
+      "description": "Branding logo used in header and footer."
+    },
+    {
+      "id": "m-2",
+      "title": "Elegant Arabic Calligraphy Backdrop",
+      "url": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=85",
+      "size": "842 KB",
+      "date": "2026-07-16",
+      "type": "image/jpeg",
+      "dimensions": "1920x1080",
+      "alt": "Quran script page close up",
+      "caption": "Artistic Quran script",
+      "description": "Beautiful close up of open Quran page."
+    },
+    {
+      "id": "m-3",
+      "title": "Tajweed Study Guide Cover Illustration",
+      "url": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg",
+      "size": "290 KB",
+      "date": "2026-07-17",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "Traditional calligraphic art representing Tajweed precision",
+      "caption": "Tajweed illustration design",
+      "description": "Featured graphical artwork for courses and guides."
+    },
+    {
+      "id": "m-4",
+      "title": "Kids Learning Quran Background",
+      "url": "/src/assets/images/kids_quran_learning_1784116863937.jpg",
+      "size": "310 KB",
+      "date": "2026-07-17",
+      "type": "image/jpeg",
+      "dimensions": "1920x1080",
+      "alt": "Kids studying Quran together",
+      "caption": "Primary background illustrating kids learning",
+      "description": "Background asset for Hero and Course modules."
+    },
+    {
+      "id": "m-5",
+      "title": "Senior Quran Teacher Profile Photo",
+      "url": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
+      "size": "245 KB",
+      "date": "2026-07-17",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "Online Quran teacher guiding adult student",
+      "caption": "Quran teacher online",
+      "description": "Profile headshot/action photograph of Ustadh tutor."
+    },
+    {
+      "id": "m-6",
+      "title": "Female Tajweed Specialist Photo",
+      "url": "/src/assets/images/female_quran_tutor_1784119152017.jpg",
+      "size": "220 KB",
+      "date": "2026-07-17",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "Female tutor assisting child student",
+      "caption": "Female Quran tutor online",
+      "description": "Headshot photograph for Ustadha tutor profiles."
+    },
+    {
+      "id": "m-7",
+      "title": "Family Quran Learning Activity",
+      "url": "/src/assets/images/parent_kids_quran_1784121554278.jpg",
+      "size": "260 KB",
+      "date": "2026-07-17",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "Muslim parent teaching children holy Quran",
+      "caption": "Parent and children studying Quran",
+      "description": "Visual asset representing family package classes."
+    },
+    {
+      "id": "m-8",
+      "title": "Islamic Kids Quran Recitation Circle",
+      "url": "/src/assets/images/islamic_kids_learning_1784120227940.jpg",
+      "size": "240 KB",
+      "date": "2026-07-17",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "Group of young Muslim children reading Quran",
+      "caption": "Children studying together",
+      "description": "Visual asset for Kids and Sibling packages."
+    },
+    {
+      "id": "m-9",
+      "title": "Young Girl Learning Noorani Qaida",
+      "url": "/src/assets/images/islamic_girl_qaida_1784120204322.jpg",
+      "size": "215 KB",
+      "date": "2026-07-17",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "Young girl learning Arabic Qaida alphabet",
+      "caption": "Girl reading Noorani Qaida",
+      "description": "Artwork demonstrating early foundational phonetics classes."
+    },
+    {
+      "id": "m-10",
+      "title": "Golden Holy Quran 3D Icon Render",
+      "url": "/src/assets/images/holy_quran_icon_1784372106996.jpg",
+      "size": "95 KB",
+      "date": "2026-07-17",
+      "type": "image/png",
+      "dimensions": "512x512",
+      "alt": "Holy Quran Golden Book 3D Icon",
+      "caption": "Quran 3D icon element",
+      "description": "Floating graphic render of the Holy Quran."
+    }
+  ],
   "userProfiles": [
     {
       "id": "u-1",
@@ -502,6 +1031,34 @@
       "channel": "Organic Search",
       "sessionId": "sess_1790078188549_fd3z47p",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790598537816_hzf34",
+      "timestamp": "2026-09-28T12:28:57.816Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790427341654_4mh4suh",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790598537851_lk43z",
+      "timestamp": "2026-09-28T12:28:57.851Z",
+      "ip": "103.207.84.231",
+      "country": "CA",
+      "countryName": "Canada",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790427341654_4mh4suh",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     }
   ],
   "indexingSettings": {
@@ -514,10 +1071,208 @@
     "googlePrivateKey": "",
     "googleJsonConfig": "",
     "indexNowKey": "4a8e2bc9d17f4019a58b43f9a721b06c",
-    "dailyQuotaUsed": 5,
+    "dailyQuotaUsed": 14,
     "dailyQuotaTotal": 200
   },
   "indexingLogs": [
+    {
+      "id": "idx_in_1790598539288_a10w",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/islamic-studies",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 132
+    },
+    {
+      "id": "idx_g_1790598539288_2mm1",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/islamic-studies",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 169
+    },
+    {
+      "id": "idx_in_1790598539288_ansm",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/arabic-language",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 129
+    },
+    {
+      "id": "idx_g_1790598539288_nvd5",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/arabic-language",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 117
+    },
+    {
+      "id": "idx_in_1790598539288_x0t3",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/quran-tafseer",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 123
+    },
+    {
+      "id": "idx_g_1790598539288_clml",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/quran-tafseer",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 96
+    },
+    {
+      "id": "idx_in_1790598539288_za8r",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/tajweed-mastery",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 124
+    },
+    {
+      "id": "idx_g_1790598539288_3cbk",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/tajweed-mastery",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 166
+    },
+    {
+      "id": "idx_in_1790598539288_n04k",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/online-quran-academy-how-to-learn-quran-online-with-truth-quran-academy",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 93
+    },
+    {
+      "id": "idx_g_1790598539288_yo4a",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/online-quran-academy-how-to-learn-quran-online-with-truth-quran-academy",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 115
+    },
+    {
+      "id": "idx_in_1790598539288_mz4i",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/blog-1",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 90
+    },
+    {
+      "id": "idx_g_1790598539288_6wmq",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/blog-1",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 124
+    },
+    {
+      "id": "idx_in_1790598539288_0qjg",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/benefits-of-translation",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 107
+    },
+    {
+      "id": "idx_g_1790598539288_zri5",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/benefits-of-translation",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 132
+    },
+    {
+      "id": "idx_in_1790598539288_aw8e",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/tajweed-importance",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 127
+    },
+    {
+      "id": "idx_g_1790598539288_q8xb",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/tajweed-importance",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 133
+    },
+    {
+      "id": "idx_in_1790598539288_azct",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/hifz-tips-success",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 120
+    },
+    {
+      "id": "idx_g_1790598539288_qan3",
+      "timestamp": "2026-09-28T12:28:59.288Z",
+      "url": "https://truthquranacademy.com/blog/hifz-tips-success",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 148
+    },
     {
       "id": "idx_log_1787814696055",
       "timestamp": "2026-08-27T07:11:36.055Z",
@@ -608,21 +1363,460 @@
       "title": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
       "type": "post",
       "status": "Indexed",
-      "lastSubmitted": "2026-08-27T07:41:36.055Z",
-      "googleStatus": "Indexed",
-      "indexNowStatus": "Verified",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
       "httpCode": 200
     },
     "https://truthquranacademy.com/blog/tajweed-importance": {
       "url": "https://truthquranacademy.com/blog/tajweed-importance",
-      "title": "Understanding the Essential Rules of Tajweed",
+      "title": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
       "type": "post",
       "status": "Indexed",
-      "lastSubmitted": "2026-08-27T07:41:36.055Z",
-      "googleStatus": "Indexed",
-      "indexNowStatus": "Verified",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog/benefits-of-translation": {
+      "url": "https://truthquranacademy.com/blog/benefits-of-translation",
+      "title": "The Transformative Power of Reading Quran with Tafseer & Understanding",
+      "type": "post",
+      "status": "Indexed",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog/blog-1": {
+      "url": "https://truthquranacademy.com/blog/blog-1",
+      "title": "Essential Tajweed Rules for Absolute Beginners",
+      "type": "post",
+      "status": "Indexed",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog/online-quran-academy-how-to-learn-quran-online-with-truth-quran-academy": {
+      "url": "https://truthquranacademy.com/blog/online-quran-academy-how-to-learn-quran-online-with-truth-quran-academy",
+      "title": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
+      "type": "post",
+      "status": "Indexed",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/tajweed-mastery": {
+      "url": "https://truthquranacademy.com/tajweed-mastery",
+      "title": "/https://truthquranacademy.com/tajweed-mastery",
+      "type": "course",
+      "status": "Indexed",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/quran-tafseer": {
+      "url": "https://truthquranacademy.com/quran-tafseer",
+      "title": "/https://truthquranacademy.com/quran-tafseer",
+      "type": "page",
+      "status": "Indexed",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/arabic-language": {
+      "url": "https://truthquranacademy.com/arabic-language",
+      "title": "/https://truthquranacademy.com/arabic-language",
+      "type": "page",
+      "status": "Indexed",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/islamic-studies": {
+      "url": "https://truthquranacademy.com/islamic-studies",
+      "title": "/https://truthquranacademy.com/islamic-studies",
+      "type": "page",
+      "status": "Indexed",
+      "lastSubmitted": "2026-09-28T12:28:59.288Z",
+      "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
       "httpCode": 200
     }
   },
-  "test": 1
+  "test": 1,
+  "analyticsData": {
+    "totalVisitors": 1,
+    "uniqueVisitors": 1,
+    "returningVisitors": 0,
+    "pageViews": 6,
+    "sessions": 1,
+    "avgSessionDuration": "44m 09s",
+    "bounceRate": "0.0%",
+    "realTimeVisitors": 1,
+    "trafficOverTime": [
+      {
+        "date": "Tuesday",
+        "dateShort": "Aug 18",
+        "fullDate": "2026-08-18",
+        "views": 0,
+        "visitors": 0
+      },
+      {
+        "date": "Wednesday",
+        "dateShort": "Aug 19",
+        "fullDate": "2026-08-19",
+        "views": 0,
+        "visitors": 0
+      },
+      {
+        "date": "Thursday",
+        "dateShort": "Aug 20",
+        "fullDate": "2026-08-20",
+        "views": 0,
+        "visitors": 0
+      },
+      {
+        "date": "Friday",
+        "dateShort": "Aug 21",
+        "fullDate": "2026-08-21",
+        "views": 0,
+        "visitors": 0
+      },
+      {
+        "date": "Saturday",
+        "dateShort": "Aug 22",
+        "fullDate": "2026-08-22",
+        "views": 0,
+        "visitors": 0
+      },
+      {
+        "date": "Sunday",
+        "dateShort": "Aug 23",
+        "fullDate": "2026-08-23",
+        "views": 0,
+        "visitors": 0
+      },
+      {
+        "date": "Monday",
+        "dateShort": "Aug 24",
+        "fullDate": "2026-08-24",
+        "views": 6,
+        "visitors": 1
+      }
+    ],
+    "sources": [
+      {
+        "name": "Organic Search",
+        "percent": 100,
+        "count": 6,
+        "color": "#d9b45c"
+      },
+      {
+        "name": "Direct Traffic",
+        "percent": 0,
+        "count": 0,
+        "color": "#8b5cf6"
+      },
+      {
+        "name": "Referrals",
+        "percent": 0,
+        "count": 0,
+        "color": "#3b82f6"
+      },
+      {
+        "name": "Social Media",
+        "percent": 0,
+        "count": 0,
+        "color": "#10b981"
+      }
+    ],
+    "countries": [
+      {
+        "code": "AE",
+        "name": "United Arab Emirates",
+        "count": 6,
+        "percent": 100
+      }
+    ],
+    "devices": [
+      {
+        "name": "Desktop",
+        "percent": 100,
+        "count": 6
+      },
+      {
+        "name": "Mobile",
+        "percent": 0,
+        "count": 0
+      },
+      {
+        "name": "Tablet",
+        "percent": 0,
+        "count": 0
+      }
+    ],
+    "browsers": [
+      {
+        "name": "Chrome",
+        "count": 6,
+        "percent": 100
+      }
+    ],
+    "landingPages": [
+      {
+        "url": "/",
+        "title": "Truth Quran Academy Home",
+        "views": 1
+      }
+    ],
+    "exitPages": [
+      {
+        "url": "/",
+        "title": "Truth Quran Academy Home",
+        "views": 1
+      }
+    ],
+    "topKeywords": [
+      {
+        "query": "learn tajweed online",
+        "clicks": 3,
+        "impressions": 23,
+        "ctr": "15.7%",
+        "position": 1.2
+      },
+      {
+        "query": "online quran class uk",
+        "clicks": 2,
+        "impressions": 18,
+        "ctr": "14.8%",
+        "position": 2.1
+      },
+      {
+        "query": "truth quran academy",
+        "clicks": 2,
+        "impressions": 13,
+        "ctr": "18.2%",
+        "position": 1
+      },
+      {
+        "query": "female tajweed tutor",
+        "clicks": 1,
+        "impressions": 11,
+        "ctr": "11.8%",
+        "position": 1.8
+      }
+    ]
+  },
+  "searchPerformance": {
+    "totalClicks": 6,
+    "totalImpressions": 63,
+    "averageCtr": "9.52%",
+    "averagePosition": 1.8,
+    "indexedPages": 18,
+    "crawlErrors": 0
+  },
+  "seoHealth": {
+    "score": 98,
+    "isSitemapActive": true,
+    "isRobotsTxtActive": true,
+    "brokenLinksCount": 0
+  },
+  "navigationMenu": [
+    {
+      "label": "Home",
+      "id": "home"
+    },
+    {
+      "label": "About Us",
+      "id": "about-dropdown",
+      "children": [
+        {
+          "label": "Our Story / Mission",
+          "id": "about"
+        },
+        {
+          "label": "Videos / Gallery",
+          "id": "videos"
+        },
+        {
+          "label": "Blogs & Guides",
+          "id": "blog"
+        }
+      ]
+    },
+    {
+      "label": "Courses",
+      "id": "courses-dropdown",
+      "children": [
+        {
+          "label": "All Courses",
+          "id": "courses"
+        },
+        {
+          "label": "Noorani Qaida",
+          "id": "noorani-qaida"
+        },
+        {
+          "label": "Kids Quran Classes",
+          "id": "kids-classes"
+        }
+      ]
+    },
+    {
+      "label": "Pricing",
+      "id": "fees"
+    },
+    {
+      "label": "Download",
+      "id": "download"
+    },
+    {
+      "label": "Contact Us",
+      "id": "contact"
+    }
+  ],
+  "widgets": {
+    "footer1": [
+      "Text: About Truth Quran Academy",
+      "Custom HTML: License Credentials"
+    ],
+    "footer2": [
+      "Recent Posts widget",
+      "Contact Info Address details"
+    ],
+    "sidebar": [
+      "Search bar",
+      "Categories navigation",
+      "Rank Math breadcrumb widget"
+    ]
+  },
+  "aiSettings": {
+    "defaultProvider": "gemini",
+    "isEnabled": true,
+    "autoDraftingEnabled": true,
+    "providers": {
+      "openai": {
+        "enabled": false,
+        "apiKey": "",
+        "model": "gpt-4o",
+        "temperature": 0.7,
+        "maxTokens": 2048,
+        "isValidated": false
+      },
+      "gemini": {
+        "enabled": true,
+        "apiKey": "",
+        "model": "gemini-2.5-flash",
+        "temperature": 0.7,
+        "maxTokens": 2048,
+        "isValidated": true
+      },
+      "anthropic": {
+        "enabled": false,
+        "apiKey": "",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "maxTokens": 2048,
+        "isValidated": false
+      }
+    }
+  },
+  "customImages": {
+    "siteLogo": {
+      "url": "/src/assets/images/truth_quran_new_logo_1784203145448.jpg",
+      "alt": "Truth Quran Academy Logo",
+      "title": "Truth Quran Academy Logo",
+      "caption": "Official Academy Logo",
+      "description": "The primary branding logo used on headers, footers, and cards.",
+      "dimensions": "512x512",
+      "size": "142 KB"
+    },
+    "siteFavicon": {
+      "url": "/src/assets/images/truth_quran_new_logo_1784203145448.jpg",
+      "alt": "Truth Quran Academy Favicon",
+      "title": "Truth Quran Academy Favicon",
+      "dimensions": "64x64",
+      "size": "12 KB"
+    },
+    "heroBg": {
+      "url": "/src/assets/images/kids_quran_learning_1784116863937.jpg",
+      "alt": "Kids studying Quran together",
+      "title": "Hero Banner Background",
+      "caption": "Primary background illustrating kids learning",
+      "description": "Main banner background for the academy homepage.",
+      "dimensions": "1920x1080",
+      "size": "310 KB"
+    },
+    "aboutTeacherBg": {
+      "url": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
+      "alt": "Online Quran teacher guiding adult student",
+      "title": "Online Tutor Section Background",
+      "dimensions": "1200x800",
+      "size": "245 KB"
+    },
+    "aboutFemaleTeacherBg": {
+      "url": "/src/assets/images/female_quran_tutor_1784119152017.jpg",
+      "alt": "Female tutor assisting child student",
+      "title": "Female Tutor Section Background",
+      "dimensions": "1200x800",
+      "size": "220 KB"
+    },
+    "kidsLearningBg": {
+      "url": "/src/assets/images/kids_quran_learning_1784116863937.jpg",
+      "alt": "Young kids recitation circle",
+      "title": "Kids Classes Section Background",
+      "dimensions": "1920x1080",
+      "size": "310 KB"
+    },
+    "tajweedMasteryBg": {
+      "url": "/src/assets/images/tajweed_mastery_art_1784119171753.jpg",
+      "alt": "Traditional calligraphic art representing Tajweed precision",
+      "title": "Tajweed Mastery Illustration",
+      "dimensions": "1200x800",
+      "size": "290 KB"
+    },
+    "parentKidsQuranBg": {
+      "url": "/src/assets/images/parent_kids_quran_1784121554278.jpg",
+      "alt": "Muslim parent teaching children holy Quran",
+      "title": "Family Quran Learning",
+      "dimensions": "1200x800",
+      "size": "260 KB"
+    },
+    "islamicKidsLearningBg": {
+      "url": "/src/assets/images/islamic_kids_learning_1784120227940.jpg",
+      "alt": "Group of young Muslim children reading Quran",
+      "title": "Islamic Kids Classes",
+      "dimensions": "1200x800",
+      "size": "240 KB"
+    },
+    "islamicGirlQaidaBg": {
+      "url": "/src/assets/images/islamic_girl_qaida_1784120204322.jpg",
+      "alt": "Young girl learning Arabic Qaida alphabet",
+      "title": "Noorani Qaida Starting Block",
+      "dimensions": "1200x800",
+      "size": "215 KB"
+    },
+    "quran3DIcon": {
+      "url": "/src/assets/images/holy_quran_icon_1784372106996.jpg",
+      "alt": "Holy Quran Golden Book 3D Icon",
+      "title": "Golden Quran 3D Icon",
+      "dimensions": "512x512",
+      "size": "95 KB"
+    }
+  }
 }

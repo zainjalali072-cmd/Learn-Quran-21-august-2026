@@ -291,42 +291,48 @@ const getDatabase = () => {
       ],
       pricingPlans: [
         {
-          id: "price-1",
-          name: "Basic Starter",
+          id: "tier-1",
+          name: "2 Days / Week",
           price: "$30",
           period: "month",
           features: [
-            "1-on-1 Classes",
-            "2 Classes per week",
-            "Tajweed Essentials",
-            "Monthly Report Cards"
+            "8 Interactive 1-on-1 Lessons",
+            "30 Minutes Per Lesson",
+            "Personalized Student Dashboard",
+            "Male/Female Tutors Option",
+            "Monthly Progress Reports",
+            "24/7 Flexible Rescheduling",
+            "Certificate of Completion"
           ]
         },
         {
-          id: "price-2",
-          name: "Standard Premium",
+          id: "tier-2",
+          name: "3 Days / Week",
           price: "$45",
           period: "month",
           features: [
-            "1-on-1 Classes",
-            "3 Classes per week",
+            "12 Interactive 1-on-1 Lessons",
+            "30 Minutes Per Lesson",
             "Custom Syllabus & Homework Files",
+            "Prioritized Tutor Matching",
             "Weekly Progress Quizzes",
-            "Parent-Teacher Meetings"
+            "Complementary Parent-Teacher Meetings",
+            "Certificate of Excellence (Ijazah Track)"
           ],
           isPopular: true
         },
         {
-          id: "price-3",
-          name: "Elite Mastery",
+          id: "tier-3",
+          name: "5 Days / Week",
           price: "$60",
           period: "month",
           features: [
-            "1-on-1 Classes",
-            "5 Classes per week",
+            "20 Interactive 1-on-1 Lessons",
+            "30 Minutes Per Lesson",
             "High-Intensity Learning Track",
             "Daily Memorization Logs & Audits",
-            "Dedicated Academic Coach",
+            "Unlimited Rescheduling Privileges",
+            "Dedicated Academic Coach Access",
             "Full Ijazah & Sanad Path Preparation"
           ]
         }
