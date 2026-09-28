@@ -68,6 +68,15 @@ export const coursesData: Course[] = [
     image: tajweedMasteryBg
   },
   {
+    id: "arabic-language",
+    title: "Arabic Language Course",
+    arabicGlyph: "عَرَبِيّ",
+    tag: "Classical Fusha",
+    description: "Master classical Quranic Arabic (Fusha). This course builds grammar, vocabulary, reading, and listening comprehension so you can understand the Quran in its native tongue.",
+    difficulty: "Intermediate",
+    image: teacherBg
+  },
+  {
     id: "islamic-studies",
     title: "Islamic Studies for Kids",
     arabicGlyph: "أَدَب",
