@@ -38,7 +38,7 @@
         audio.setAttribute("playsinline", "true");
         audio.setAttribute("webkit-playsinline", "true");
         audio.setAttribute("x5-playsinline", "true");
-        audio.volume = 0.85;
+        audio.volume = 1.0;
 
         var hasPlayedWithSound = false;
         var audioCtx = null;
@@ -89,10 +89,23 @@
             try {
               var src = ctx.createBufferSource();
               src.buffer = audioBuffer;
+
+              // Dynamics Compressor to maximize loudness cleanly without clipping
+              var compressor = ctx.createDynamicsCompressor();
+              compressor.threshold.setValueAtTime(-10, ctx.currentTime);
+              compressor.knee.setValueAtTime(8, ctx.currentTime);
+              compressor.ratio.setValueAtTime(4, ctx.currentTime);
+              compressor.attack.setValueAtTime(0.003, ctx.currentTime);
+              compressor.release.setValueAtTime(0.25, ctx.currentTime);
+
+              // Amplified Gain Node for high-volume speaker projection
               var gain = ctx.createGain();
-              gain.gain.value = 0.85;
-              src.connect(gain);
+              gain.gain.value = 1.35;
+
+              src.connect(compressor);
+              compressor.connect(gain);
               gain.connect(ctx.destination);
+
               src.start(0);
               hasPlayedWithSound = true;
               removeGestureListeners();
@@ -111,7 +124,7 @@
           }
 
           audio.muted = false;
-          audio.volume = 0.85;
+          audio.volume = 1.0;
 
           try {
             var p = audio.play();
@@ -160,7 +173,7 @@
 
           // Mobile device user interacted! Unmute immediately & reset to beginning so they hear from start!
           audio.muted = false;
-          audio.volume = 0.85;
+          audio.volume = 1.0;
           if (audio.currentTime > 0.1 && audio.currentTime < 5) {
             audio.currentTime = 0;
           }
