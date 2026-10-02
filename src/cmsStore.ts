@@ -583,15 +583,73 @@ export const cleanHTMLToExcerpt = (content: string, existingExcerpt?: string): s
   return words.slice(0, 32).join(" ") + "...";
 };
 
+export const safeMergeBlogPost = (base: BlogPost, override: Partial<BlogPost>): BlogPost => {
+  const merged: BlogPost = {
+    ...base,
+    ...override,
+    id: override.id || base.id,
+    slug: override.slug || base.slug,
+    title: override.title !== undefined && override.title !== "" ? override.title : base.title,
+    content: override.content !== undefined ? override.content : base.content,
+    excerpt: override.excerpt !== undefined && override.excerpt !== "" ? override.excerpt : base.excerpt,
+    status: override.status || base.status || "draft",
+    category: override.category || base.category,
+    coverImage: override.coverImage !== undefined && override.coverImage !== "" ? override.coverImage : base.coverImage,
+    featuredImage: override.featuredImage !== undefined && override.featuredImage !== "" ? override.featuredImage : base.featuredImage,
+    ogImage: override.ogImage || override.featuredImage || override.coverImage || base.ogImage,
+    author: {
+      name: override.author?.name || base.author?.name || "Muhammad Zain",
+      avatar: override.author?.avatar || base.author?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
+      role: override.author?.role || base.author?.role || "Senior Quran Scholar"
+    },
+    tags: Array.isArray(override.tags) && override.tags.length > 0 ? override.tags : base.tags,
+    date: override.date || base.date,
+    publishDate: override.publishDate || base.publishDate,
+    lastUpdated: override.lastUpdated || base.lastUpdated,
+    readTime: override.readTime || base.readTime,
+    seoTitle: override.seoTitle || base.seoTitle,
+    metaTitle: override.metaTitle !== undefined && override.metaTitle !== "" ? override.metaTitle : base.metaTitle,
+    metaDescription: override.metaDescription !== undefined && override.metaDescription !== "" ? override.metaDescription : base.metaDescription,
+    focusKeyword: override.focusKeyword !== undefined ? override.focusKeyword : base.focusKeyword,
+    secondaryKeywords: override.secondaryKeywords || base.secondaryKeywords,
+    canonicalUrl: override.canonicalUrl || base.canonicalUrl,
+    robotsMeta: override.robotsMeta || base.robotsMeta,
+    ogTitle: override.ogTitle || base.ogTitle,
+    ogDescription: override.ogDescription || base.ogDescription,
+    twitterTitle: override.twitterTitle || base.twitterTitle,
+    twitterDescription: override.twitterDescription || base.twitterDescription,
+    twitterCard: override.twitterCard || base.twitterCard,
+    imageAltText: override.imageAltText !== undefined ? override.imageAltText : base.imageAltText,
+    imageTitle: override.imageTitle !== undefined ? override.imageTitle : base.imageTitle,
+    imageCaption: override.imageCaption !== undefined ? override.imageCaption : base.imageCaption,
+    imageDescription: override.imageDescription !== undefined ? override.imageDescription : base.imageDescription,
+    imageFileName: override.imageFileName || base.imageFileName,
+    schemaType: override.schemaType || base.schemaType,
+    customSchemaJson: override.customSchemaJson !== undefined && override.customSchemaJson !== "" ? override.customSchemaJson : base.customSchemaJson,
+    attachments: override.attachments || base.attachments || [],
+    videoUrls: override.videoUrls || base.videoUrls || [],
+    pdfUrls: override.pdfUrls || base.pdfUrls || [],
+    customLinks: override.customLinks || base.customLinks || [],
+    blocks: override.blocks || base.blocks,
+    arabicVerse: override.arabicVerse || base.arabicVerse
+  };
+  return ensureBlogPostSEO(merged);
+};
+
 export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
   if (!post) return post;
   const cleanExcerpt = cleanHTMLToExcerpt(post.content || "", post.excerpt);
-  const validImage = post.featuredImage || post.coverImage || post.ogImage || DEFAULT_POST_IMAGE;
 
   const stripped = (post.content || "").replace(/<[^>]*>/g, "");
   const words = stripped.trim() ? stripped.trim().split(/\s+/).filter(Boolean).length : 0;
   const sentences = stripped.split(/[.!?]+/).filter(s => s.trim().length > 2).length || 1;
   const paragraphs = (post.content || "").split(/<\/p>|<br\s*\/?>|\n\n+/).filter(p => p.trim().length > 0).length || 1;
+
+  // Preserve user images without forcing default stock placeholders
+  const userCover = post.coverImage !== undefined ? post.coverImage : "";
+  const userFeatured = post.featuredImage !== undefined ? post.featuredImage : "";
+  const userOg = post.ogImage !== undefined ? post.ogImage : "";
+  const validImage = userFeatured || userCover || userOg || "";
 
   return {
     ...post,
@@ -602,11 +660,11 @@ export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
     customLinks: post.customLinks || [],
 
     // Core content and metadata fields
-    excerpt: post.excerpt || cleanExcerpt,
-    coverImage: post.coverImage || validImage,
-    featuredImage: post.featuredImage || validImage,
-    ogImage: post.ogImage || validImage,
-    status: post.status || "published",
+    excerpt: post.excerpt !== undefined && post.excerpt !== "" ? post.excerpt : cleanExcerpt,
+    coverImage: userCover || validImage,
+    featuredImage: userFeatured || validImage,
+    ogImage: userOg || validImage,
+    status: post.status || "draft",
     author: {
       name: post.author?.name || "Muhammad Zain",
       avatar: post.author?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
@@ -615,32 +673,33 @@ export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
     date: post.date || post.publishDate || new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
     readTime: post.readTime || "5 min read",
     category: post.category || "Tajweed Rules",
-    tags: post.tags && post.tags.length > 0 ? post.tags : ["Tajweed"],
-    content: post.content !== undefined ? post.content : "<p>Article content details...</p>",
+    tags: post.tags && post.tags.length > 0 ? post.tags : ["Tajweed Rules"],
+    content: post.content !== undefined ? post.content : "",
     seoTitle: post.seoTitle || (post.title ? `${post.title} | Truth Quran Academy` : "Truth Quran Academy"),
-    metaTitle: post.metaTitle || post.title || "",
-    metaDescription: post.metaDescription || (post.excerpt || cleanExcerpt).substring(0, 150),
-    focusKeyword: post.focusKeyword || (post.tags && post.tags[0]) || "Tajweed",
+    metaTitle: post.metaTitle !== undefined && post.metaTitle !== "" ? post.metaTitle : (post.title || ""),
+    metaDescription: post.metaDescription !== undefined && post.metaDescription !== "" ? post.metaDescription : (post.excerpt || cleanExcerpt).substring(0, 160),
+    focusKeyword: post.focusKeyword !== undefined ? post.focusKeyword : "",
+    secondaryKeywords: post.secondaryKeywords || [],
     slug: post.slug || post.id || "blog-article",
     canonicalUrl: post.canonicalUrl || `https://truthquranacademy.com/blog/${post.slug || post.id}/`,
     robotsMeta: post.robotsMeta || "index, follow, max-image-preview:large",
-    ogTitle: post.ogTitle || post.title || "",
-    ogDescription: post.ogDescription || post.excerpt || cleanExcerpt,
-    twitterTitle: post.twitterTitle || post.ogTitle || post.title || "",
-    twitterDescription: post.twitterDescription || post.ogDescription || post.excerpt || cleanExcerpt,
+    ogTitle: post.ogTitle || post.metaTitle || post.title || "",
+    ogDescription: post.ogDescription || post.metaDescription || post.excerpt || cleanExcerpt,
+    twitterTitle: post.twitterTitle || post.ogTitle || post.metaTitle || post.title || "",
+    twitterDescription: post.twitterDescription || post.ogDescription || post.metaDescription || post.excerpt || cleanExcerpt,
     twitterCard: post.twitterCard || "summary_large_image",
-    imageAltText: post.imageAltText || (post.title ? `${post.title} cover banner` : "Truth Quran Academy Cover"),
-    imageTitle: post.imageTitle || (post.title ? `${post.title} featured photo` : "Truth Quran Academy Photo"),
-    imageCaption: post.imageCaption || (post.title ? `Illustration for ${post.title}` : ""),
-    imageDescription: post.imageDescription || (post.title ? `High quality featured photo for article ${post.title}` : ""),
+    imageAltText: post.imageAltText !== undefined ? post.imageAltText : (post.title ? `${post.title} cover banner` : ""),
+    imageTitle: post.imageTitle !== undefined ? post.imageTitle : (post.title ? `${post.title} featured photo` : ""),
+    imageCaption: post.imageCaption !== undefined ? post.imageCaption : "",
+    imageDescription: post.imageDescription !== undefined ? post.imageDescription : "",
     imageFileName: post.imageFileName || `${(post.slug || "image").toLowerCase()}.jpg`,
     publishDate: post.publishDate || post.date || new Date().toISOString().split("T")[0],
     lastUpdated: post.lastUpdated || post.publishDate || post.date || new Date().toISOString().split("T")[0],
-    wordCount: post.wordCount !== undefined ? post.wordCount : (words || 450),
+    wordCount: post.wordCount !== undefined ? post.wordCount : words,
     sentenceCount: post.sentenceCount !== undefined ? post.sentenceCount : sentences,
     paragraphCount: post.paragraphCount !== undefined ? post.paragraphCount : paragraphs,
-    internalLinksCount: post.internalLinksCount !== undefined ? post.internalLinksCount : 2,
-    externalLinksCount: post.externalLinksCount !== undefined ? post.externalLinksCount : 1,
+    internalLinksCount: post.internalLinksCount !== undefined ? post.internalLinksCount : 0,
+    externalLinksCount: post.externalLinksCount !== undefined ? post.externalLinksCount : 0,
     schemaType: post.schemaType || "Article",
     customSchemaJson: post.customSchemaJson || `{
   "@context": "https://schema.org",
@@ -752,7 +811,7 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
     };
   }
 
-  // 1. Strict Blog Posts Preservation: Never overwrite or delete user created posts!
+  // 1. Strict Blog Posts Preservation: Never overwrite or delete user created posts or their SEO fields!
   const postsMap = new Map<string, BlogPost>();
 
   // Add all base defaults first
@@ -766,7 +825,12 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
     incoming.blogPosts.forEach(incPost => {
       if (!incPost) return;
       const key = incPost.id || incPost.slug;
-      if (key) postsMap.set(key, ensureBlogPostSEO(incPost));
+      if (!key) return;
+      if (postsMap.has(key)) {
+        postsMap.set(key, safeMergeBlogPost(postsMap.get(key)!, incPost));
+      } else {
+        postsMap.set(key, ensureBlogPostSEO(incPost));
+      }
     });
   }
 
@@ -779,29 +843,7 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
 
       if (postsMap.has(key)) {
         const existing = postsMap.get(key)!;
-        postsMap.set(key, ensureBlogPostSEO({
-          ...existing,
-          ...cachedPost,
-          id: existing.id || cachedPost.id,
-          slug: existing.slug || cachedPost.slug,
-          title: cachedPost.title || existing.title,
-          content: cachedPost.content !== undefined ? cachedPost.content : existing.content,
-          excerpt: cachedPost.excerpt || existing.excerpt,
-          coverImage: cachedPost.coverImage || existing.coverImage,
-          featuredImage: cachedPost.featuredImage || existing.featuredImage,
-          category: cachedPost.category || existing.category,
-          tags: (cachedPost.tags && cachedPost.tags.length > 0) ? cachedPost.tags : existing.tags,
-          author: cachedPost.author || existing.author,
-          seoTitle: cachedPost.seoTitle || existing.seoTitle,
-          metaTitle: cachedPost.metaTitle || existing.metaTitle,
-          metaDescription: cachedPost.metaDescription || existing.metaDescription,
-          focusKeyword: cachedPost.focusKeyword || existing.focusKeyword,
-          canonicalUrl: cachedPost.canonicalUrl || existing.canonicalUrl,
-          attachments: cachedPost.attachments || existing.attachments || [],
-          videoUrls: cachedPost.videoUrls || existing.videoUrls || [],
-          pdfUrls: cachedPost.pdfUrls || existing.pdfUrls || [],
-          customLinks: cachedPost.customLinks || existing.customLinks || []
-        }));
+        postsMap.set(key, safeMergeBlogPost(existing, cachedPost));
       } else {
         // User created post exists in local cache only -> Preserve it!
         postsMap.set(key, ensureBlogPostSEO(cachedPost));

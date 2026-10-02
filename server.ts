@@ -14,6 +14,40 @@ if (!fs.existsSync(BACKUPS_DIR)) {
   } catch (_) {}
 }
 
+const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
+if (!fs.existsSync(UPLOADS_DIR)) {
+  try {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  } catch (_) {}
+}
+
+// Helper to extract base64 data URLs and save to permanent public/uploads files
+const saveBase64ImageToUploads = (dataUrl: string, prefix = "img"): string => {
+  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+    return dataUrl;
+  }
+  try {
+    const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+    if (!matches || matches.length < 3) return dataUrl;
+    let ext = matches[1].toLowerCase();
+    if (ext === "jpeg") ext = "jpg";
+    if (ext.includes("svg")) ext = "svg";
+    const base64Data = matches[2];
+    const buffer = Buffer.from(base64Data, "base64");
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
+    const cleanPrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 30) || "upload";
+    const filename = `${cleanPrefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}.${ext}`;
+    const filePath = path.join(UPLOADS_DIR, filename);
+    fs.writeFileSync(filePath, buffer);
+    return `/uploads/${filename}`;
+  } catch (err) {
+    console.error("Failed to convert base64 image to static file:", err);
+    return dataUrl;
+  }
+};
+
 // Automatic and Safe Database Snapshot Creation
 const createAutoBackup = (sourceData: any, label = "auto_snapshot") => {
   try {
@@ -1362,6 +1396,42 @@ app.get(["/feed", "/feed/", "/rss.xml"], (req, res) => {
   return res.send(rssXml);
 });
 
+// Dedicated Media Upload Endpoint (saves base64 images directly into public/uploads static files)
+app.post("/api/media/upload", csrfProtection, (req, res) => {
+  try {
+    const { fileData, fileName } = req.body || {};
+    if (!fileData || typeof fileData !== "string") {
+      return res.status(400).json({ success: false, error: "No image data provided" });
+    }
+    const safePrefix = (fileName || "upload").replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 30);
+    const url = saveBase64ImageToUploads(fileData, safePrefix);
+    if (!url.startsWith("/uploads/")) {
+      return res.status(500).json({ success: false, error: "Failed to save image" });
+    }
+    const today = new Date().toISOString().split("T")[0];
+    const mediaItem = {
+      id: `m-${Date.now()}`,
+      title: fileName || "Uploaded Image",
+      url,
+      size: `${Math.round(fileData.length * 0.75 / 1024)} KB`,
+      date: today,
+      type: "image/jpeg",
+      dimensions: "1200x800",
+      alt: fileName || "Article media"
+    };
+
+    const db = getDatabase();
+    if (!db.mediaLibrary) db.mediaLibrary = [];
+    db.mediaLibrary.unshift(mediaItem);
+    saveDatabase(db, true);
+
+    return res.json({ success: true, url, media: mediaItem });
+  } catch (err: any) {
+    console.error("Media upload error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Upload failed" });
+  }
+});
+
 // Update CMS database with strict auth & CSRF & validation
 app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
   const session = validateSession(req);
@@ -1371,8 +1441,8 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
     return res.status(401).json({ error: "Unauthorized session. Please login to the WordPress Panel." });
   }
 
-  // Authorization Check if session is present
-  if (session && session.role !== "Administrator" && session.role !== "Editor") {
+  // Authorization Check if session is present and token wasn't used
+  if (session && !isValidAdminToken && session.role !== "Administrator" && session.role !== "Editor") {
     return res.status(403).json({ error: "Access denied. Only Administrators and Editors can publish changes." });
   }
 
@@ -1381,9 +1451,57 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
     return res.status(400).json({ error: "Invalid payload." });
   }
 
+  // Automatic Base64 Image Offloading: Convert any heavy base64 strings into permanent static URLs
+  if (Array.isArray(updatedData.blogPosts)) {
+    updatedData.blogPosts = updatedData.blogPosts.map((post: any) => {
+      if (!post || typeof post !== "object") return post;
+      const cleanPost = { ...post };
+      const postSlugOrId = cleanPost.slug || cleanPost.id || "post";
+
+      // 1. Cover Image Base64 Conversion
+      if (cleanPost.coverImage && typeof cleanPost.coverImage === "string" && cleanPost.coverImage.startsWith("data:image/")) {
+        cleanPost.coverImage = saveBase64ImageToUploads(cleanPost.coverImage, `cover-${postSlugOrId}`);
+      }
+      // 2. Featured Image Base64 Conversion
+      if (cleanPost.featuredImage && typeof cleanPost.featuredImage === "string" && cleanPost.featuredImage.startsWith("data:image/")) {
+        cleanPost.featuredImage = saveBase64ImageToUploads(cleanPost.featuredImage, `featured-${postSlugOrId}`);
+      }
+      // 3. Keep images in sync so neither is blank if one is set
+      if (cleanPost.coverImage && !cleanPost.featuredImage) {
+        cleanPost.featuredImage = cleanPost.coverImage;
+      } else if (cleanPost.featuredImage && !cleanPost.coverImage) {
+        cleanPost.coverImage = cleanPost.featuredImage;
+      }
+      if (cleanPost.ogImage && typeof cleanPost.ogImage === "string" && cleanPost.ogImage.startsWith("data:image/")) {
+        cleanPost.ogImage = cleanPost.coverImage || cleanPost.featuredImage;
+      }
+
+      // 4. Inline Base64 images inside post content conversion
+      if (cleanPost.content && typeof cleanPost.content === "string" && cleanPost.content.includes("data:image/")) {
+        cleanPost.content = cleanPost.content.replace(/src=["'](data:image\/[^"']+)["']/g, (_match: string, dataUrl: string) => {
+          const staticUrl = saveBase64ImageToUploads(dataUrl, `inline-${postSlugOrId}`);
+          return `src="${staticUrl}"`;
+        });
+      }
+
+      // 5. Ensure Rank Math fields are never undefined or stripped
+      if (cleanPost.focusKeyword === undefined && cleanPost.focusKeywords) {
+        cleanPost.focusKeyword = cleanPost.focusKeywords;
+      }
+      if (cleanPost.metaTitle === undefined && cleanPost.seoTitle) {
+        cleanPost.metaTitle = cleanPost.seoTitle.replace(/ \| Truth Quran Academy$/i, "");
+      }
+      if (cleanPost.metaDescription === undefined && cleanPost.excerpt) {
+        cleanPost.metaDescription = cleanPost.excerpt;
+      }
+
+      return cleanPost;
+    });
+  }
+
   const db = getDatabase();
 
-  // Check for auto-indexing triggers on new/updated content
+  // Check for auto-indexing triggers on new/updated content (ONLY FOR PUBLISHED CONTENT)
   const autoIndexUrls: string[] = [];
   const domain = "https://truthquranacademy.com";
   const indexingSettings = db.indexingSettings || {
@@ -1395,11 +1513,14 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
   };
 
   if (indexingSettings.isEnabled) {
-    // Detect new or updated posts
+    // Detect new or updated posts - ONLY IF PUBLISHED!
     if (indexingSettings.autoIndexPosts && Array.isArray(updatedData.blogPosts)) {
       const oldPostsMap = new Map<string, any>((db.blogPosts || []).map((p: any) => [p.id, p]));
       updatedData.blogPosts.forEach((post: any) => {
         if (!post) return;
+        const isPostPublished = (post.status || "published").toLowerCase() === "published";
+        if (!isPostPublished) return; // Never index draft posts!
+
         const slug = post.slug || post.id;
         const old: any = oldPostsMap.get(post.id);
         const postUrl = `${domain}/blog/${slug}`;
@@ -1458,7 +1579,8 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
   return res.json({ 
     success: true, 
     message: "WP DB fully synchronized!", 
-    autoIndexedUrls: autoIndexUrls 
+    autoIndexedUrls: autoIndexUrls,
+    blogPosts: cleanData.blogPosts
   });
 });
 

@@ -1191,6 +1191,7 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
               cmsData={cmsData} 
               onSave={onSave} 
               externalPostId={editingItemId}
+              onSelectPost={(id) => setEditingItemId(id)}
             />
           ) : (
             // Structured custom post type / homepage sections editors

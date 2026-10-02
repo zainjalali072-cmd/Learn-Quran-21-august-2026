@@ -234,19 +234,6 @@
   ],
   "blogPosts": [
     {
-      "id": "test-draft-123",
-      "title": "Test Tajweed Draft Article",
-      "slug": "test-tajweed-draft-article",
-      "content": "<p>This is a test draft article with an image <img src=\"https://images.unsplash.com/photo-test\" alt=\"test\" /></p>",
-      "status": "draft",
-      "category": "Tajweed Rules",
-      "focusKeyword": "Tajweed Mastery",
-      "metaTitle": "Test Tajweed Draft - Learn Tajweed Online",
-      "metaDescription": "Complete guide to Tajweed mastery online with test draft.",
-      "featuredImage": "https://images.unsplash.com/photo-featured-test",
-      "coverImage": "https://images.unsplash.com/photo-featured-test"
-    },
-    {
       "id": "hifz-tips-success",
       "title": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
       "excerpt": "Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemia Lahore techniques to double your retention rate.",
@@ -1121,32 +1108,32 @@
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     },
     {
-      "id": "hit_1790854279515_4dvbl",
-      "timestamp": "2026-10-01T11:31:19.515Z",
-      "ip": "154.208.58.53",
-      "country": "SA",
-      "countryName": "Saudi Arabia",
+      "id": "hit_1790768904755_3jgk8",
+      "timestamp": "2026-09-30T11:48:24.755Z",
+      "ip": "116.90.119.251",
+      "country": "CA",
+      "countryName": "Canada",
       "browser": "Chrome",
       "device": "Desktop",
       "url": "/",
       "referrer": "https://aistudio.google.com/",
       "channel": "Organic Search",
-      "sessionId": "sess_1790853159099_hmlqywp",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+      "sessionId": "sess_1790685303416_55yln48",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     },
     {
-      "id": "hit_1790854279524_g5k92",
-      "timestamp": "2026-10-01T11:31:19.524Z",
-      "ip": "154.208.58.53",
-      "country": "SA",
-      "countryName": "Saudi Arabia",
+      "id": "hit_1790768904762_ulfgn",
+      "timestamp": "2026-09-30T11:48:24.762Z",
+      "ip": "116.90.119.251",
+      "country": "CA",
+      "countryName": "Canada",
       "browser": "Chrome",
       "device": "Desktop",
       "url": "/",
       "referrer": "https://aistudio.google.com/",
       "channel": "Organic Search",
-      "sessionId": "sess_1790853159099_hmlqywp",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+      "sessionId": "sess_1790685303416_55yln48",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     }
   ],
   "indexingSettings": {

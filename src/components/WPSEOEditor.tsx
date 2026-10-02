@@ -69,9 +69,10 @@ interface WPSEOEditorProps {
   cmsData: CMSData;
   onSave: (newData: CMSData, customMsg?: string) => void;
   externalPostId?: string | null;
+  onSelectPost?: (id: string | null) => void;
 }
 
-export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEditorProps) {
+export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectPost }: WPSEOEditorProps) {
   // 1. Post Selection State
   const posts = cmsData.blogPosts || [];
 
@@ -110,69 +111,104 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     };
   };
 
+  // Track previous externalPostId to avoid wiping active article state on parent re-renders
+  const lastExternalIdRef = useRef<string | null | undefined>(externalPostId);
+
   // Selected post ID from dropdown or parent
   const [selectedPostId, setSelectedPostId] = useState<string>(() => {
     if (externalPostId && externalPostId !== "new") return externalPostId;
     return "new";
   });
 
-  useEffect(() => {
-    if (externalPostId && externalPostId !== "new") {
-      setSelectedPostId(externalPostId);
-    } else if (externalPostId === "new" || externalPostId === null) {
-      setSelectedPostId("new");
-    }
-  }, [externalPostId]);
-
-  // Current Post loaded
-  const currentPostIndex = posts.findIndex((p) => p.id === selectedPostId || p.slug === selectedPostId);
-  const activePost = currentPostIndex !== -1 ? posts[currentPostIndex] : null;
-
   // Local Editable Post State
   const [currentPost, setCurrentPost] = useState<BlogPost | null>(() => {
     if (externalPostId && externalPostId !== "new") {
       const p = posts.find((item) => item.id === externalPostId || item.slug === externalPostId);
-      if (p) return p;
+      if (p) return { ...p };
     }
     return createBlankPost();
   });
 
+  // Synchronize ONLY when externalPostId explicitly changes from parent navigation
   useEffect(() => {
-    if (selectedPostId === "new" || externalPostId === "new" || !selectedPostId) {
-      setCurrentPost(createBlankPost());
-    } else if (activePost) {
-      setCurrentPost({
-        ...activePost,
-        status: activePost.status || "published",
-        title: activePost.title || "",
-        content: activePost.content || "",
-        excerpt: activePost.excerpt || "",
-        category: activePost.category || "Tajweed Rules",
-        date: activePost.date || new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-        readTime: activePost.readTime || "5 min read",
-        author: {
-          name: activePost.author?.name || "Muhammad Zain",
-          avatar: activePost.author?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
-          role: activePost.author?.role || "Senior Quran Scholar"
-        },
-        tags: activePost.tags || [],
-        metaTitle: activePost.metaTitle || activePost.title || "",
-        metaDescription: activePost.metaDescription || activePost.excerpt || "",
-        focusKeyword: activePost.focusKeyword || "",
-        slug: activePost.slug || activePost.id || "post-slug",
-        robotsMeta: activePost.robotsMeta || "index, follow",
-        coverImage: activePost.coverImage || "",
-        featuredImage: activePost.featuredImage || activePost.coverImage || "",
-        imageAltText: activePost.imageAltText || "",
-        imageTitle: activePost.imageTitle || "",
-        imageCaption: activePost.imageCaption || "",
-        attachments: activePost.attachments || [],
-        videoUrls: activePost.videoUrls || [],
-        pdfUrls: activePost.pdfUrls || [],
-        customLinks: activePost.customLinks || []
-      });
+    if (externalPostId !== undefined && externalPostId !== lastExternalIdRef.current) {
+      lastExternalIdRef.current = externalPostId;
+      if (externalPostId && externalPostId !== "new") {
+        setSelectedPostId(externalPostId);
+        const p = posts.find((item) => item.id === externalPostId || item.slug === externalPostId);
+        if (p) {
+          setCurrentPost({
+            ...p,
+            status: p.status || "draft",
+            coverImage: p.coverImage || p.featuredImage || "",
+            featuredImage: p.featuredImage || p.coverImage || "",
+            metaTitle: p.metaTitle || p.title || "",
+            metaDescription: p.metaDescription || p.excerpt || "",
+            focusKeyword: p.focusKeyword || ""
+          });
+          setIsDirty(false);
+          setValidationErrors({});
+        }
+      } else if (externalPostId === "new") {
+        setSelectedPostId("new");
+        setCurrentPost(createBlankPost());
+        setIsDirty(false);
+        setValidationErrors({});
+      }
     }
-  }, [selectedPostId]);
+  }, [externalPostId, posts]);
+
+  // Dropdown switcher to switch articles reliably without losing RankMath or image fields
+  const handleSelectArticleDropdown = (newId: string) => {
+    setValidationErrors({});
+    setSelectedPostId(newId);
+    lastExternalIdRef.current = newId;
+    onSelectPost?.(newId === "new" ? null : newId);
+
+    if (newId === "new") {
+      setCurrentPost(createBlankPost());
+      setIsDirty(false);
+    } else {
+      const p = posts.find((item) => item.id === newId || item.slug === newId);
+      if (p) {
+        setCurrentPost({
+          ...p,
+          status: p.status || "draft",
+          title: p.title || "",
+          content: p.content || "",
+          excerpt: p.excerpt || "",
+          category: p.category || "Tajweed Rules",
+          date: p.date || new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+          readTime: p.readTime || "5 min read",
+          author: {
+            name: p.author?.name || "Muhammad Zain",
+            avatar: p.author?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
+            role: p.author?.role || "Senior Quran Scholar"
+          },
+          tags: Array.isArray(p.tags) ? p.tags : [],
+          seoTitle: p.seoTitle || (p.title ? `${p.title} | Truth Quran Academy` : ""),
+          metaTitle: p.metaTitle || p.title || "",
+          metaDescription: p.metaDescription || p.excerpt || "",
+          focusKeyword: p.focusKeyword || "",
+          secondaryKeywords: p.secondaryKeywords || [],
+          slug: p.slug || p.id || "post-slug",
+          robotsMeta: p.robotsMeta || "index, follow",
+          coverImage: p.coverImage || p.featuredImage || "",
+          featuredImage: p.featuredImage || p.coverImage || "",
+          ogImage: p.ogImage || p.coverImage || p.featuredImage || "",
+          imageAltText: p.imageAltText || "",
+          imageTitle: p.imageTitle || "",
+          imageCaption: p.imageCaption || "",
+          imageDescription: p.imageDescription || "",
+          attachments: p.attachments || [],
+          videoUrls: p.videoUrls || [],
+          pdfUrls: p.pdfUrls || [],
+          customLinks: p.customLinks || []
+        });
+        setIsDirty(false);
+      }
+    }
+  };
 
   // Toast feedback state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -615,8 +651,19 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     const newStatus = statusOverride || currentPost.status || "published";
     const isPublishing = newStatus === "published";
 
+    // Obtain freshest visual editor content if active
+    const activeContent = (editorMode === "visual" && visualEditorRef.current)
+      ? visualEditorRef.current.innerHTML
+      : (currentPost.content || "");
+
+    const postToValidate: BlogPost = {
+      ...currentPost,
+      content: activeContent,
+      status: newStatus
+    };
+
     // 1. Input Validation - Ensure all required data is present before submission
-    const { isValid, errors } = validateArticle(currentPost, isPublishing);
+    const { isValid, errors } = validateArticle(postToValidate, isPublishing);
 
     if (!isValid) {
       setValidationErrors(errors);
@@ -655,21 +702,28 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     const postTitle = (currentPost.title || "").trim();
     const rawSlug = (currentPost.slug || "").trim();
     const postSlug = rawSlug || postTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `article-${Date.now()}`;
-    const cleanExcerpt = cleanHTMLToExcerpt(currentPost.content || "", currentPost.excerpt);
+    const cleanExcerpt = cleanHTMLToExcerpt(activeContent, currentPost.excerpt);
     const validImage = currentPost.coverImage || currentPost.featuredImage || DEFAULT_POST_IMAGE;
     const todayFormatted = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const postCategory = (currentPost.category || "").trim() || "Tajweed Rules";
+    const assignedId = (currentPost.id && currentPost.id !== "new" && !currentPost.id.startsWith("post-new"))
+      ? currentPost.id
+      : (selectedPostId && selectedPostId !== "new" ? selectedPostId : `post-${Date.now()}`);
 
     const updatedPost: BlogPost = {
       ...currentPost,
-      id: currentPost.id || `post-${Date.now()}`,
+      id: assignedId,
       title: postTitle,
       slug: postSlug,
-      content: currentPost.content || "",
+      content: activeContent,
       excerpt: cleanExcerpt || `${postTitle} - Truth Quran Academy`,
       coverImage: validImage,
       featuredImage: validImage,
       ogImage: validImage,
+      imageAltText: currentPost.imageAltText || "",
+      imageTitle: currentPost.imageTitle || "",
+      imageCaption: currentPost.imageCaption || "",
+      imageDescription: currentPost.imageDescription || "",
       category: postCategory,
       date: currentPost.date?.trim() || todayFormatted,
       readTime: currentPost.readTime?.trim() || contentStats.readingTime || "5 min read",
@@ -689,18 +743,27 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       videoUrls: currentPost.videoUrls || [],
       pdfUrls: currentPost.pdfUrls || [],
       customLinks: currentPost.customLinks || [],
+      seoTitle: currentPost.seoTitle || (currentPost.metaTitle ? `${currentPost.metaTitle} | Truth Quran Academy` : `${postTitle} | Truth Quran Academy`),
       metaTitle: (currentPost.metaTitle || postTitle).slice(0, 70),
       metaDescription: (currentPost.metaDescription || cleanExcerpt).slice(0, 160),
       focusKeyword: (currentPost.focusKeyword || "").trim(),
-      robotsMeta: currentPost.robotsMeta || "index, follow"
+      secondaryKeywords: currentPost.secondaryKeywords || [],
+      canonicalUrl: currentPost.canonicalUrl || `https://truthquranacademy.com/blog/${postSlug}/`,
+      robotsMeta: currentPost.robotsMeta || "index, follow",
+      schemaType: currentPost.schemaType || "Article",
+      customSchemaJson: currentPost.customSchemaJson || "",
+      ogTitle: currentPost.ogTitle || currentPost.metaTitle || postTitle,
+      ogDescription: currentPost.ogDescription || currentPost.metaDescription || cleanExcerpt,
+      twitterTitle: currentPost.twitterTitle || currentPost.metaTitle || postTitle,
+      twitterDescription: currentPost.twitterDescription || currentPost.metaDescription || cleanExcerpt,
+      twitterCard: currentPost.twitterCard || "summary_large_image"
     };
 
     let updatedPosts = [...posts];
-    const existingIndex = updatedPosts.findIndex((p) => p.id === currentPost.id || (p.slug && p.slug === postSlug));
+    const existingIndex = updatedPosts.findIndex((p) => p.id === assignedId || (p.slug && p.slug === postSlug));
 
     if (existingIndex !== -1) {
-      updatedPosts.splice(existingIndex, 1);
-      updatedPosts.unshift(updatedPost);
+      updatedPosts[existingIndex] = updatedPost;
     } else {
       updatedPosts.unshift(updatedPost);
     }
@@ -711,12 +774,15 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
     };
 
     if (onSave) {
-      onSave(updatedCMSData, `✅ Article "${updatedPost.title}" updated and saved successfully!`);
+      onSave(updatedCMSData, `✅ Article "${updatedPost.title}" ${newStatus === "published" ? "published live" : "saved as draft"} successfully!`);
     } else {
       saveCMSData(updatedCMSData);
     }
+
     setCurrentPost(updatedPost);
-    setSelectedPostId(updatedPost.id);
+    setSelectedPostId(assignedId);
+    lastExternalIdRef.current = assignedId;
+    onSelectPost?.(assignedId);
     setIsDirty(false);
 
     const timeStr = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -729,7 +795,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
         const postUrl = `https://truthquranacademy.com/blog/${postSlug}`;
         submitUrlsForIndexing([postUrl], "URL_UPDATED", ["google", "indexnow"]).catch(console.error);
       } else {
-        showToast(`Article "${updatedPost.title}" saved successfully!`);
+        showToast(`Article "${updatedPost.title}" saved as draft successfully!`);
       }
     }
   };
@@ -807,7 +873,10 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
       saveCMSData(updatedCMSData);
     }
     setSelectedPostId(newId);
+    lastExternalIdRef.current = newId;
+    onSelectPost?.(newId);
     setCurrentPost(newPost);
+    setIsDirty(false);
     setValidationErrors({});
     showToast("New blank draft created.");
   };
@@ -2833,15 +2902,12 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId }: WPSEOEd
             <span className="w-2 h-2 rounded-full bg-[#d9b45c] animate-pulse"></span>
             <select
               value={selectedPostId}
-              onChange={(e) => {
-                setValidationErrors({});
-                setSelectedPostId(e.target.value);
-              }}
+              onChange={(e) => handleSelectArticleDropdown(e.target.value)}
               className="bg-transparent text-xs font-bold text-[#f2d98a] border-none outline-none cursor-pointer max-w-[200px] truncate"
             >
               {posts.map((p) => (
                 <option key={p.id} value={p.id} className="bg-[#12141b] text-white">
-                  {p.title || "Untitled Draft"} ({p.status})
+                  {p.title || "Untitled Draft"} ({p.status || "published"})
                 </option>
               ))}
               <option value="new" className="bg-[#12141b] text-[#d9b45c]">

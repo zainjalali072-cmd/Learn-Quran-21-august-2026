@@ -234,19 +234,6 @@
   ],
   "blogPosts": [
     {
-      "id": "test-draft-123",
-      "title": "Test Tajweed Draft Article",
-      "slug": "test-tajweed-draft-article",
-      "content": "<p>This is a test draft article with an image <img src=\"https://images.unsplash.com/photo-test\" alt=\"test\" /></p>",
-      "status": "draft",
-      "category": "Tajweed Rules",
-      "focusKeyword": "Tajweed Mastery",
-      "metaTitle": "Test Tajweed Draft - Learn Tajweed Online",
-      "metaDescription": "Complete guide to Tajweed mastery online with test draft.",
-      "featuredImage": "https://images.unsplash.com/photo-featured-test",
-      "coverImage": "https://images.unsplash.com/photo-featured-test"
-    },
-    {
       "id": "hifz-tips-success",
       "title": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
       "excerpt": "Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemia Lahore techniques to double your retention rate.",

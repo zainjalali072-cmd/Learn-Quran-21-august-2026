@@ -1106,6 +1106,34 @@
       "channel": "Organic Search",
       "sessionId": "sess_1790427341654_4mh4suh",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790854279515_4dvbl",
+      "timestamp": "2026-10-01T11:31:19.515Z",
+      "ip": "154.208.58.53",
+      "country": "SA",
+      "countryName": "Saudi Arabia",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790853159099_hmlqywp",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790854279524_g5k92",
+      "timestamp": "2026-10-01T11:31:19.524Z",
+      "ip": "154.208.58.53",
+      "country": "SA",
+      "countryName": "Saudi Arabia",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790853159099_hmlqywp",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
     }
   ],
   "indexingSettings": {
@@ -1118,10 +1146,32 @@
     "googlePrivateKey": "",
     "googleJsonConfig": "",
     "indexNowKey": "4a8e2bc9d17f4019a58b43f9a721b06c",
-    "dailyQuotaUsed": 14,
+    "dailyQuotaUsed": 15,
     "dailyQuotaTotal": 200
   },
   "indexingLogs": [
+    {
+      "id": "idx_in_1790855214277_vnyn",
+      "timestamp": "2026-10-01T11:46:54.277Z",
+      "url": "https://truthquranacademy.com/blog/test-tajweed-draft-article",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 136
+    },
+    {
+      "id": "idx_g_1790855214277_i6pg",
+      "timestamp": "2026-10-01T11:46:54.277Z",
+      "url": "https://truthquranacademy.com/blog/test-tajweed-draft-article",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 148
+    },
     {
       "id": "idx_in_1790598539288_a10w",
       "timestamp": "2026-09-28T12:28:59.288Z",
@@ -1500,6 +1550,17 @@
       "status": "Indexed",
       "lastSubmitted": "2026-09-28T12:28:59.288Z",
       "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog/test-tajweed-draft-article": {
+      "url": "https://truthquranacademy.com/blog/test-tajweed-draft-article",
+      "title": "Test Tajweed Draft Article",
+      "type": "post",
+      "status": "Indexed",
+      "lastSubmitted": "2026-10-01T11:46:54.277Z",
+      "lastCrawled": "2026-10-01T11:46:54.277Z",
       "googleStatus": "Indexed & Submitted (200 OK)",
       "indexNowStatus": "Broadcasted & Verified (200 OK)",
       "httpCode": 200
