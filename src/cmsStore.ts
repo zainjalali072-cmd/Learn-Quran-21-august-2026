@@ -584,6 +584,10 @@ export const cleanHTMLToExcerpt = (content: string, existingExcerpt?: string): s
 };
 
 export const safeMergeBlogPost = (base: BlogPost, override: Partial<BlogPost>): BlogPost => {
+  const updatedCover = override.coverImage !== undefined ? override.coverImage : base.coverImage;
+  const updatedFeatured = override.featuredImage !== undefined ? override.featuredImage : base.featuredImage;
+  const primaryImg = (override.coverImage || override.featuredImage || updatedCover || updatedFeatured || "").trim();
+
   const merged: BlogPost = {
     ...base,
     ...override,
@@ -594,9 +598,9 @@ export const safeMergeBlogPost = (base: BlogPost, override: Partial<BlogPost>): 
     excerpt: override.excerpt !== undefined && override.excerpt !== "" ? override.excerpt : base.excerpt,
     status: override.status || base.status || "draft",
     category: override.category || base.category,
-    coverImage: override.coverImage !== undefined && override.coverImage !== "" ? override.coverImage : base.coverImage,
-    featuredImage: override.featuredImage !== undefined && override.featuredImage !== "" ? override.featuredImage : base.featuredImage,
-    ogImage: override.ogImage || override.featuredImage || override.coverImage || base.ogImage,
+    coverImage: updatedCover || primaryImg,
+    featuredImage: updatedFeatured || primaryImg,
+    ogImage: override.ogImage || primaryImg || base.ogImage,
     author: {
       name: override.author?.name || base.author?.name || "Muhammad Zain",
       avatar: override.author?.avatar || base.author?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
@@ -799,6 +803,7 @@ export const getDefaultCMSData = (): CMSData => {
 
 const STORAGE_KEY = "truth_quran_wordpress_sim_v2";
 let isFetchingCMSData = false;
+let lastSaveTimestamp = 0;
 
 // Strict Merging Engine to Protect User Data from Overwrites
 export const mergePreservingUserData = (cached: CMSData | null, incoming: Partial<CMSData>): CMSData => {
@@ -820,21 +825,7 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
     if (key) postsMap.set(key, ensureBlogPostSEO(p));
   });
 
-  // Overlay incoming posts from server database (source of truth)
-  if (incoming.blogPosts && Array.isArray(incoming.blogPosts)) {
-    incoming.blogPosts.forEach(incPost => {
-      if (!incPost) return;
-      const key = incPost.id || incPost.slug;
-      if (!key) return;
-      if (postsMap.has(key)) {
-        postsMap.set(key, safeMergeBlogPost(postsMap.get(key)!, incPost));
-      } else {
-        postsMap.set(key, ensureBlogPostSEO(incPost));
-      }
-    });
-  }
-
-  // Overlay user edits from cache without dropping server posts or original IDs
+  // Overlay user edits from cache first (preserves local offline drafts)
   if (cached.blogPosts && Array.isArray(cached.blogPosts)) {
     cached.blogPosts.forEach(cachedPost => {
       if (!cachedPost) return;
@@ -851,6 +842,20 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
     });
   }
 
+  // Overlay incoming posts from server database (authoritative source of truth)
+  if (incoming.blogPosts && Array.isArray(incoming.blogPosts)) {
+    incoming.blogPosts.forEach(incPost => {
+      if (!incPost) return;
+      const key = incPost.id || incPost.slug;
+      if (!key) return;
+      if (postsMap.has(key)) {
+        postsMap.set(key, safeMergeBlogPost(postsMap.get(key)!, incPost));
+      } else {
+        postsMap.set(key, ensureBlogPostSEO(incPost));
+      }
+    });
+  }
+
   const mergedPosts = Array.from(postsMap.values());
 
   // 2. Strict Custom Video Preservation
@@ -860,12 +865,23 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
   (cached.videos || []).forEach(v => { if (v && v.id) videoMap.set(v.id, v); });
   const mergedVideos = Array.from(videoMap.values());
 
-  // 3. Strict Media Library Preservation (never delete user-uploaded media)
-  const mediaMap = new Map<string, WPMedia>();
-  baseDefaults.mediaLibrary.forEach(m => { if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m); });
-  (incoming.mediaLibrary || []).forEach(m => { if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m); });
-  (cached.mediaLibrary || []).forEach(m => { if (m && (m.id || m.url)) mediaMap.set(m.id || m.url, m); });
-  const mergedMedia = Array.from(mediaMap.values());
+  // 3. Strict Media Library Preservation & Deletion Protection
+  const deletedIdsRaw = typeof window !== "undefined" ? localStorage.getItem("truth_quran_deleted_media_ids") : null;
+  const deletedIds = new Set<string>(deletedIdsRaw ? JSON.parse(deletedIdsRaw) : []);
+  const deletedUrlsRaw = typeof window !== "undefined" ? localStorage.getItem("truth_quran_deleted_media_urls") : null;
+  const deletedUrls = new Set<string>(deletedUrlsRaw ? JSON.parse(deletedUrlsRaw) : []);
+
+  const isNotDeletedMedia = (m: WPMedia) => m && (m.id || m.url) && !deletedIds.has(m.id) && (!m.url || !deletedUrls.has(m.url));
+
+  let mergedMedia: WPMedia[] = [];
+  if (incoming.mediaLibrary && Array.isArray(incoming.mediaLibrary)) {
+    // Incoming from server or active save is authoritative!
+    mergedMedia = incoming.mediaLibrary.filter(isNotDeletedMedia);
+  } else if (cached.mediaLibrary && Array.isArray(cached.mediaLibrary)) {
+    mergedMedia = cached.mediaLibrary.filter(isNotDeletedMedia);
+  } else {
+    mergedMedia = baseDefaults.mediaLibrary.filter(isNotDeletedMedia);
+  }
 
   // 4. Strict Courses Preservation
   const coursesMap = new Map<string, Course>();
@@ -963,12 +979,17 @@ export const getCMSData = (): CMSData => {
   // Trigger background fetch if not already in progress
   if (!isFetchingCMSData && typeof window !== "undefined" && typeof fetch === "function") {
     isFetchingCMSData = true;
+    const fetchStartTime = Date.now();
     fetch("/api/cms-data")
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error("Failed to load DB");
       })
       .then((serverData) => {
+        // Discard background fetch if a save completed while this fetch was in flight
+        if (fetchStartTime < lastSaveTimestamp) {
+          return;
+        }
         const cachedRaw = localStorage.getItem(STORAGE_KEY);
         let cachedParsed: CMSData | null = null;
         if (cachedRaw) {
@@ -1052,24 +1073,10 @@ export const fetchCMSDataFromServer = async (): Promise<CMSData> => {
   return getCMSData();
 };
 
-export const saveCMSData = async (data: CMSData): Promise<boolean> => {
-  if (!data) return false;
+export const saveCMSDataWithResult = async (data: CMSData): Promise<{ success: boolean; data?: CMSData; error?: string }> => {
+  if (!data) return { success: false, error: "No data provided" };
 
-  // 1. Safe localStorage caching with QuotaExceededError protection
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (storageErr) {
-    console.warn("Could not save to localStorage (quota or sandboxed):", storageErr);
-  }
-
-  // 2. Safe event dispatch
-  try {
-    window.dispatchEvent(new Event("cms_data_updated"));
-  } catch (eventErr) {
-    console.warn("Error dispatching cms_data_updated event:", eventErr);
-  }
-
-  // 3. Sync to server database
+  // 1. Sync to server database first to guarantee persistence
   try {
     const res = await fetch("/api/cms-data", {
       method: "POST",
@@ -1080,15 +1087,124 @@ export const saveCMSData = async (data: CMSData): Promise<boolean> => {
       },
       body: JSON.stringify(data)
     });
+
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
       console.warn("Failed to sync save with server database:", res.status, errText);
-      return false;
+      return { success: false, error: `Server error (${res.status}): ${errText}` };
     }
-    return true;
-  } catch (err) {
+
+    const json = await res.json().catch(() => ({}));
+    let cleanSaved: CMSData = { ...data };
+    if (json.blogPosts && Array.isArray(json.blogPosts)) {
+      cleanSaved.blogPosts = json.blogPosts;
+    }
+    if (json.mediaLibrary && Array.isArray(json.mediaLibrary)) {
+      cleanSaved.mediaLibrary = json.mediaLibrary;
+    }
+    if (json.cmsData && typeof json.cmsData === "object") {
+      cleanSaved = { ...cleanSaved, ...json.cmsData };
+    }
+
+    // Mark save timestamp so any older background fetch is ignored
+    lastSaveTimestamp = Date.now();
+
+    // 2. Persist verified server data to localStorage
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanSaved));
+    } catch (storageErr) {
+      console.warn("Could not save to localStorage (quota or sandboxed):", storageErr);
+    }
+
+    // 3. Safe event dispatch
+    try {
+      window.dispatchEvent(new Event("cms_data_updated"));
+    } catch (eventErr) {
+      console.warn("Error dispatching cms_data_updated event:", eventErr);
+    }
+
+    return { success: true, data: cleanSaved };
+  } catch (err: any) {
     console.warn("Network error syncing save with server database:", err);
-    return true;
+    return { success: false, error: err.message || "Network error" };
+  }
+};
+
+export const saveCMSData = async (data: CMSData): Promise<boolean> => {
+  const result = await saveCMSDataWithResult(data);
+  return result.success;
+};
+
+// Dedicated function to delete a media item permanently from storage & database
+export const deleteMediaItem = async (id: string, url?: string): Promise<{ success: boolean; mediaLibrary?: WPMedia[]; error?: string }> => {
+  try {
+    // 1. Record deleted ID and URL in local deletion tombstone sets
+    if (typeof window !== "undefined") {
+      const deletedIdsRaw = localStorage.getItem("truth_quran_deleted_media_ids");
+      const deletedIds: string[] = deletedIdsRaw ? JSON.parse(deletedIdsRaw) : [];
+      if (id && !deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem("truth_quran_deleted_media_ids", JSON.stringify(deletedIds));
+      }
+
+      if (url) {
+        const deletedUrlsRaw = localStorage.getItem("truth_quran_deleted_media_urls");
+        const deletedUrls: string[] = deletedUrlsRaw ? JSON.parse(deletedUrlsRaw) : [];
+        if (!deletedUrls.includes(url)) {
+          deletedUrls.push(url);
+          localStorage.setItem("truth_quran_deleted_media_urls", JSON.stringify(deletedUrls));
+        }
+      }
+    }
+
+    // 2. Request backend deletion
+    const res = await fetch("/api/media/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
+      },
+      body: JSON.stringify({ id, url })
+    });
+
+    const currentCMS = getCMSData();
+    const updatedMedia = (currentCMS.mediaLibrary || []).filter(m => m.id !== id && (!url || m.url !== url));
+
+    // Also clean up any article references to this deleted media
+    const updatedBlogPosts = (currentCMS.blogPosts || []).map(p => {
+      if (!p) return p;
+      let modified = false;
+      const copy = { ...p };
+      if (url && (copy.coverImage === url || copy.featuredImage === url)) {
+        if (copy.coverImage === url) copy.coverImage = "";
+        if (copy.featuredImage === url) copy.featuredImage = "";
+        if (copy.ogImage === url) copy.ogImage = "";
+        modified = true;
+      }
+      return modified ? copy : p;
+    });
+
+    let finalCMS: CMSData = { ...currentCMS, mediaLibrary: updatedMedia, blogPosts: updatedBlogPosts };
+
+    if (res.ok) {
+      const json = await res.json().catch(() => ({}));
+      if (json.mediaLibrary && Array.isArray(json.mediaLibrary)) {
+        finalCMS.mediaLibrary = json.mediaLibrary;
+      }
+    }
+
+    lastSaveTimestamp = Date.now();
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalCMS));
+    } catch (e) {}
+
+    window.dispatchEvent(new Event("cms_data_updated"));
+    return { success: true, mediaLibrary: finalCMS.mediaLibrary };
+  } catch (err: any) {
+    console.error("Error deleting media item:", err);
+    return { success: false, error: err.message };
   }
 };
 

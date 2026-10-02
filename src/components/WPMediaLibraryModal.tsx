@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Upload, X, Check, Image as ImageIcon, Search, Scissors, Maximize2, Info, Trash2, Sliders, RefreshCw } from "lucide-react";
-import { WPMedia } from "../cmsStore";
+import { WPMedia, getCMSData, deleteMediaItem } from "../cmsStore";
 
 interface WPMediaLibraryModalProps {
   isOpen: boolean;
@@ -254,15 +254,41 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
     }
   };
 
-  // Deletion logic
-  const handleDeleteMediaItem = (id: string, e: React.MouseEvent) => {
+  // Deletion logic with article-in-use safety checks & permanent backend deletion
+  const handleDeleteMediaItem = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm("Are you sure you want to permanently delete this asset from the Media Library database? This will break any dynamic paths using it.")) {
-      const updated = mediaLibrary.filter(item => item.id !== id);
-      onSaveMediaLibrary(updated, "✅ Media asset deleted from library successfully!");
-      if (selectedMediaId === id) {
-        setSelectedMediaId(null);
+    const itemToDelete = mediaLibrary.find(m => m.id === id);
+    if (!itemToDelete) return;
+
+    // Check if image is currently used by any existing articles
+    const cms = getCMSData();
+    const usedInArticles: string[] = [];
+    (cms.blogPosts || []).forEach(post => {
+      const isCover = post.coverImage === itemToDelete.url || (itemToDelete.url && post.coverImage?.includes(itemToDelete.url));
+      const isFeatured = post.featuredImage === itemToDelete.url || (itemToDelete.url && post.featuredImage?.includes(itemToDelete.url));
+      const isContent = post.content && itemToDelete.url && post.content.includes(itemToDelete.url);
+      if (isCover || isFeatured || isContent) {
+        usedInArticles.push(post.title || post.id);
       }
+    });
+
+    if (usedInArticles.length > 0) {
+      const confirmMsg = `⚠️ Caution: This image is currently being used in article(s):\n• ${usedInArticles.join("\n• ")}\n\nDo not delete images that are still being used by existing articles unless you explicitly choose to delete them.\nAre you sure you want to permanently delete it anyway?`;
+      if (!window.confirm(confirmMsg)) {
+        return;
+      }
+    } else {
+      if (!window.confirm("Are you sure you want to permanently delete this asset from the Media Library database?")) {
+        return;
+      }
+    }
+
+    // Call deleteMediaItem to permanently remove from server database and public/uploads disk
+    const res = await deleteMediaItem(id, itemToDelete.url);
+    const updated = (res.mediaLibrary || mediaLibrary).filter(item => item.id !== id && item.url !== itemToDelete.url);
+    onSaveMediaLibrary(updated, "✅ Media asset deleted from library permanently!");
+    if (selectedMediaId === id) {
+      setSelectedMediaId(null);
     }
   };
 
@@ -302,15 +328,32 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
   };
 
   // Save Cropped Image to Media Library and Select
-  const handleSaveCroppedImage = () => {
+  const handleSaveCroppedImage = async () => {
     if (!canvasRef.current) return;
     const croppedUrl = canvasRef.current.toDataURL("image/jpeg", imageQuality / 100);
     
-    const newMediaId = `m-${Date.now()}`;
+    let permanentUrl = croppedUrl;
+    let newMediaId = `m-${Date.now()}`;
+    const fileName = uploadedFileName ? uploadedFileName.split(".")[0] : (mediaTitle || "image");
+
+    // Upload to server storage immediately
+    try {
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026" },
+        body: JSON.stringify({ fileData: croppedUrl, fileName })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.url) permanentUrl = json.url;
+      if (json.media && json.media.id) newMediaId = json.media.id;
+    } catch (e) {
+      console.warn("Could not save to /api/media/upload directly:", e);
+    }
+
     const newMediaItem: WPMedia = {
       id: newMediaId,
       title: mediaTitle || uploadedFileName.split(".")[0],
-      url: croppedUrl,
+      url: permanentUrl,
       size: optimizedSize || "Unknown KB",
       date: new Date().toISOString().split("T")[0],
       type: "image/jpeg",
@@ -321,7 +364,7 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
       author: "WordPress CMS Admin"
     };
 
-    const updated = [newMediaItem, ...mediaLibrary];
+    const updated = [newMediaItem, ...mediaLibrary.filter(m => m.url !== permanentUrl)];
     onSaveMediaLibrary(updated, "✅ Asset optimized & saved to Media Library successfully!");
     
     // Select the newly cropped image
@@ -334,6 +377,54 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
     });
     
     // Reset States
+    setUploadedFileUrl(null);
+    setActiveTab("library");
+    onClose();
+  };
+
+  // Save Original Image without Cropping
+  const handleSaveOriginalImage = async () => {
+    if (!uploadedFileUrl) return;
+    let permanentUrl = uploadedFileUrl;
+    let newMediaId = `m-${Date.now()}`;
+    const fileName = uploadedFileName ? uploadedFileName.split(".")[0] : (mediaTitle || "image");
+
+    try {
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026" },
+        body: JSON.stringify({ fileData: uploadedFileUrl, fileName })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.url) permanentUrl = json.url;
+      if (json.media && json.media.id) newMediaId = json.media.id;
+    } catch (e) {
+      console.warn("Could not save to /api/media/upload directly:", e);
+    }
+
+    const newMediaItem: WPMedia = {
+      id: newMediaId,
+      title: mediaTitle || fileName,
+      url: permanentUrl,
+      size: originalSize || "Unknown KB",
+      date: new Date().toISOString().split("T")[0],
+      type: "image/jpeg",
+      dimensions: `${imageDimensions.w}x${imageDimensions.h}`,
+      alt: mediaAlt || mediaTitle || fileName,
+      caption: mediaCaption,
+      description: mediaDescription,
+      author: "WordPress CMS Admin"
+    };
+
+    const updated = [newMediaItem, ...mediaLibrary.filter(m => m.url !== permanentUrl)];
+    onSaveMediaLibrary(updated, "✅ Original asset saved to Media Library successfully!");
+    onSelect({
+      url: newMediaItem.url,
+      alt: newMediaItem.alt || newMediaItem.title,
+      title: newMediaItem.title,
+      caption: newMediaItem.caption,
+      description: newMediaItem.description
+    });
     setUploadedFileUrl(null);
     setActiveTab("library");
     onClose();
@@ -788,13 +879,20 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
                 </div>
 
                 {/* SAVE & CLOSE TRIGGER */}
-                <div className="pt-4 border-t border-white/5">
+                <div className="pt-4 border-t border-white/5 space-y-2">
                   <button
                     type="button"
                     onClick={handleSaveCroppedImage}
-                    className="w-full py-3 bg-[#d9b45c] hover:bg-[#f2d98a] text-black rounded-lg text-xs font-sans font-extrabold uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-1.5"
+                    className="w-full py-3 bg-[#d9b45c] hover:bg-[#f2d98a] text-black rounded-lg text-xs font-sans font-extrabold uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Check size={14} className="stroke-[3]" /> Compress, Save & Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveOriginalImage}
+                    className="w-full py-2 bg-white/5 hover:bg-white/10 text-[#c9c2ab] hover:text-white border border-white/10 rounded-lg text-[11px] font-sans font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    Save Original Image (Skip Crop)
                   </button>
                 </div>
               </div>

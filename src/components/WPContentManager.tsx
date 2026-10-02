@@ -9,6 +9,7 @@ import {
   WPVideo,
   WPComment,
   saveCMSData,
+  deleteMediaItem,
   submitUrlsForIndexing
 } from "../cmsStore";
 import { 
@@ -485,6 +486,11 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
       return;
     }
 
+    if (activeTab === "media") {
+      handlePermanentDeleteItem(id);
+      return;
+    }
+
     const key = currentConfig?.dataKey;
     if (!key) return;
 
@@ -506,12 +512,42 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
     onSave({ ...cmsData, [key]: updated }, "✅ Item restored live to website!");
   };
 
-  const handlePermanentDeleteItem = (id: string) => {
-    if (window.confirm("Are you sure you want to permanently delete this item from the database? This is irreversible.")) {
-      const key = currentConfig?.dataKey;
-      if (!key) return;
+  const handlePermanentDeleteItem = async (id: string) => {
+    const key = currentConfig?.dataKey;
+    if (!key) return;
 
-      const items = (cmsData as any)[key] || [];
+    const items = (cmsData as any)[key] || [];
+    const itemToDelete = items.find((item: any) => item.id === id);
+
+    if (activeTab === "media" && itemToDelete) {
+      const usedInArticles: string[] = [];
+      (cmsData.blogPosts || []).forEach(post => {
+        const isCover = post.coverImage === itemToDelete.url || (itemToDelete.url && post.coverImage?.includes(itemToDelete.url));
+        const isFeatured = post.featuredImage === itemToDelete.url || (itemToDelete.url && post.featuredImage?.includes(itemToDelete.url));
+        const isContent = post.content && itemToDelete.url && post.content.includes(itemToDelete.url);
+        if (isCover || isFeatured || isContent) {
+          usedInArticles.push(post.title || post.id);
+        }
+      });
+
+      if (usedInArticles.length > 0) {
+        const confirmMsg = `⚠️ Caution: This image is currently being used in article(s):\n• ${usedInArticles.join("\n• ")}\n\nDo not delete images that are still being used by existing articles unless you explicitly choose to delete them.\nAre you sure you want to permanently delete it anyway?`;
+        if (!window.confirm(confirmMsg)) {
+          return;
+        }
+      } else {
+        if (!window.confirm("Are you sure you want to permanently delete this media file from the database?")) {
+          return;
+        }
+      }
+
+      const res = await deleteMediaItem(id, itemToDelete.url);
+      const updated = (res.mediaLibrary || items).filter((item: any) => item.id !== id && item.url !== itemToDelete.url);
+      onSave({ ...cmsData, mediaLibrary: updated }, "✅ Media asset permanently deleted from database!");
+      return;
+    }
+
+    if (window.confirm("Are you sure you want to permanently delete this item from the database? This is irreversible.")) {
       const updated = items.filter((item: any) => item.id !== id);
       onSave({ ...cmsData, [key]: updated }, "✅ Item permanently deleted from database!");
     }

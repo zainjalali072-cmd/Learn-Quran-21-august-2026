@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   getCMSData, 
   saveCMSData, 
+  saveCMSDataWithResult,
   resetCMSData, 
   CMSData, 
   SEOConfig, 
@@ -243,23 +244,26 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
     }
   };
 
-  const handleSave = async (updatedData: CMSData, customMsg?: string) => {
-    if (!updatedData) return;
+  const handleSave = async (updatedData: CMSData, customMsg?: string): Promise<boolean> => {
+    if (!updatedData) return false;
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      const ok = await saveCMSData(updatedData);
-      setCmsData(updatedData);
+      const result = await saveCMSDataWithResult(updatedData);
+      if (!result.success) {
+        showNotification(`❌ Error saving: ${result.error || "Failed to persist to database"}`, "error");
+        return false;
+      }
+      const dataToSet = result.data || getCMSData();
+      setCmsData(dataToSet);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       showNotification(customMsg || "✅ Changes Saved & Synchronized Successfully!", "success");
-    } catch (err) {
-      console.warn("handleSave encountered minor sync issue, updated in memory:", err);
-      try {
-        setCmsData(updatedData);
-      } catch (e) {}
-      setSaveSuccess(true);
-      showNotification(customMsg || "✅ Changes Saved & Synchronized Successfully!", "success");
+      return true;
+    } catch (err: any) {
+      console.error("handleSave failed:", err);
+      showNotification(`❌ Error saving: ${err.message || "Failed to persist changes"}`, "error");
+      return false;
     } finally {
       setIsSaving(false);
     }

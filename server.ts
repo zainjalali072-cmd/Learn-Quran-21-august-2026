@@ -157,6 +157,10 @@ app.use(express.static(path.join(process.cwd(), "public"), {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
+    } else if (filePath.includes(path.sep + "uploads" + path.sep) || filePath.includes("/uploads/")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
     }
   }
 }));
@@ -1292,6 +1296,9 @@ app.post("/api/analytics/reset", (req, res) => {
 
 // Main CMS retrieval (with injected real traffic statistics)
 app.get("/api/cms-data", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   const db = getDatabase();
   const calculated = calculateAnalytics(db.traffic_logs || [], "monthly");
 
@@ -1309,6 +1316,9 @@ app.get("/api/cms-data", (req, res) => {
 
 // Published posts REST API
 app.get("/api/posts", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   const db = getDatabase();
   const posts = db.blogPosts || [];
   const published = posts.filter((p: any) => !p.status || p.status.toLowerCase() === "published" || p.status.toLowerCase() === "approved");
@@ -1429,6 +1439,83 @@ app.post("/api/media/upload", csrfProtection, (req, res) => {
   } catch (err: any) {
     console.error("Media upload error:", err);
     return res.status(500).json({ success: false, error: err.message || "Upload failed" });
+  }
+});
+
+// Dedicated Media Delete Endpoint
+app.post("/api/media/delete", csrfProtection, (req, res) => {
+  try {
+    const { id, url } = req.body || {};
+    if (!id && !url) {
+      return res.status(400).json({ success: false, error: "Media ID or URL required" });
+    }
+
+    const db = getDatabase();
+    if (!db.mediaLibrary) db.mediaLibrary = [];
+    if (!db.deletedMediaUrls) db.deletedMediaUrls = [];
+    if (!db.deletedMediaIds) db.deletedMediaIds = [];
+    
+    // Find target item
+    const targetItem = db.mediaLibrary.find((m: any) => (id && m.id === id) || (url && m.url === url));
+    const targetUrl = targetItem ? targetItem.url : url;
+    const targetId = targetItem ? targetItem.id : id;
+
+    if (targetId && !db.deletedMediaIds.includes(targetId)) {
+      db.deletedMediaIds.push(targetId);
+    }
+    if (targetUrl && !db.deletedMediaUrls.includes(targetUrl)) {
+      db.deletedMediaUrls.push(targetUrl);
+    }
+
+    // Filter out deleted item
+    db.mediaLibrary = db.mediaLibrary.filter((m: any) => (id ? m.id !== id : true) && (url ? m.url !== url : true));
+
+    // If local uploaded static file, delete from public/uploads folder
+    if (targetUrl && typeof targetUrl === "string" && targetUrl.startsWith("/uploads/")) {
+      try {
+        const localPath = path.join(process.cwd(), "public", targetUrl.replace(/^\//, ""));
+        if (fs.existsSync(localPath)) {
+          fs.unlinkSync(localPath);
+        }
+      } catch (fileErr) {
+        console.warn("Could not delete uploaded file from disk:", fileErr);
+      }
+    }
+
+    // If any existing blogPosts had this deleted image as cover or featured, clean it up
+    if (targetUrl && Array.isArray(db.blogPosts)) {
+      db.blogPosts = db.blogPosts.map((p: any) => {
+        if (!p) return p;
+        let modified = false;
+        const postCopy = { ...p };
+        if (postCopy.coverImage === targetUrl) {
+          postCopy.coverImage = "";
+          modified = true;
+        }
+        if (postCopy.featuredImage === targetUrl) {
+          postCopy.featuredImage = "";
+          modified = true;
+        }
+        if (postCopy.ogImage === targetUrl) {
+          postCopy.ogImage = "";
+          modified = true;
+        }
+        if (postCopy.content && typeof postCopy.content === "string" && postCopy.content.includes(targetUrl)) {
+          postCopy.content = postCopy.content.replace(
+            new RegExp(`(<figure[^>]*>\\s*)?<img[^>]+src=["']${targetUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'][^>]*>(\\s*<figcaption[^>]*>.*?</figcaption>\\s*)?(</figure>)?`, "gi"),
+            ""
+          );
+          modified = true;
+        }
+        return modified ? postCopy : p;
+      });
+    }
+
+    saveDatabase(db, true);
+    return res.json({ success: true, message: "Media deleted successfully", mediaLibrary: db.mediaLibrary });
+  } catch (err: any) {
+    console.error("Media delete error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to delete media" });
   }
 });
 
@@ -1553,10 +1640,81 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
     }
   }
 
+  // 1. Synchronize Media Library state: If client provided mediaLibrary, use it
+  let activeMediaLibrary = Array.isArray(updatedData.mediaLibrary) 
+    ? [...updatedData.mediaLibrary] 
+    : (Array.isArray(db.mediaLibrary) ? [...db.mediaLibrary] : []);
+
+  // Filter out any explicitly deleted media items
+  const deletedUrls = new Set<string>(db.deletedMediaUrls || []);
+  const deletedIds = new Set<string>(db.deletedMediaIds || []);
+  activeMediaLibrary = activeMediaLibrary.filter((m: any) => m && m.id && !deletedIds.has(m.id) && (!m.url || !deletedUrls.has(m.url)));
+
+  // 2. Synchronize internal images and featured images from blog posts into mediaLibrary (no duplicates, no resurrecting deleted)
+  if (Array.isArray(updatedData.blogPosts)) {
+    const existingMediaUrls = new Set<string>();
+    activeMediaLibrary.forEach((m: any) => {
+      if (m && m.url) existingMediaUrls.add(m.url);
+    });
+
+    updatedData.blogPosts.forEach((post: any) => {
+      if (!post) return;
+
+      // Check featured/cover image
+      const primaryImg = post.featuredImage || post.coverImage;
+      if (primaryImg && typeof primaryImg === "string" && !existingMediaUrls.has(primaryImg) && !deletedUrls.has(primaryImg)) {
+        activeMediaLibrary.unshift({
+          id: `m-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          title: post.imageTitle || (post.title ? `${post.title} Featured` : "Featured Image"),
+          url: primaryImg,
+          size: "Optimized",
+          date: new Date().toISOString().split("T")[0],
+          type: "image/jpeg",
+          dimensions: "1200x675",
+          alt: post.imageAltText || post.title || "Featured Image",
+          caption: post.imageCaption || "",
+          description: post.imageDescription || `Featured image for ${post.title}`,
+          author: post.author?.name || "Muhammad Zain"
+        });
+        existingMediaUrls.add(primaryImg);
+      }
+
+      // Check internal images embedded in HTML content
+      if (post.content && typeof post.content === "string") {
+        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+        let match;
+        while ((match = imgRegex.exec(post.content)) !== null) {
+          const src = match[1];
+          if (src && typeof src === "string" && !existingMediaUrls.has(src) && !deletedUrls.has(src)) {
+            const altMatch = /alt=["']([^"']*)["']/i.exec(match[0]);
+            const alt = altMatch ? altMatch[1] : (post.title ? `${post.title} Internal Image` : "Article Internal Image");
+            activeMediaLibrary.unshift({
+              id: `m-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              title: alt,
+              url: src,
+              size: "Standard",
+              date: new Date().toISOString().split("T")[0],
+              type: "image/jpeg",
+              dimensions: "1200x800",
+              alt: alt,
+              caption: "",
+              description: `Internal article image in: ${post.title || post.id}`,
+              author: post.author?.name || "Muhammad Zain"
+            });
+            existingMediaUrls.add(src);
+          }
+        }
+      }
+    });
+  }
+
   // Validate fields
   const cleanData = {
     ...db,
     ...updatedData,
+    mediaLibrary: activeMediaLibrary,
+    deletedMediaUrls: Array.from(deletedUrls),
+    deletedMediaIds: Array.from(deletedIds),
     // Keep logs safe from being overwritten by UI saves
     traffic_logs: db.traffic_logs,
     indexingLogs: db.indexingLogs,
@@ -1580,7 +1738,9 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
     success: true, 
     message: "WP DB fully synchronized!", 
     autoIndexedUrls: autoIndexUrls,
-    blogPosts: cleanData.blogPosts
+    blogPosts: cleanData.blogPosts,
+    mediaLibrary: cleanData.mediaLibrary,
+    cmsData: cleanData
   });
 });
 

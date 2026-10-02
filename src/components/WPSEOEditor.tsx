@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BlogPost } from "../types";
-import { saveCMSData, CMSData, cleanHTMLToExcerpt, DEFAULT_POST_IMAGE, submitUrlsForIndexing, WPMedia } from "../cmsStore";
+import { saveCMSData, saveCMSDataWithResult, getCMSData, CMSData, cleanHTMLToExcerpt, DEFAULT_POST_IMAGE, submitUrlsForIndexing, WPMedia } from "../cmsStore";
+import { navigateToRoute } from "../utils/router";
 import { WPMediaLibraryModal } from "./WPMediaLibraryModal";
 import { 
   Check, 
@@ -645,7 +646,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
   };
 
   // Save current post to DB
-  const handleSaveArticle = (statusOverride?: "published" | "draft", silent = false) => {
+  const handleSaveArticle = async (statusOverride?: "published" | "draft", silent = false) => {
     if (!currentPost) return;
 
     const newStatus = statusOverride || currentPost.status || "published";
@@ -703,7 +704,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
     const rawSlug = (currentPost.slug || "").trim();
     const postSlug = rawSlug || postTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `article-${Date.now()}`;
     const cleanExcerpt = cleanHTMLToExcerpt(activeContent, currentPost.excerpt);
-    const validImage = currentPost.coverImage || currentPost.featuredImage || DEFAULT_POST_IMAGE;
+    const updatedCover = (currentPost.coverImage || currentPost.featuredImage || DEFAULT_POST_IMAGE).trim();
+    const updatedFeatured = (currentPost.featuredImage || currentPost.coverImage || DEFAULT_POST_IMAGE).trim();
+    const updatedOg = (currentPost.ogImage || updatedFeatured || updatedCover).trim();
     const todayFormatted = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const postCategory = (currentPost.category || "").trim() || "Tajweed Rules";
     const assignedId = (currentPost.id && currentPost.id !== "new" && !currentPost.id.startsWith("post-new"))
@@ -717,9 +720,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
       slug: postSlug,
       content: activeContent,
       excerpt: cleanExcerpt || `${postTitle} - Truth Quran Academy`,
-      coverImage: validImage,
-      featuredImage: validImage,
-      ogImage: validImage,
+      coverImage: updatedCover,
+      featuredImage: updatedFeatured,
+      ogImage: updatedOg,
       imageAltText: currentPost.imageAltText || "",
       imageTitle: currentPost.imageTitle || "",
       imageCaption: currentPost.imageCaption || "",
@@ -773,30 +776,42 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
       blogPosts: updatedPosts
     };
 
-    if (onSave) {
-      onSave(updatedCMSData, `✅ Article "${updatedPost.title}" ${newStatus === "published" ? "published live" : "saved as draft"} successfully!`);
-    } else {
-      saveCMSData(updatedCMSData);
-    }
-
-    setCurrentPost(updatedPost);
-    setSelectedPostId(assignedId);
-    lastExternalIdRef.current = assignedId;
-    onSelectPost?.(assignedId);
-    setIsDirty(false);
-
-    const timeStr = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    setLastSavedTime(`Saved at ${timeStr}`);
-
-    if (!silent) {
-      if (newStatus === "published") {
-        showToast(`Article "${updatedPost.title}" published & dispatched to Google Indexing API!`);
-        // Dispatch instant indexing ping
-        const postUrl = `https://truthquranacademy.com/blog/${postSlug}`;
-        submitUrlsForIndexing([postUrl], "URL_UPDATED", ["google", "indexnow"]).catch(console.error);
+    try {
+      if (onSave) {
+        await onSave(updatedCMSData, `✅ Article "${updatedPost.title}" ${newStatus === "published" ? "published live" : "saved as draft"} successfully!`);
       } else {
-        showToast(`Article "${updatedPost.title}" saved as draft successfully!`);
+        const res = await saveCMSDataWithResult(updatedCMSData);
+        if (!res.success) {
+          throw new Error(res.error || "Failed to persist article changes");
+        }
       }
+
+      // Re-fetch persisted post from store/server so we have actual storage URLs
+      const freshest = getCMSData();
+      const persistedPost = (freshest.blogPosts || []).find((p) => p.id === assignedId || (p.slug && p.slug === postSlug)) || updatedPost;
+
+      setCurrentPost(persistedPost);
+      setSelectedPostId(assignedId);
+      lastExternalIdRef.current = assignedId;
+      onSelectPost?.(assignedId);
+      setIsDirty(false);
+
+      const timeStr = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      setLastSavedTime(`Saved at ${timeStr}`);
+
+      if (!silent) {
+        if (newStatus === "published") {
+          showToast(`✅ Article "${persistedPost.title}" published & dispatched to Google Indexing API!`);
+          // Dispatch instant indexing ping
+          const postUrl = `https://truthquranacademy.com/blog/${postSlug}`;
+          submitUrlsForIndexing([postUrl], "URL_UPDATED", ["google", "indexnow"]).catch(console.error);
+        } else {
+          showToast(`✅ Article "${persistedPost.title}" saved as draft successfully!`);
+        }
+      }
+    } catch (saveErr: any) {
+      console.error("Save article failed:", saveErr);
+      showToast(`❌ Error saving article: ${saveErr.message || "Failed to persist changes"}`);
     }
   };
 
@@ -2192,6 +2207,50 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
 
   const handleVisualPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
+
+    // Check for pasted image files (e.g. screenshot or copied file)
+    if (e.clipboardData.files && e.clipboardData.files[0] && e.clipboardData.files[0].type.startsWith("image/")) {
+      const file = e.clipboardData.files[0];
+      const reader = new FileReader();
+      reader.onload = async (uploadEvent) => {
+        const dataUrl = uploadEvent.target?.result as string;
+        if (dataUrl) {
+          let permanentUrl = dataUrl;
+          try {
+            const res = await fetch("/api/media/upload", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026" },
+              body: JSON.stringify({ fileData: dataUrl, fileName: file.name || `pasted-${Date.now()}` })
+            });
+            const json = await res.json().catch(() => ({}));
+            if (json.url) permanentUrl = json.url;
+            if (json.media) {
+              const currentCMS = getCMSData();
+              const exists = (currentCMS.mediaLibrary || []).some(m => m.url === permanentUrl);
+              if (!exists) {
+                currentCMS.mediaLibrary = [json.media, ...(currentCMS.mediaLibrary || [])];
+                saveCMSData(currentCMS);
+              }
+            }
+          } catch (e) {
+            console.warn("Clipboard image upload error:", e);
+          }
+
+          const altText = file.name ? file.name.replace(/\.[^/.]+$/, "") : "Pasted Image";
+          const imgHtml = `\n<figure class="wp-block-image size-large my-6 text-center" data-wp-image="true">\n  <img src="${permanentUrl}" alt="${altText}" class="w-full max-w-[760px] mx-auto rounded-xl border border-[#d9b45c]/25 shadow-xl object-cover hover:ring-2 hover:ring-[#d9b45c] transition-all cursor-pointer" />\n</figure>\n\n`;
+          document.execCommand("insertHTML", false, imgHtml);
+          if (visualEditorRef.current) {
+            const html = visualEditorRef.current.innerHTML;
+            handleUpdateField("content", html);
+            pushHistory(html);
+          }
+          showToast("✅ Pasted image uploaded and added to Media Library!");
+        }
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     const htmlData = e.clipboardData.getData("text/html");
     const plainText = e.clipboardData.getData("text/plain");
 
@@ -2734,10 +2793,32 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
         return;
       }
       const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
+      reader.onload = async (uploadEvent) => {
         const dataUrl = uploadEvent.target?.result as string;
         if (dataUrl) {
-          const imgHtml = `\n<figure class="wp-block-image size-large my-6 text-center" data-wp-image="true">\n  <img src="${dataUrl}" alt="Uploaded Image" class="w-full max-w-[760px] mx-auto rounded-xl border border-[#d9b45c]/25 shadow-xl object-cover hover:ring-2 hover:ring-[#d9b45c] transition-all cursor-pointer" />\n</figure>\n\n`;
+          let permanentUrl = dataUrl;
+          try {
+            const res = await fetch("/api/media/upload", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026" },
+              body: JSON.stringify({ fileData: dataUrl, fileName: file.name })
+            });
+            const json = await res.json().catch(() => ({}));
+            if (json.url) permanentUrl = json.url;
+            if (json.media) {
+              const currentCMS = getCMSData();
+              const exists = (currentCMS.mediaLibrary || []).some(m => m.url === permanentUrl);
+              if (!exists) {
+                currentCMS.mediaLibrary = [json.media, ...(currentCMS.mediaLibrary || [])];
+                saveCMSData(currentCMS);
+              }
+            }
+          } catch (e) {
+            console.warn("Direct upload error during drag-and-drop:", e);
+          }
+
+          const altText = file.name ? file.name.replace(/\.[^/.]+$/, "") : "Internal Article Image";
+          const imgHtml = `\n<figure class="wp-block-image size-large my-6 text-center" data-wp-image="true">\n  <img src="${permanentUrl}" alt="${altText}" class="w-full max-w-[760px] mx-auto rounded-xl border border-[#d9b45c]/25 shadow-xl object-cover hover:ring-2 hover:ring-[#d9b45c] transition-all cursor-pointer" />\n</figure>\n\n`;
           if (editorMode === "visual" && visualEditorRef.current) {
             visualEditorRef.current.focus();
             let inserted = false;
@@ -2766,7 +2847,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
             handleUpdateField("content", newContent);
             pushHistory(newContent);
           }
-          showToast("Image inserted into article!");
+          showToast("✅ Image uploaded and inserted into article & Media Library!");
         }
       };
       reader.readAsDataURL(file);
@@ -2966,17 +3047,18 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
           </button>
 
           {/* View Live Post */}
-          <a
-            href={`/blog/${currentPost.slug || currentPost.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => handleSaveArticle(currentPost.status || "published", true)}
-            className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 bg-[#12141b] border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-400 hover:bg-emerald-500/10 transition-all"
+          <button
+            type="button"
+            onClick={async () => {
+              await handleSaveArticle(currentPost.status || "published", true);
+              navigateToRoute("blog-post", currentPost.slug || currentPost.id);
+            }}
+            className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 bg-[#12141b] border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-400 hover:bg-emerald-500/10 transition-all cursor-pointer"
             title="View Live Article Page"
           >
             <ExternalLink size={14} />
             <span>View Live</span>
-          </a>
+          </button>
 
           {/* More Options (...) Dropdown */}
           <div className="relative">
@@ -4391,15 +4473,39 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                   ref={featuredFileInputRef}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
                       const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        const url = ev.target?.result as string;
-                        if (url) {
-                          handleUpdateField("coverImage", url);
-                          handleUpdateField("featuredImage", url);
+                      reader.onload = async (ev) => {
+                        const dataUrl = ev.target?.result as string;
+                        if (dataUrl) {
+                          let permanentUrl = dataUrl;
+                          try {
+                            const res = await fetch("/api/media/upload", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026" },
+                              body: JSON.stringify({ fileData: dataUrl, fileName: file.name })
+                            });
+                            const json = await res.json().catch(() => ({}));
+                            if (json.url) permanentUrl = json.url;
+                            if (json.media) {
+                              const currentCMS = getCMSData();
+                              const exists = (currentCMS.mediaLibrary || []).some(m => m.url === permanentUrl);
+                              if (!exists) {
+                                currentCMS.mediaLibrary = [json.media, ...(currentCMS.mediaLibrary || [])];
+                                saveCMSData(currentCMS);
+                              }
+                            }
+                          } catch (uploadErr) {
+                            console.warn("Featured image upload error:", uploadErr);
+                          }
+
+                          handleUpdateField("coverImage", permanentUrl);
+                          handleUpdateField("featuredImage", permanentUrl);
+                          handleUpdateField("imageAltText", currentPost?.title || file.name.replace(/\.[^/.]+$/, ""));
+                          showToast("✅ Featured image uploaded and added to Media Library!");
                         }
                       };
-                      reader.readAsDataURL(e.target.files[0]);
+                      reader.readAsDataURL(file);
                     }
                   }}
                   accept="image/*"
