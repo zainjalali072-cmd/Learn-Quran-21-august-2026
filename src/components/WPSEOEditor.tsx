@@ -382,6 +382,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
 
   // Input Validation State for Article Fields
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   const featuredFileInputRef = useRef<HTMLInputElement>(null);
   const internalFileInputRef = useRef<HTMLInputElement>(null);
@@ -704,9 +705,10 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
     const rawSlug = (currentPost.slug || "").trim();
     const postSlug = rawSlug || postTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `article-${Date.now()}`;
     const cleanExcerpt = cleanHTMLToExcerpt(activeContent, currentPost.excerpt);
-    const updatedCover = (currentPost.coverImage || currentPost.featuredImage || DEFAULT_POST_IMAGE).trim();
-    const updatedFeatured = (currentPost.featuredImage || currentPost.coverImage || DEFAULT_POST_IMAGE).trim();
-    const updatedOg = (currentPost.ogImage || updatedFeatured || updatedCover).trim();
+    const chosenImage = (currentPost.coverImage || currentPost.featuredImage || DEFAULT_POST_IMAGE).trim();
+    const updatedCover = chosenImage;
+    const updatedFeatured = chosenImage;
+    const updatedOg = (currentPost.ogImage && currentPost.ogImage !== DEFAULT_POST_IMAGE ? currentPost.ogImage : chosenImage).trim();
     const todayFormatted = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const postCategory = (currentPost.category || "").trim() || "Tajweed Rules";
     const assignedId = (currentPost.id && currentPost.id !== "new" && !currentPost.id.startsWith("post-new"))
@@ -771,11 +773,19 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
       updatedPosts.unshift(updatedPost);
     }
 
+    // Always fetch latest mediaLibrary so any internal images or uploads are preserved
+    const currentCMS = getCMSData();
+    const freshestMedia = (currentCMS.mediaLibrary && currentCMS.mediaLibrary.length > 0)
+      ? currentCMS.mediaLibrary
+      : (cmsData.mediaLibrary || []);
+
     const updatedCMSData: CMSData = {
       ...cmsData,
+      mediaLibrary: freshestMedia,
       blogPosts: updatedPosts
     };
 
+    setIsSaving(true);
     try {
       if (onSave) {
         await onSave(updatedCMSData, `✅ Article "${updatedPost.title}" ${newStatus === "published" ? "published live" : "saved as draft"} successfully!`);
@@ -812,6 +822,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
     } catch (saveErr: any) {
       console.error("Save article failed:", saveErr);
       showToast(`❌ Error saving article: ${saveErr.message || "Failed to persist changes"}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1811,13 +1823,21 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
     if (!currentPost) return;
 
     if (mediaTargetField === "featured") {
-      handleUpdateField("coverImage", imageDetails.url);
-      handleUpdateField("featuredImage", imageDetails.url);
-      if (imageDetails.alt) handleUpdateField("imageAltText", imageDetails.alt);
-      if (imageDetails.title) handleUpdateField("imageTitle", imageDetails.title);
-      if (imageDetails.caption) handleUpdateField("imageCaption", imageDetails.caption);
+      setCurrentPost((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          coverImage: imageDetails.url,
+          featuredImage: imageDetails.url,
+          ogImage: imageDetails.url,
+          imageAltText: imageDetails.alt || prev.imageAltText || "",
+          imageTitle: imageDetails.title || prev.imageTitle || "",
+          imageCaption: imageDetails.caption || prev.imageCaption || ""
+        };
+      });
+      setIsDirty(true);
       setShowMediaLibraryModal(false);
-      showToast("Featured image updated from Media Library!");
+      showToast("✅ Featured image updated from Media Library!");
       return;
     }
 
@@ -3019,11 +3039,12 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
           {/* Save Draft */}
           <button
             type="button"
+            disabled={isSaving}
             onClick={() => handleSaveArticle("draft")}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#12141b] border border-[#d9b45c]/30 rounded-xl text-xs font-bold text-[#f2d98a] hover:bg-[#d9b45c]/10 transition-all"
+            className={`flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#12141b] border border-[#d9b45c]/30 rounded-xl text-xs font-bold text-[#f2d98a] hover:bg-[#d9b45c]/10 transition-all ${isSaving ? "opacity-60 cursor-not-allowed" : ""}`}
           >
             <Save size={14} />
-            <span className="hidden sm:inline">Save Draft</span>
+            <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save Draft"}</span>
           </button>
 
           {/* Preview */}
@@ -3039,19 +3060,26 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
           {/* Publish / Update (PRIMARY GOLD BUTTON) */}
           <button
             type="button"
+            disabled={isSaving}
             onClick={() => handleSaveArticle("published")}
-            className="flex items-center space-x-1.5 px-4 py-1.5 bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-black font-extrabold text-xs rounded-xl shadow-lg hover:brightness-110 transition-all"
+            className={`flex items-center space-x-1.5 px-4 py-1.5 bg-gradient-to-r from-[#f2d98a] to-[#d9b45c] text-black font-extrabold text-xs rounded-xl shadow-lg hover:brightness-110 transition-all ${isSaving ? "opacity-75 cursor-not-allowed" : ""}`}
           >
-            <Globe size={14} />
-            <span>{currentPost.status === "published" ? "Update Article" : "Publish Live"}</span>
+            <Globe size={14} className={isSaving ? "animate-spin" : ""} />
+            <span>
+              {isSaving
+                ? (currentPost.status === "published" ? "Updating..." : "Publishing...")
+                : (currentPost.status === "published" ? "Update Article" : "Publish Live")}
+            </span>
           </button>
 
           {/* View Live Post */}
           <button
             type="button"
+            disabled={isSaving}
             onClick={async () => {
               await handleSaveArticle(currentPost.status || "published", true);
-              navigateToRoute("blog-post", currentPost.slug || currentPost.id);
+              const targetSlug = currentPost.slug || currentPost.id;
+              navigateToRoute("blog-post", targetSlug);
             }}
             className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 bg-[#12141b] border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-400 hover:bg-emerald-500/10 transition-all cursor-pointer"
             title="View Live Article Page"
@@ -3336,6 +3364,21 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                 >
                   <ImageIcon size={14} className="text-[#d9b45c]" />
                   <span>Media</span>
+                </button>
+
+                {/* Direct Upload Image Button */}
+                <button
+                  type="button"
+                  onMouseDown={() => saveVisualSelection()}
+                  onClick={() => {
+                    saveVisualSelection();
+                    internalFileInputRef.current?.click();
+                  }}
+                  className="px-2.5 py-1.5 bg-white/5 hover:bg-[#d9b45c]/20 text-[#c9c2ab] hover:text-white border border-white/10 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Upload Image from Computer into Article"
+                >
+                  <Upload size={13} className="text-[#d9b45c]" />
+                  <span>Upload</span>
                 </button>
 
                 {/* Rank Math Table of Contents (TOC) Button */}
@@ -4389,31 +4432,68 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                     </div>
 
                     {/* Quick action buttons below image */}
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMediaTargetField("featured");
+                          setShowMediaLibraryModal(true);
+                        }}
+                        className="flex-1 py-1.5 px-2 bg-[#d9b45c]/20 hover:bg-[#d9b45c]/30 text-[#f2d98a] border border-[#d9b45c]/40 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1 transition-all"
+                        title="Replace featured image from Media Library"
+                      >
+                        <ImageIcon size={11} />
+                        <span>Replace</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => featuredFileInputRef.current?.click()}
+                        className="py-1.5 px-2 bg-white/5 hover:bg-white/10 text-white border border-white/20 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1 transition-all"
+                        title="Upload replacement image from computer"
+                      >
+                        <Upload size={11} />
+                        <span>Upload</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           setPendingCropImage(currentPost.coverImage || currentPost.featuredImage || null);
                           setShowCropModal(true);
                         }}
-                        className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-[#f2d98a] border border-[#d9b45c]/30 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1 transition-all"
+                        className="py-1.5 px-2 bg-white/5 hover:bg-white/10 text-[#f2d98a] border border-[#d9b45c]/30 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1 transition-all"
                       >
                         <Crop size={11} />
-                        <span>Crop Studio (16:9)</span>
+                        <span>Crop (16:9)</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          handleUpdateField("coverImage", "");
-                          handleUpdateField("featuredImage", "");
+                          setCurrentPost((prev) => prev ? { ...prev, coverImage: "", featuredImage: "", ogImage: "" } : null);
+                          setIsDirty(true);
                         }}
-                        className="py-1.5 px-3 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-500/30 rounded-lg text-[10px] font-bold transition-all"
+                        className="py-1.5 px-2.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-500/30 rounded-lg text-[10px] font-bold transition-all"
                       >
                         Remove
                       </button>
                     </div>
 
                     <div className="space-y-2 pt-1 border-t border-white/5">
+                      <div>
+                        <label className="text-[9px] font-bold text-[#c9c2ab] uppercase tracking-wider block">
+                          Featured Image URL
+                        </label>
+                        <input
+                          type="text"
+                          value={currentPost.coverImage || currentPost.featuredImage || ""}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            setCurrentPost((prev) => prev ? { ...prev, coverImage: val, featuredImage: val, ogImage: val } : null);
+                            setIsDirty(true);
+                          }}
+                          placeholder="https://... or /uploads/..."
+                          className="w-full mt-1 bg-[#12141b] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#d9b45c]"
+                        />
+                      </div>
                       <div>
                         <label className="text-[9px] font-bold text-[#c9c2ab] uppercase tracking-wider block">
                           Image ALT Text (SEO)
@@ -4499,13 +4579,77 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                             console.warn("Featured image upload error:", uploadErr);
                           }
 
-                          handleUpdateField("coverImage", permanentUrl);
-                          handleUpdateField("featuredImage", permanentUrl);
-                          handleUpdateField("imageAltText", currentPost?.title || file.name.replace(/\.[^/.]+$/, ""));
+                          setCurrentPost((prev) => {
+                            if (!prev) return null;
+                            return {
+                              ...prev,
+                              coverImage: permanentUrl,
+                              featuredImage: permanentUrl,
+                              ogImage: permanentUrl,
+                              imageAltText: prev.imageAltText || currentPost?.title || file.name.replace(/\.[^/.]+$/, "")
+                            };
+                          });
+                          setIsDirty(true);
                           showToast("✅ Featured image uploaded and added to Media Library!");
                         }
                       };
                       reader.readAsDataURL(file);
+                      e.target.value = "";
+                    }
+                  }}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                <input
+                  type="file"
+                  ref={internalFileInputRef}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
+                      const reader = new FileReader();
+                      reader.onload = async (ev) => {
+                        const dataUrl = ev.target?.result as string;
+                        if (dataUrl) {
+                          let permanentUrl = dataUrl;
+                          try {
+                            const res = await fetch("/api/media/upload", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026" },
+                              body: JSON.stringify({ fileData: dataUrl, fileName: file.name })
+                            });
+                            const json = await res.json().catch(() => ({}));
+                            if (json.url) permanentUrl = json.url;
+                            if (json.media) {
+                              const currentCMS = getCMSData();
+                              const exists = (currentCMS.mediaLibrary || []).some(m => m.url === permanentUrl);
+                              if (!exists) {
+                                currentCMS.mediaLibrary = [json.media, ...(currentCMS.mediaLibrary || [])];
+                                saveCMSData(currentCMS);
+                              }
+                            }
+                          } catch (uploadErr) {
+                            console.warn("Internal image upload error:", uploadErr);
+                          }
+
+                          const altText = file.name ? file.name.replace(/\.[^/.]+$/, "") : "Internal Article Image";
+                          const imgHtml = `\n<figure class="wp-block-image size-large my-6 text-center" data-wp-image="true">\n  <img src="${permanentUrl}" alt="${altText}" class="w-full max-w-[760px] mx-auto rounded-xl border border-[#d9b45c]/25 shadow-xl object-cover hover:ring-2 hover:ring-[#d9b45c] transition-all cursor-pointer" />\n</figure>\n\n`;
+
+                          if (editorMode === "visual" && visualEditorRef.current) {
+                            visualEditorRef.current.focus();
+                            document.execCommand("insertHTML", false, imgHtml);
+                            const updatedHtml = visualEditorRef.current.innerHTML;
+                            handleUpdateField("content", updatedHtml);
+                            pushHistory(updatedHtml);
+                          } else {
+                            const prevContent = currentPost?.content || "";
+                            handleUpdateField("content", prevContent ? `${prevContent}\n${imgHtml}` : imgHtml);
+                          }
+                          showToast("✅ Image uploaded, added to Media Library, and inserted into article!");
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = "";
                     }
                   }}
                   accept="image/*"
