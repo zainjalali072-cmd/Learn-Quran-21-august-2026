@@ -50,16 +50,28 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
   const [optimizedSize, setOptimizedSize] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageDimensions, setImageDimensions] = useState({ w: 0, h: 0 });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [localDeletedIds, setLocalDeletedIds] = useState<Set<string>>(new Set());
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Filtered media list
+  // Reset local deleted set when modal opens or closes
+  useEffect(() => {
+    if (!isOpen) {
+      setLocalDeletedIds(new Set());
+      setDeletingId(null);
+    }
+  }, [isOpen]);
+
+  // Filtered media list excluding locally deleted items
   const filteredMedia = mediaLibrary.filter(item => 
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (item.alt && item.alt.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    item && item.id && !localDeletedIds.has(item.id) && (
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.alt && item.alt.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
   );
 
   // Sync selected media details to state when library selection changes
@@ -255,8 +267,8 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
   };
 
   // Deletion logic with article-in-use safety checks & permanent backend deletion
-  const handleDeleteMediaItem = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteMediaItem = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     const itemToDelete = mediaLibrary.find(m => m.id === id);
     if (!itemToDelete) return;
 
@@ -278,17 +290,33 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
         return;
       }
     } else {
-      if (!window.confirm("Are you sure you want to permanently delete this asset from the Media Library database?")) {
+      if (!window.confirm(`Are you sure you want to permanently delete "${itemToDelete.title || 'this image'}" from the Media Library and disk storage?`)) {
         return;
       }
     }
 
-    // Call deleteMediaItem to permanently remove from server database and public/uploads disk
-    const res = await deleteMediaItem(id, itemToDelete.url);
-    const updated = (res.mediaLibrary || mediaLibrary).filter(item => item.id !== id && item.url !== itemToDelete.url);
-    onSaveMediaLibrary(updated, "✅ Media asset deleted from library permanently!");
+    setDeletingId(id);
+    setLocalDeletedIds(prev => new Set(prev).add(id));
     if (selectedMediaId === id) {
       setSelectedMediaId(null);
+    }
+
+    try {
+      // Call deleteMediaItem to permanently remove from server database and public/uploads disk
+      const res = await deleteMediaItem(id, itemToDelete.url);
+      const updated = (res.mediaLibrary || mediaLibrary).filter(item => item.id !== id && item.url !== itemToDelete.url);
+      onSaveMediaLibrary(updated, "✅ Media asset deleted permanently from library!");
+    } catch (err: any) {
+      console.error("Failed to permanently delete media item:", err);
+      // rollback local deleted set if failed
+      setLocalDeletedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      alert(`Failed to delete media asset: ${err.message || 'Unknown error'}`);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -510,40 +538,47 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {filteredMedia.map(item => (
+                    {filteredMedia.map(item => {
+                      const isItemDeleting = deletingId === item.id;
+                      return (
                       <div 
                         key={item.id}
                         onClick={() => setSelectedMediaId(item.id)}
-                        className={`relative aspect-square bg-[#12141b] rounded-xl border overflow-hidden cursor-pointer transition-all ${selectedMediaId === item.id ? "border-[#d9b45c] ring-2 ring-[#d9b45c]/20" : "border-white/5 hover:border-[#d9b45c]/40"}`}
+                        className={`group relative aspect-square bg-[#12141b] rounded-xl border overflow-hidden cursor-pointer transition-all ${selectedMediaId === item.id ? "border-[#d9b45c] ring-2 ring-[#d9b45c]/30 shadow-lg" : "border-white/10 hover:border-[#d9b45c]/50"}`}
                       >
                         <img 
                           src={item.url} 
                           alt={item.title} 
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                         />
-                        <div className="absolute bottom-0 inset-x-0 bg-black/60 p-1.5 text-[9px] text-[#c9c2ab] truncate font-sans">
+                        <div className="absolute bottom-0 inset-x-0 bg-black/75 backdrop-blur-xs p-1.5 text-[9px] text-[#c9c2ab] truncate font-sans">
                           {item.title}
                         </div>
                         
-                        {/* Overlay Controls */}
-                        <div className="absolute top-1.5 right-1.5 flex space-x-1 opacity-0 hover:opacity-100 transition-opacity">
+                        {/* Overlay Controls: Permanent Delete Button */}
+                        <div className="absolute top-1.5 right-1.5 flex space-x-1 z-10 transition-opacity">
                           <button
                             type="button"
+                            disabled={isItemDeleting}
                             onClick={(e) => handleDeleteMediaItem(item.id, e)}
-                            className="p-1 bg-red-500 hover:bg-red-600 rounded text-white transition-all shadow-md"
-                            title="Delete permanently"
+                            className="p-1.5 bg-red-600/90 hover:bg-red-500 text-white rounded-lg shadow-md hover:scale-110 active:scale-95 transition-all flex items-center justify-center cursor-pointer border border-red-400/40"
+                            title="Delete this image permanently"
                           >
-                            <Trash2 size={10} />
+                            {isItemDeleting ? (
+                              <RefreshCw size={11} className="animate-spin text-white" />
+                            ) : (
+                              <Trash2 size={11} className="text-white" />
+                            )}
                           </button>
                         </div>
 
                         {selectedMediaId === item.id && (
-                          <div className="absolute top-1.5 left-1.5 p-1 bg-[#d9b45c] text-black rounded-full">
-                            <Check size={10} className="stroke-[3]" />
+                          <div className="absolute top-1.5 left-1.5 p-1 bg-[#d9b45c] text-black rounded-full shadow-md z-10">
+                            <Check size={11} className="stroke-[3]" />
                           </div>
                         )}
                       </div>
-                    ))}
+                    );})}
                   </div>
                 )}
               </div>
@@ -621,18 +656,36 @@ export const WPMediaLibraryModal: React.FC<WPMediaLibraryModalProps> = ({
                       <button
                         type="button"
                         onClick={handleUpdateMetadata}
-                        className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded text-[10px] uppercase font-extrabold tracking-wider transition-all"
+                        className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded text-[10px] uppercase font-extrabold tracking-wider transition-all cursor-pointer"
                       >
                         Update Image Metadata
+                      </button>
+
+                      {/* Prominent Dedicated Permanently Delete Option */}
+                      <button
+                        type="button"
+                        disabled={deletingId === selectedMediaId}
+                        onClick={(e) => handleDeleteMediaItem(selectedMediaId, e)}
+                        className="w-full py-2.5 px-3 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 border border-red-500/30 hover:border-red-500/60 rounded-lg text-xs font-sans font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                        title="Permanently remove this image from the library and disk storage"
+                      >
+                        {deletingId === selectedMediaId ? (
+                          <RefreshCw size={13} className="animate-spin text-red-400" />
+                        ) : (
+                          <Trash2 size={13} className="text-red-400" />
+                        )}
+                        <span>
+                          {deletingId === selectedMediaId ? "Deleting..." : "Permanently Delete"}
+                        </span>
                       </button>
                     </div>
 
                     {/* Choose Select */}
-                    <div className="pt-4 border-t border-white/5">
+                    <div className="pt-3 border-t border-white/5">
                       <button
                         type="button"
                         onClick={handleSelectActiveImage}
-                        className="w-full py-3 bg-[#d9b45c] hover:bg-[#f2d98a] text-black rounded-lg text-xs font-sans font-extrabold uppercase tracking-widest transition-all"
+                        className="w-full py-3 bg-[#d9b45c] hover:bg-[#f2d98a] text-black rounded-lg text-xs font-sans font-extrabold uppercase tracking-widest transition-all shadow-md cursor-pointer"
                       >
                         Select & Apply File
                       </button>

@@ -2537,7 +2537,7 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       <WPMediaLibraryModal
         isOpen={isThemeImageManagerOpen}
         onClose={() => setIsThemeImageManagerOpen(false)}
-        mediaLibrary={cmsData.mediaLibrary || []}
+        mediaLibrary={(cmsData.mediaLibrary && cmsData.mediaLibrary.length > 0) ? cmsData.mediaLibrary : (getCMSData().mediaLibrary || [])}
         onSelect={(img) => {
           if (currentThemeImageKey) {
             const updatedCustomImages = {
@@ -2569,11 +2569,13 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
             }, currentThemeImageKey === "siteFavicon" ? "✅ Site favicon updated from Media Library and injected into HTML <head>!" : undefined);
           }
         }}
-        onSaveMediaLibrary={(updatedMedia) => {
+        onSaveMediaLibrary={(updatedMedia, customMsg) => {
+          const fresh = getCMSData();
           handleSave({
+            ...fresh,
             ...cmsData,
             mediaLibrary: updatedMedia
-          });
+          }, customMsg || "✅ Media library updated successfully!");
         }}
         defaultCropAspect={
           currentThemeImageKey === "siteLogo" || currentThemeImageKey === "siteFavicon" ? "1:1" : "free"

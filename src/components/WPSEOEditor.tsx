@@ -5670,10 +5670,11 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
       <WPMediaLibraryModal
         isOpen={showMediaLibraryModal}
         onClose={() => setShowMediaLibraryModal(false)}
-        mediaLibrary={cmsData.mediaLibrary || []}
+        mediaLibrary={(cmsData.mediaLibrary && cmsData.mediaLibrary.length > 0) ? cmsData.mediaLibrary : (getCMSData().mediaLibrary || [])}
         onSelect={handleMediaSelect}
         onSaveMediaLibrary={(updatedMedia, msg) => {
-          onSave({ ...cmsData, mediaLibrary: updatedMedia });
+          const fresh = getCMSData();
+          onSave({ ...fresh, ...cmsData, mediaLibrary: updatedMedia }, msg || "✅ Media library updated successfully!");
           if (msg) showToast(msg);
         }}
         title={mediaTargetField === "featured" ? "Select or Upload Featured Cover Image" : "Insert Inline Article Image"}

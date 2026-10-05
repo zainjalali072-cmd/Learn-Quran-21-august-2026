@@ -49,7 +49,7 @@ import {
 import WPSEOEditor from "./WPSEOEditor";
 import WPAnalytics from "./WPAnalytics";
 import { WPMediaLibraryModal } from "./WPMediaLibraryModal";
-import { exportDatabaseBackup } from "../cmsStore";
+import { exportDatabaseBackup, getCMSData } from "../cmsStore";
 
 interface WPContentManagerProps {
   cmsData: CMSData;
@@ -2160,7 +2160,7 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
       <WPMediaLibraryModal
         isOpen={isImageManagerOpen}
         onClose={() => setIsImageManagerOpen(false)}
-        mediaLibrary={cmsData.mediaLibrary || []}
+        mediaLibrary={(cmsData.mediaLibrary && cmsData.mediaLibrary.length > 0) ? cmsData.mediaLibrary : (getCMSData().mediaLibrary || [])}
         onSelect={(img) => {
           if (currentImageEditField) {
             setFormData((prev: any) => ({
@@ -2173,12 +2173,14 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
             }));
           }
         }}
-        onSaveMediaLibrary={(updatedMedia) => {
+        onSaveMediaLibrary={(updatedMedia, customMsg) => {
+          const fresh = getCMSData();
           const updated = {
+            ...fresh,
             ...cmsData,
             mediaLibrary: updatedMedia
           };
-          onSave(updated);
+          onSave(updated, customMsg);
         }}
         defaultCropAspect={
           currentImageEditField === "avatar" || currentImageEditField === "photo" ? "1:1" : "free"
