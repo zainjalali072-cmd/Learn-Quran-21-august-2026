@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   BookOpen, 
@@ -33,11 +33,72 @@ import { blogPostsData } from "../data";
 import { getCMSData, DEFAULT_POST_IMAGE, cleanHTMLToExcerpt, ensureBlogPostSEO, BlogPost } from "../cmsStore";
 import { parseCurrentRoute, navigateToRoute, slugify } from "../utils/router";
 
-// Format raw HTML/Markdown body to ensure hyperlinks are properly rendered with yellow highlight, valid href, title & target attributes
-export function formatArticleBody(rawContent: string): string {
-  if (!rawContent) return "<p>No article content provided for this post.</p>";
+export interface ArticleFaqItem {
+  question: string;
+  answer: string;
+}
+
+// Render interactive FAQ Accordion HTML matching Truth Quran Academy FAQ styling exactly
+export function renderFaqAccordionHtml(items: ArticleFaqItem[]): string {
+  if (!items || items.length === 0) return "";
   
-  let formatted = rawContent;
+  const plusIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none shrink-0"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+
+  const itemsHtml = items.map((item, idx) => {
+    const isFirst = idx === 0;
+    const itemCardClass = isFirst
+      ? "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#12141b] border-[#d9b45c]/40 shadow-[0_4px_25px_rgba(217,180,92,0.06)]"
+      : "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#0e1015]/60 border-[#d9b45c]/10 hover:border-[#d9b45c]/25 hover:bg-[#0e1015]";
+    
+    const iconClass = isFirst
+      ? "article-faq-icon w-8 h-8 rounded-full border border-[#f2d98a]/50 text-[#f2d98a] bg-[#d9b45c]/10 rotate-45 flex items-center justify-center transition-all duration-300 flex-shrink-0"
+      : "article-faq-icon w-8 h-8 rounded-full border border-[#d9b45c]/20 text-[#c9c2ab] bg-[#07080b] flex items-center justify-center transition-all duration-300 flex-shrink-0";
+
+    const contentStyle = isFirst ? 'style="max-height: 800px;"' : 'style="max-height: 0px;"';
+
+    return `
+      <div class="${itemCardClass}" data-faq-open="${isFirst ? 'true' : 'false'}">
+        <button type="button" class="article-faq-trigger w-full text-left px-6 py-5 flex items-center justify-between cursor-pointer focus:outline-none" aria-expanded="${isFirst}">
+          <span class="font-sans font-bold text-sm md:text-base text-[#f3ecd8] pr-4 select-none">
+            ${item.question}
+          </span>
+          <div class="${iconClass}">
+            ${plusIconSvg}
+          </div>
+        </button>
+        <div class="article-faq-content transition-all duration-300 ease-in-out overflow-hidden" ${contentStyle}>
+          <div class="px-6 py-5 text-xs md:text-sm text-[#c9c2ab] leading-relaxed border-t border-[#d9b45c]/10">
+            ${item.answer}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div class="article-faq-container my-10 space-y-4 not-prose" data-faq-group="true">
+      <div class="mb-4 space-y-1">
+        <span class="text-[11px] font-sans uppercase font-bold tracking-[0.22em] text-[#d9b45c] block">
+          Got Questions?
+        </span>
+        <h3 class="font-serif text-2xl md:text-3xl text-[#f3ecd8] font-medium tracking-tight">
+          Frequently Asked <span class="text-[#d9b45c] italic font-normal">Questions</span>
+        </h3>
+      </div>
+      <div class="space-y-3">
+        ${itemsHtml}
+      </div>
+    </div>
+  `;
+}
+
+// Format raw HTML/Markdown body, ensuring active hyperlinks and auto-converting any user FAQs into interactive accordions
+export function formatArticleBody(rawContent: string, fallbackFaqs?: ArticleFaqItem[]): string {
+  if (!rawContent && (!fallbackFaqs || fallbackFaqs.length === 0)) {
+    return "<p>No article content provided for this post.</p>";
+  }
+  
+  let formatted = rawContent || "";
 
   // 1. Convert Markdown links [text](url) to HTML <a ...> tags if present
   formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)/gi, (_match, text, url) => {
@@ -46,36 +107,334 @@ export function formatArticleBody(rawContent: string): string {
     return `<a href="${url}" class="text-[#FACC15] underline hover:text-[#FEF08A] font-semibold cursor-pointer pointer-events-auto" title="${url}"${targetAttr}>${text}</a>`;
   });
 
-  // 2. Ensure all existing <a> tags have pointer cursor, yellow color class and title tooltip for preview
+  // 2. DOM parsing for hyperlinks & transforming FAQs into interactive accordions
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(`<div>${formatted}</div>`, "text/html");
-    const links = doc.querySelectorAll("a");
-    
-    links.forEach((a) => {
-      const href = a.getAttribute("href") || "#";
-      if (href.startsWith("#")) {
-        a.classList.add("text-[#f2d98a]", "hover:text-[#d9b45c]", "underline", "cursor-pointer");
-        return;
-      }
-      if (!a.classList.contains("text-[#FACC15]")) {
-        a.classList.add("text-[#FACC15]", "underline", "hover:text-[#FEF08A]", "font-semibold", "cursor-pointer");
-      }
-      if (!a.getAttribute("title")) {
-        a.setAttribute("title", href);
-      }
-      if (href.startsWith("http") && !a.getAttribute("target")) {
-        a.setAttribute("target", "_blank");
-        a.setAttribute("rel", "noopener noreferrer");
-      }
-    });
+    const root = doc.body.firstElementChild as HTMLElement;
 
-    formatted = doc.body.firstElementChild ? doc.body.firstElementChild.innerHTML : formatted;
+    if (root) {
+      // A. Ensure links styling
+      const links = root.querySelectorAll("a");
+      links.forEach((a) => {
+        const href = a.getAttribute("href") || "#";
+        if (href.startsWith("#")) {
+          a.classList.add("text-[#f2d98a]", "hover:text-[#d9b45c]", "underline", "cursor-pointer");
+          return;
+        }
+        if (!a.classList.contains("text-[#FACC15]")) {
+          a.classList.add("text-[#FACC15]", "underline", "hover:text-[#FEF08A]", "font-semibold", "cursor-pointer");
+        }
+        if (!a.getAttribute("title")) {
+          a.setAttribute("title", href);
+        }
+        if (href.startsWith("http") && !a.getAttribute("target")) {
+          a.setAttribute("target", "_blank");
+          a.setAttribute("rel", "noopener noreferrer");
+        }
+      });
+
+      let hasFaqBlock = false;
+
+      // B. Transform dedicated FAQ blocks (.faq-accordion-block, [data-faq-block="true"], .rank-math-faq-block, .wp-block-yoast-faq-block, #rank-math-faq, .schema-faq-section)
+      const faqBlocks = Array.from(root.querySelectorAll('.faq-accordion-block, [data-faq-block="true"], .rank-math-faq-block, .wp-block-yoast-faq-block, #rank-math-faq, .schema-faq-section'));
+      faqBlocks.forEach((block) => {
+        const items: ArticleFaqItem[] = [];
+        const faqItemsEls = Array.from(block.querySelectorAll('.faq-item, .rank-math-faq-item, .schema-faq-section'));
+        if (faqItemsEls.length > 0) {
+          faqItemsEls.forEach((item) => {
+            const qEl = item.querySelector('.faq-question, .rank-math-question, h3, h4, strong');
+            const aEl = item.querySelector('.faq-answer, .rank-math-answer, p, div');
+            const qText = qEl ? qEl.textContent?.trim() : "";
+            const aHtml = aEl ? aEl.innerHTML?.trim() || aEl.textContent?.trim() : "";
+            if (qText && aHtml) {
+              items.push({ question: qText, answer: aHtml });
+            }
+          });
+        } else {
+          const questions = Array.from(block.querySelectorAll('h3, h4, .faq-question, .rank-math-question'));
+          questions.forEach((qEl) => {
+            const qText = qEl.textContent?.trim();
+            let aHtml = "";
+            let next = qEl.nextElementSibling;
+            while (next && !['H2', 'H3', 'H4'].includes(next.tagName) && !next.classList.contains('faq-question') && !next.classList.contains('rank-math-question')) {
+              aHtml += next.outerHTML;
+              next = next.nextElementSibling;
+            }
+            if (qText && aHtml) {
+              items.push({ question: qText, answer: aHtml });
+            }
+          });
+        }
+
+        if (items.length > 0) {
+          hasFaqBlock = true;
+          const accordionHtml = renderFaqAccordionHtml(items);
+          const tempDiv = doc.createElement('div');
+          tempDiv.innerHTML = accordionHtml;
+          if (tempDiv.firstElementChild) {
+            block.replaceWith(tempDiv.firstElementChild);
+          }
+        }
+      });
+
+      // C. Transform <details> elements
+      const detailsBlocks = Array.from(root.querySelectorAll('details'));
+      if (detailsBlocks.length > 0) {
+        const detailsItems: ArticleFaqItem[] = [];
+        detailsBlocks.forEach((det) => {
+          const summary = det.querySelector('summary');
+          const qText = summary ? summary.textContent?.trim() : "";
+          const clone = det.cloneNode(true) as HTMLElement;
+          clone.querySelector('summary')?.remove();
+          const aHtml = clone.innerHTML.trim();
+          if (qText && aHtml) {
+            detailsItems.push({ question: qText, answer: aHtml });
+          }
+        });
+
+        if (detailsItems.length > 0) {
+          hasFaqBlock = true;
+          const accordionHtml = renderFaqAccordionHtml(detailsItems);
+          const tempDiv = doc.createElement('div');
+          tempDiv.innerHTML = accordionHtml;
+          if (tempDiv.firstElementChild) {
+            detailsBlocks[0].replaceWith(tempDiv.firstElementChild);
+            for (let i = 1; i < detailsBlocks.length; i++) {
+              detailsBlocks[i].remove();
+            }
+          }
+        }
+      }
+
+      // D. Transform standard H2/H3 FAQ Headings in article content
+      const headings = Array.from(root.querySelectorAll('h2, h3'));
+      for (const h of headings) {
+        const text = (h.textContent || "").toLowerCase().trim();
+        if (
+          text.includes("frequently asked") || 
+          text === "faqs" || 
+          text === "faq" || 
+          text.startsWith("frequently asked questions") || 
+          text.includes("common questions")
+        ) {
+          const headingFaqItems: ArticleFaqItem[] = [];
+          const elementsToRemove: Element[] = [];
+          let curr = h.nextElementSibling;
+          let currentQuestion = "";
+          let currentAnswer = "";
+
+          while (curr && curr.tagName !== 'H2') {
+            elementsToRemove.push(curr);
+            const isQuestion = 
+              curr.tagName === 'H3' || 
+              curr.tagName === 'H4' || 
+              (curr.tagName === 'P' && curr.querySelector('strong') && curr.textContent?.trim().endsWith('?')) ||
+              (curr.textContent?.trim().startsWith('Q:') || curr.textContent?.trim().startsWith('Question:'));
+
+            if (isQuestion) {
+              if (currentQuestion && currentAnswer) {
+                headingFaqItems.push({ question: currentQuestion, answer: currentAnswer });
+                currentQuestion = "";
+                currentAnswer = "";
+              }
+              currentQuestion = curr.textContent?.replace(/^(Q|Question):\s*/i, "").trim() || "";
+            } else {
+              currentAnswer += curr.outerHTML;
+            }
+            curr = curr.nextElementSibling;
+          }
+
+          if (currentQuestion && currentAnswer) {
+            headingFaqItems.push({ question: currentQuestion, answer: currentAnswer });
+          }
+
+          if (headingFaqItems.length > 0) {
+            hasFaqBlock = true;
+            const accordionHtml = renderFaqAccordionHtml(headingFaqItems);
+            const tempDiv = doc.createElement('div');
+            tempDiv.innerHTML = accordionHtml;
+            if (tempDiv.firstElementChild) {
+              h.replaceWith(tempDiv.firstElementChild);
+              elementsToRemove.forEach(el => el.remove());
+            }
+          }
+          break;
+        }
+      }
+
+      // E. If no FAQ block was found in the HTML, but fallbackFaqs are provided
+      if (!hasFaqBlock && fallbackFaqs && fallbackFaqs.length > 0) {
+        const accordionHtml = renderFaqAccordionHtml(fallbackFaqs);
+        const tempDiv = doc.createElement('div');
+        tempDiv.innerHTML = accordionHtml;
+        if (tempDiv.firstElementChild) {
+          root.appendChild(tempDiv.firstElementChild);
+        }
+      }
+
+      formatted = root.innerHTML;
+    }
   } catch (e) {
-    // Fallback regex if DOMParser isn't available
+    // Fallback if DOMParser fails
   }
 
   return formatted;
+}
+
+// Automatically extract user-added FAQs from article content, blocks, or properties for SEO schema
+export function extractArticleFaqs(post: BlogPost): { faqs: ArticleFaqItem[]; contentWithoutFaqs: string } {
+  const faqs: ArticleFaqItem[] = [];
+  const content = post.content || "";
+
+  // 1. Check if post object has structured faqItems or faqs array
+  if (Array.isArray((post as any).faqItems) && (post as any).faqItems.length > 0) {
+    (post as any).faqItems.forEach((item: any) => {
+      if (item && item.question && item.answer) {
+        faqs.push({
+          question: String(item.question).replace(/<[^>]*>/g, "").trim(),
+          answer: String(item.answer).trim()
+        });
+      }
+    });
+  } else if (Array.isArray((post as any).faqs) && (post as any).faqs.length > 0) {
+    (post as any).faqs.forEach((item: any) => {
+      if (item && item.question && item.answer) {
+        faqs.push({
+          question: String(item.question).replace(/<[^>]*>/g, "").trim(),
+          answer: String(item.answer).trim()
+        });
+      }
+    });
+  }
+
+  // 2. Check if post has content blocks of type 'faq'
+  if (Array.isArray(post.blocks)) {
+    post.blocks.forEach(block => {
+      if (block.type === "faq" && Array.isArray(block.faqItems)) {
+        block.faqItems.forEach(item => {
+          if (item && item.question && item.answer) {
+            faqs.push({
+              question: String(item.question).replace(/<[^>]*>/g, "").trim(),
+              answer: String(item.answer).trim()
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // 3. Parse and extract from HTML content dynamically (for SEO schema)
+  if (content && typeof window !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${content}</div>`, "text/html");
+      const root = doc.body.firstElementChild as HTMLElement;
+
+      if (root) {
+        // Dedicated FAQ Block wrappers:
+        const faqBlocks = Array.from(root.querySelectorAll('.faq-accordion-block, [data-faq-block="true"], .rank-math-faq-block, .wp-block-yoast-faq-block, #rank-math-faq, .schema-faq-section'));
+        faqBlocks.forEach(block => {
+          const items = Array.from(block.querySelectorAll('.faq-item, .rank-math-faq-item, .schema-faq-section'));
+          if (items.length > 0) {
+            items.forEach(item => {
+              const qEl = item.querySelector('.faq-question, .rank-math-question, h3, h4, strong');
+              const aEl = item.querySelector('.faq-answer, .rank-math-answer, p, div');
+              const qText = qEl ? qEl.textContent?.trim() : "";
+              const aHtml = aEl ? aEl.innerHTML?.trim() || aEl.textContent?.trim() : "";
+              if (qText && aHtml) {
+                faqs.push({ question: qText, answer: aHtml });
+              }
+            });
+          } else {
+            const questions = Array.from(block.querySelectorAll('h3, h4, .faq-question, .rank-math-question'));
+            questions.forEach(qEl => {
+              const qText = qEl.textContent?.trim();
+              let aHtml = "";
+              let next = qEl.nextElementSibling;
+              while (next && !['H2', 'H3', 'H4'].includes(next.tagName) && !next.classList.contains('faq-question') && !next.classList.contains('rank-math-question')) {
+                aHtml += next.outerHTML;
+                next = next.nextElementSibling;
+              }
+              if (qText && aHtml) {
+                faqs.push({ question: qText, answer: aHtml });
+              }
+            });
+          }
+        });
+
+        // <details> elements
+        const detailsBlocks = Array.from(root.querySelectorAll('details'));
+        if (detailsBlocks.length > 0) {
+          detailsBlocks.forEach(det => {
+            const summary = det.querySelector('summary');
+            const qText = summary ? summary.textContent?.trim() : "";
+            const clone = det.cloneNode(true) as HTMLElement;
+            clone.querySelector('summary')?.remove();
+            const aHtml = clone.innerHTML.trim();
+            if (qText && aHtml) {
+              faqs.push({ question: qText, answer: aHtml });
+            }
+          });
+        }
+
+        // Standard H2/H3 FAQ Headings in article content
+        const headings = Array.from(root.querySelectorAll('h2, h3'));
+        for (const h of headings) {
+          const text = (h.textContent || "").toLowerCase().trim();
+          if (
+            text.includes("frequently asked") || 
+            text === "faqs" || 
+            text === "faq" || 
+            text.startsWith("frequently asked questions") || 
+            text.includes("common questions")
+          ) {
+            let curr = h.nextElementSibling;
+            let currentQuestion = "";
+            let currentAnswer = "";
+
+            while (curr && curr.tagName !== 'H2') {
+              const isQuestion = 
+                curr.tagName === 'H3' || 
+                curr.tagName === 'H4' || 
+                (curr.tagName === 'P' && curr.querySelector('strong') && curr.textContent?.trim().endsWith('?')) ||
+                (curr.textContent?.trim().startsWith('Q:') || curr.textContent?.trim().startsWith('Question:'));
+
+              if (isQuestion) {
+                if (currentQuestion && currentAnswer) {
+                  faqs.push({ question: currentQuestion, answer: currentAnswer });
+                  currentQuestion = "";
+                  currentAnswer = "";
+                }
+                currentQuestion = curr.textContent?.replace(/^(Q|Question):\s*/i, "").trim() || "";
+              } else {
+                currentAnswer += curr.outerHTML;
+              }
+              curr = curr.nextElementSibling;
+            }
+
+            if (currentQuestion && currentAnswer) {
+              faqs.push({ question: currentQuestion, answer: currentAnswer });
+            }
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Could not extract FAQs from article body:", err);
+    }
+  }
+
+  // De-duplicate questions
+  const seen = new Set<string>();
+  const uniqueFaqs = faqs.filter(f => {
+    const key = f.question.toLowerCase().trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return { faqs: uniqueFaqs, contentWithoutFaqs: content };
 }
 
 interface BlogSectionProps {
@@ -205,7 +564,6 @@ export default function BlogSection({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [cms, setCms] = useState(getCMSData());
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // Comments state
   const [comments, setComments] = useState<Comment[]>([
@@ -407,24 +765,13 @@ export default function BlogSection({
       relatedPosts = relatedPosts.slice(0, 3);
     }
 
-    // Article FAQs
-    const defaultFaqs = [
-      {
-        question: `Why is learning ${post.category || "Tajweed"} essential for Quran recitation?`,
-        answer: `Mastering ${post.category || "Tajweed"} ensures that every Arabic phoneme and letter is articulated from its correct point (Makhraj) with proper characteristics (Sifat), preserving the precise divine revelation of the Holy Quran.`
-      },
-      {
-        question: "How long does it take to complete this course module?",
-        answer: "Most students master the foundational principles within 4 to 6 weeks with 2 one-on-one live practice sessions per week under scholar guidance."
-      },
-      {
-        question: "Is this lesson suitable for children and beginners?",
-        answer: "Yes! Our curriculum at Jamia Naeemia Lahore & Truth Quran is tailored step-by-step for absolute beginners, young students, and adults alike."
-      }
-    ];
+    // Extract user-defined FAQs from post content, blocks, or metadata
+    const { faqs: articleFaqs, contentWithoutFaqs: cleanArticleBody } = useMemo(() => {
+      return extractArticleFaqs(post);
+    }, [post]);
 
     // Schema JSON-LD Data for Rank Math & Google rich snippet SEO
-    const schemaJsonLd = {
+    const schemaJsonLd: any = {
       "@context": "https://schema.org",
       "@type": "BlogPosting",
       "headline": post.title,
@@ -446,6 +793,17 @@ export default function BlogSection({
         }
       }
     };
+
+    if (articleFaqs.length > 0) {
+      schemaJsonLd.mainEntity = articleFaqs.map(f => ({
+        "@type": "Question",
+        "name": f.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": f.answer.replace(/<[^>]*>/g, " ").trim()
+        }
+      }));
+    }
 
     return (
       <article className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-10 text-left" id="single-blog-post-article">
@@ -611,6 +969,54 @@ export default function BlogSection({
           <div 
             onClick={(e) => {
               const target = e.target as HTMLElement;
+
+              // Handle interactive FAQ Accordion trigger clicks inside article content
+              const faqBtn = target.closest(".article-faq-trigger") as HTMLElement | null;
+              if (faqBtn) {
+                e.preventDefault();
+                const item = faqBtn.closest(".article-faq-item") as HTMLElement | null;
+                if (item) {
+                  const isOpen = item.getAttribute("data-faq-open") === "true";
+                  const container = item.closest(".article-faq-container");
+
+                  // Single-open accordion behavior matching Truth Quran Academy FAQ section
+                  if (container) {
+                    container.querySelectorAll(".article-faq-item").forEach((other) => {
+                      if (other !== item && other.getAttribute("data-faq-open") === "true") {
+                        other.setAttribute("data-faq-open", "false");
+                        other.className = "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#0e1015]/60 border-[#d9b45c]/10 hover:border-[#d9b45c]/25 hover:bg-[#0e1015]";
+                        const otherContent = other.querySelector(".article-faq-content") as HTMLElement | null;
+                        if (otherContent) otherContent.style.maxHeight = "0px";
+                        const otherIcon = other.querySelector(".article-faq-icon") as HTMLElement | null;
+                        if (otherIcon) {
+                          otherIcon.className = "article-faq-icon w-8 h-8 rounded-full border border-[#d9b45c]/20 text-[#c9c2ab] bg-[#07080b] flex items-center justify-center transition-all duration-300 flex-shrink-0";
+                        }
+                      }
+                    });
+                  }
+
+                  const content = item.querySelector(".article-faq-content") as HTMLElement | null;
+                  const icon = item.querySelector(".article-faq-icon") as HTMLElement | null;
+
+                  if (isOpen) {
+                    item.setAttribute("data-faq-open", "false");
+                    item.className = "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#0e1015]/60 border-[#d9b45c]/10 hover:border-[#d9b45c]/25 hover:bg-[#0e1015]";
+                    if (content) content.style.maxHeight = "0px";
+                    if (icon) {
+                      icon.className = "article-faq-icon w-8 h-8 rounded-full border border-[#d9b45c]/20 text-[#c9c2ab] bg-[#07080b] flex items-center justify-center transition-all duration-300 flex-shrink-0";
+                    }
+                  } else {
+                    item.setAttribute("data-faq-open", "true");
+                    item.className = "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#12141b] border-[#d9b45c]/40 shadow-[0_4px_25px_rgba(217,180,92,0.06)]";
+                    if (content) content.style.maxHeight = `${content.scrollHeight + 80}px`;
+                    if (icon) {
+                      icon.className = "article-faq-icon w-8 h-8 rounded-full border border-[#f2d98a]/50 text-[#f2d98a] bg-[#d9b45c]/10 rotate-45 flex items-center justify-center transition-all duration-300 flex-shrink-0";
+                    }
+                  }
+                }
+                return;
+              }
+
               const toggleBtn = target.closest(".toc-toggle-button");
               if (toggleBtn) {
                 const tocBlock = toggleBtn.closest(".rank-math-block");
@@ -660,7 +1066,7 @@ export default function BlogSection({
               [&_img]:max-w-[760px] [&_img]:w-full [&_img]:mx-auto [&_img]:rounded-xl [&_img]:my-6
               [&_.rank-math-block]:my-8 [&_.rank-math-block]:p-6 [&_.rank-math-block]:bg-[#12141b] [&_.rank-math-block]:border-2 [&_.rank-math-block]:border-[#d9b45c]/40 [&_.rank-math-block]:rounded-2xl [&_.rank-math-block]:shadow-xl
               [&>pre]:bg-[#07080b] [&>pre]:p-4 [&>pre]:rounded-xl [&>pre]:text-[#f2d98a] [&>pre]:font-mono [&>pre]:text-xs [&>pre]:overflow-x-auto [&>pre]:border [&>pre]:border-white/10"
-            dangerouslySetInnerHTML={{ __html: formatArticleBody(post.content) }}
+            dangerouslySetInnerHTML={{ __html: formatArticleBody(post.content || "", articleFaqs) }}
           />
 
           {/* ISOLATED EMBEDDED VIDEO MEDIA SECTION */}
@@ -841,39 +1247,6 @@ export default function BlogSection({
                   <span>WhatsApp</span>
                 </a>
               </div>
-            </div>
-          </div>
-
-          {/* INTERACTIVE FAQ ACCORDION SECTION */}
-          <div className="mt-12 pt-8 border-t border-[#d9b45c]/15">
-            <h3 className="font-serif text-xl md:text-2xl text-[#f3ecd8] font-semibold mb-6 flex items-center space-x-2">
-              <HelpCircle className="text-[#d9b45c]" size={22} />
-              <span>Frequently Asked Questions</span>
-            </h3>
-
-            <div className="space-y-3">
-              {defaultFaqs.map((faq, idx) => {
-                const isOpen = openFaqIndex === idx;
-                return (
-                  <div 
-                    key={idx}
-                    className="bg-[#12141b] border border-[#d9b45c]/15 rounded-xl overflow-hidden transition-all duration-200"
-                  >
-                    <button
-                      onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                      className="w-full px-5 py-4 flex items-center justify-between text-left font-serif text-sm md:text-base font-medium text-[#f3ecd8] hover:text-[#f2d98a] cursor-pointer"
-                    >
-                      <span>{faq.question}</span>
-                      {isOpen ? <ChevronUp size={18} className="text-[#d9b45c] shrink-0 ml-2" /> : <ChevronDown size={18} className="text-[#c9c2ab] shrink-0 ml-2" />}
-                    </button>
-                    {isOpen && (
-                      <div className="px-5 pb-5 text-xs md:text-sm text-[#c9c2ab] leading-relaxed border-t border-white/5 pt-3">
-                        {faq.answer}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
             </div>
           </div>
 

@@ -3,6 +3,7 @@ import { BlogPost } from "../types";
 import { saveCMSData, saveCMSDataWithResult, getCMSData, CMSData, cleanHTMLToExcerpt, DEFAULT_POST_IMAGE, submitUrlsForIndexing, WPMedia } from "../cmsStore";
 import { navigateToRoute } from "../utils/router";
 import { WPMediaLibraryModal } from "./WPMediaLibraryModal";
+import { formatArticleBody } from "./BlogSection";
 import { 
   Check, 
   ChevronDown, 
@@ -935,7 +936,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
     showToast("Article deleted.");
   };
 
-  // Smart Plain-Text / Markdown to HTML Content Formatter
+  // Smart Plain-Text / Markdown to HTML Content Formatter with Auto FAQ Accordion Rendering
   const formatContentForPreview = (raw?: string): string => {
     if (!raw || !raw.trim()) return "<p class='text-gray-500 italic'>No content written yet.</p>";
     
@@ -946,7 +947,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
     const hasHtml = /<\/?(p|h[1-6]|table|div|ul|ol|blockquote|hr|section|article|a)[^>]*>/i.test(processed);
     
     if (hasHtml) {
-      return processed;
+      return formatArticleBody(processed);
     }
 
     // Convert plain text / markdown blocks into clean HTML
@@ -985,7 +986,85 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
       return `<p class="my-4 leading-relaxed text-[#F3F4F6]">${withBreaks}</p>`;
     }).filter(Boolean);
 
-    return formatted.join("\n\n");
+    return formatArticleBody(formatted.join("\n\n"));
+  };
+
+  // Interactive click handler for FAQ Accordions inside Live Previews
+  const handlePreviewFaqClick = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement;
+    const faqBtn = target.closest(".article-faq-trigger") as HTMLElement | null;
+    if (faqBtn) {
+      e.preventDefault();
+      const item = faqBtn.closest(".article-faq-item") as HTMLElement | null;
+      if (item) {
+        const isOpen = item.getAttribute("data-faq-open") === "true";
+        const container = item.closest(".article-faq-container");
+
+        if (container) {
+          container.querySelectorAll(".article-faq-item").forEach((other) => {
+            if (other !== item && other.getAttribute("data-faq-open") === "true") {
+              other.setAttribute("data-faq-open", "false");
+              other.className = "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#0e1015]/60 border-[#d9b45c]/10 hover:border-[#d9b45c]/25 hover:bg-[#0e1015]";
+              const otherContent = other.querySelector(".article-faq-content") as HTMLElement | null;
+              if (otherContent) otherContent.style.maxHeight = "0px";
+              const otherIcon = other.querySelector(".article-faq-icon") as HTMLElement | null;
+              if (otherIcon) {
+                otherIcon.className = "article-faq-icon w-8 h-8 rounded-full border border-[#d9b45c]/20 text-[#c9c2ab] bg-[#07080b] flex items-center justify-center transition-all duration-300 flex-shrink-0";
+              }
+            }
+          });
+        }
+
+        const content = item.querySelector(".article-faq-content") as HTMLElement | null;
+        const icon = item.querySelector(".article-faq-icon") as HTMLElement | null;
+
+        if (isOpen) {
+          item.setAttribute("data-faq-open", "false");
+          item.className = "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#0e1015]/60 border-[#d9b45c]/10 hover:border-[#d9b45c]/25 hover:bg-[#0e1015]";
+          if (content) content.style.maxHeight = "0px";
+          if (icon) {
+            icon.className = "article-faq-icon w-8 h-8 rounded-full border border-[#d9b45c]/20 text-[#c9c2ab] bg-[#07080b] flex items-center justify-center transition-all duration-300 flex-shrink-0";
+          }
+        } else {
+          item.setAttribute("data-faq-open", "true");
+          item.className = "article-faq-item rounded-2xl border transition-all duration-300 overflow-hidden bg-[#12141b] border-[#d9b45c]/40 shadow-[0_4px_25px_rgba(217,180,92,0.06)]";
+          if (content) content.style.maxHeight = `${content.scrollHeight + 80}px`;
+          if (icon) {
+            icon.className = "article-faq-icon w-8 h-8 rounded-full border border-[#f2d98a]/50 text-[#f2d98a] bg-[#d9b45c]/10 rotate-45 flex items-center justify-center transition-all duration-300 flex-shrink-0";
+          }
+        }
+      }
+    }
+  };
+
+  // Insert Interactive FAQ Accordion Block
+  const handleInsertFaqBlock = () => {
+    if (!currentPost) return;
+    const faqSnippet = `\n<div class="faq-accordion-block my-8 not-prose" data-faq-block="true">
+  <div class="space-y-4">
+    <div class="faq-item rounded-2xl border bg-[#0e1015]/60 border-[#d9b45c]/10 p-5">
+      <h3 class="faq-question font-sans font-bold text-base text-[#f3ecd8] mb-2">What is the best age for children to start learning the Quran?</h3>
+      <div class="faq-answer text-sm text-[#c9c2ab] leading-relaxed">Children can comfortably begin learning the Noorani Qaida and basic Quranic Arabic from ages 4 to 5 with patient, certified tutors.</div>
+    </div>
+    <div class="faq-item rounded-2xl border bg-[#0e1015]/60 border-[#d9b45c]/10 p-5">
+      <h3 class="faq-question font-sans font-bold text-base text-[#f3ecd8] mb-2">Are female Quran tutors available for sisters and kids?</h3>
+      <div class="faq-answer text-sm text-[#c9c2ab] leading-relaxed">Yes, Truth Quran Academy offers certified female scholars from Jamia Naeemia for female students and young children with private 1-on-1 scheduling.</div>
+    </div>
+  </div>
+</div>\n\n`;
+
+    if (editorMode === "visual" && visualEditorRef.current) {
+      document.execCommand("insertHTML", false, faqSnippet);
+      const updated = visualEditorRef.current.innerHTML;
+      handleUpdateField("content", updated);
+      pushHistory(updated);
+    } else {
+      const current = currentPost.content || "";
+      const updated = `${current}\n${faqSnippet}`;
+      handleUpdateField("content", updated);
+      pushHistory(updated);
+    }
+    showToast("✅ FAQ Accordion Block inserted into article!");
   };
 
   // Smart English Heading & Structure Pattern Analyzer (H2, H3, H4)
@@ -1393,6 +1472,14 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
         badge: "HR",
         icon: Minus,
         keywords: ["divider", "line", "hr", "separator", "rule"]
+      },
+      {
+        id: "faq",
+        label: "FAQ Accordion Block",
+        desc: "Insert interactive questions & answers with academy accordion styling",
+        badge: "FAQ",
+        icon: HelpCircle,
+        keywords: ["faq", "faqs", "question", "accordion", "frequently", "qa"]
       }
     ];
 
@@ -1453,6 +1540,19 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
       replacement = ``;
     } else if (item.id === "divider") {
       replacement = `\n<hr class="border-[#d9b45c]/30 my-8" />\n\n`;
+    } else if (item.id === "faq") {
+      replacement = `\n<div class="faq-accordion-block my-8 not-prose" data-faq-block="true">
+  <div class="space-y-4">
+    <div class="faq-item rounded-2xl border bg-[#0e1015]/60 border-[#d9b45c]/10 p-5">
+      <h3 class="faq-question font-sans font-bold text-base text-[#f3ecd8] mb-2">What is the best age for children to start learning the Quran?</h3>
+      <div class="faq-answer text-sm text-[#c9c2ab] leading-relaxed">Children can comfortably begin learning the Noorani Qaida and basic Quranic Arabic from ages 4 to 5 with patient, certified tutors.</div>
+    </div>
+    <div class="faq-item rounded-2xl border bg-[#0e1015]/60 border-[#d9b45c]/10 p-5">
+      <h3 class="faq-question font-sans font-bold text-base text-[#f3ecd8] mb-2">Are female Quran tutors available for sisters and kids?</h3>
+      <div class="faq-answer text-sm text-[#c9c2ab] leading-relaxed">Yes, Truth Quran Academy offers certified female scholars from Jamia Naeemia for female students and young children with private 1-on-1 scheduling.</div>
+    </div>
+  </div>
+</div>\n\n`;
     }
 
     const newContent = beforeSlash + replacement + afterSlash;
@@ -2912,13 +3012,40 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
   const handleApplyAiResult = (target: "replace_content" | "append_content" | "meta_title" | "meta_desc") => {
     if (!aiResult || !currentPost) return;
 
+    let textToInsert = aiResult;
+    if (aiAction === "faq" && !aiResult.includes("faq-accordion-block")) {
+      const lines = aiResult.split("\n").filter(l => l.trim().length > 0);
+      let itemsHtml = "";
+      let curQ = "";
+      let curA = "";
+      for (const line of lines) {
+        if (/^(Q|Question):\s*/i.test(line)) {
+          if (curQ && curA) {
+            itemsHtml += `\n    <div class="faq-item rounded-2xl border bg-[#0e1015]/60 border-[#d9b45c]/10 p-5">\n      <h3 class="faq-question font-sans font-bold text-base text-[#f3ecd8] mb-2">${curQ}</h3>\n      <div class="faq-answer text-sm text-[#c9c2ab] leading-relaxed">${curA}</div>\n    </div>`;
+          }
+          curQ = line.replace(/^(Q|Question):\s*/i, "").trim();
+          curA = "";
+        } else if (/^(A|Answer):\s*/i.test(line)) {
+          curA = line.replace(/^(A|Answer):\s*/i, "").trim();
+        } else if (curA) {
+          curA += " " + line.trim();
+        }
+      }
+      if (curQ && curA) {
+        itemsHtml += `\n    <div class="faq-item rounded-2xl border bg-[#0e1015]/60 border-[#d9b45c]/10 p-5">\n      <h3 class="faq-question font-sans font-bold text-base text-[#f3ecd8] mb-2">${curQ}</h3>\n      <div class="faq-answer text-sm text-[#c9c2ab] leading-relaxed">${curA}</div>\n    </div>`;
+      }
+      if (itemsHtml) {
+        textToInsert = `\n<div class="faq-accordion-block my-8 not-prose" data-faq-block="true">\n  <div class="space-y-4">${itemsHtml}\n  </div>\n</div>\n`;
+      }
+    }
+
     if (target === "replace_content") {
-      const formatted = aiResult.includes("<p>") ? aiResult : `<p class="my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed">${aiResult.replace(/\n\n/g, "</p><p class='my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed'>")}</p>`;
+      const formatted = textToInsert.includes("<") ? textToInsert : `<p class="my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed">${textToInsert.replace(/\n\n/g, "</p><p class='my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed'>")}</p>`;
       handleUpdateField("content", formatted);
       pushHistory(formatted);
       showToast("Content updated with AI response!");
     } else if (target === "append_content") {
-      const formatted = aiResult.includes("<p>") ? aiResult : `<p class="my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed">${aiResult.replace(/\n\n/g, "</p><p class='my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed'>")}</p>`;
+      const formatted = textToInsert.includes("<") ? textToInsert : `<p class="my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed">${textToInsert.replace(/\n\n/g, "</p><p class='my-4 text-xs md:text-sm text-[#c9c2ab] leading-relaxed'>")}</p>`;
       const newContent = `${currentPost.content || ""}\n${formatted}`;
       handleUpdateField("content", newContent);
       pushHistory(newContent);
@@ -3544,6 +3671,27 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                           <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/cta</span>
                         </button>
 
+                        {/* FAQ Accordion Block */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreToolsMenu(false);
+                            handleInsertFaqBlock();
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-[#d9b45c]/20 rounded-xl text-left flex items-center justify-between group transition-colors"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#d9b45c]/10 group-hover:bg-[#d9b45c]/30 flex items-center justify-center text-[#d9b45c]">
+                              <HelpCircle size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-white group-hover:text-[#f2d98a]">Insert FAQ Accordion</div>
+                              <div className="text-[10px] text-[#c9c2ab]/70">Interactive questions & answers</div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] bg-white/5 text-[#c9c2ab] px-1.5 py-0.5 rounded font-mono">/faq</span>
+                        </button>
+
                         {/* Blockquote */}
                         <button
                           type="button"
@@ -3802,7 +3950,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
 
               {viewLayoutMode === "preview" ? (
                 /* FULL LIVE ARTICLE PREVIEW */
-                <div className="p-6 bg-[#07080b] border border-[#d9b45c]/20 rounded-b-2xl space-y-6 max-h-[650px] overflow-y-auto">
+                <div onClick={handlePreviewFaqClick} className="p-6 bg-[#07080b] border border-[#d9b45c]/20 rounded-b-2xl space-y-6 max-h-[650px] overflow-y-auto">
                   <div className="border-b border-white/10 pb-4">
                     <span className="text-[10px] font-bold text-[#d9b45c] uppercase tracking-wider">{currentPost.category || "Tajweed Rules"}</span>
                     <h1 className="text-2xl md:text-3xl font-serif font-bold text-white mt-1">{currentPost.title || "Untitled Article"}</h1>
@@ -3870,7 +4018,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                   </div>
 
                   {/* RIGHT: REAL-TIME LIVE RENDERED PREVIEW */}
-                  <div className="p-4 bg-[#0e1017]/80 overflow-y-auto max-h-[580px] space-y-4">
+                  <div onClick={handlePreviewFaqClick} className="p-4 bg-[#0e1017]/80 overflow-y-auto max-h-[580px] space-y-4">
                     <div className="flex items-center justify-between border-b border-white/10 pb-2">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[#d9b45c]">Real-time Live Preview</span>
                       <span className="text-[10px] font-mono text-[#c9c2ab]">Truth Quran Theme</span>
