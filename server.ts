@@ -1545,22 +1545,22 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
       const cleanPost = { ...post };
       const postSlugOrId = cleanPost.slug || cleanPost.id || "post";
 
-      // 1. Featured Image Base64 Conversion
-      if (cleanPost.featuredImage && typeof cleanPost.featuredImage === "string" && cleanPost.featuredImage.startsWith("data:image/")) {
-        cleanPost.featuredImage = saveBase64ImageToUploads(cleanPost.featuredImage, `featured-${postSlugOrId}`);
-      }
-      // 2. Cover Image Base64 Conversion
+      // 1. Cover Image Base64 Conversion
       if (cleanPost.coverImage && typeof cleanPost.coverImage === "string" && cleanPost.coverImage.startsWith("data:image/")) {
         cleanPost.coverImage = saveBase64ImageToUploads(cleanPost.coverImage, `cover-${postSlugOrId}`);
       }
-      // 3. Keep images in sync so neither is blank if one is set (featuredImage has priority)
-      if (cleanPost.featuredImage && !cleanPost.coverImage) {
-        cleanPost.coverImage = cleanPost.featuredImage;
-      } else if (cleanPost.coverImage && !cleanPost.featuredImage) {
+      // 2. Featured Image Base64 Conversion
+      if (cleanPost.featuredImage && typeof cleanPost.featuredImage === "string" && cleanPost.featuredImage.startsWith("data:image/")) {
+        cleanPost.featuredImage = saveBase64ImageToUploads(cleanPost.featuredImage, `featured-${postSlugOrId}`);
+      }
+      // 3. Keep images in sync so neither is blank if one is set
+      if (cleanPost.coverImage && !cleanPost.featuredImage) {
         cleanPost.featuredImage = cleanPost.coverImage;
+      } else if (cleanPost.featuredImage && !cleanPost.coverImage) {
+        cleanPost.coverImage = cleanPost.featuredImage;
       }
       if (cleanPost.ogImage && typeof cleanPost.ogImage === "string" && cleanPost.ogImage.startsWith("data:image/")) {
-        cleanPost.ogImage = cleanPost.featuredImage || cleanPost.coverImage;
+        cleanPost.ogImage = cleanPost.coverImage || cleanPost.featuredImage;
       }
 
       // 4. Inline Base64 images inside post content conversion

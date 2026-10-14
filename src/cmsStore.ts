@@ -583,23 +583,10 @@ export const cleanHTMLToExcerpt = (content: string, existingExcerpt?: string): s
   return words.slice(0, 32).join(" ") + "...";
 };
 
-export const normalizeImageUrl = (url?: string): string => {
-  if (!url || typeof url !== "string") return "";
-  const trimmed = url.trim();
-  if (!trimmed) return "";
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
-    return trimmed;
-  }
-  if (trimmed.startsWith("/")) {
-    return trimmed;
-  }
-  return `/${trimmed}`;
-};
-
 export const safeMergeBlogPost = (base: BlogPost, override: Partial<BlogPost>): BlogPost => {
-  const updatedFeatured = override.featuredImage !== undefined ? override.featuredImage : base.featuredImage;
   const updatedCover = override.coverImage !== undefined ? override.coverImage : base.coverImage;
-  const primaryImg = (override.featuredImage || override.coverImage || updatedFeatured || updatedCover || "").trim();
+  const updatedFeatured = override.featuredImage !== undefined ? override.featuredImage : base.featuredImage;
+  const primaryImg = (override.coverImage || override.featuredImage || updatedCover || updatedFeatured || "").trim();
 
   const merged: BlogPost = {
     ...base,
@@ -611,8 +598,8 @@ export const safeMergeBlogPost = (base: BlogPost, override: Partial<BlogPost>): 
     excerpt: override.excerpt !== undefined && override.excerpt !== "" ? override.excerpt : base.excerpt,
     status: override.status || base.status || "draft",
     category: override.category || base.category,
-    featuredImage: updatedFeatured || primaryImg,
     coverImage: updatedCover || primaryImg,
+    featuredImage: updatedFeatured || primaryImg,
     ogImage: override.ogImage || primaryImg || base.ogImage,
     author: {
       name: override.author?.name || base.author?.name || "Muhammad Zain",
@@ -678,8 +665,8 @@ export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
 
     // Core content and metadata fields
     excerpt: post.excerpt !== undefined && post.excerpt !== "" ? post.excerpt : cleanExcerpt,
-    featuredImage: userFeatured || validImage,
     coverImage: userCover || validImage,
+    featuredImage: userFeatured || validImage,
     ogImage: userOg || validImage,
     status: post.status || "draft",
     author: {

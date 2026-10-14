@@ -1914,7 +1914,7 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
                       {activeTab === "posts" && (
                         <td className="py-3.5 px-4 text-center">
                           <img 
-                            src={item.featuredImage || item.coverImage || "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=150"} 
+                            src={item.coverImage || "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=150"} 
                             alt="" 
                             className="w-10 h-10 object-cover rounded-lg border border-white/5"
                             referrerPolicy="no-referrer"
