@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import WhatsAppIcon from "./WhatsAppIcon";
 import { blogPostsData } from "../data";
-import { getCMSData, DEFAULT_POST_IMAGE, cleanHTMLToExcerpt, ensureBlogPostSEO, BlogPost } from "../cmsStore";
+import { getCMSData, DEFAULT_POST_IMAGE, cleanHTMLToExcerpt, ensureBlogPostSEO, BlogPost, normalizeImageUrl } from "../cmsStore";
 import { parseCurrentRoute, navigateToRoute, slugify } from "../utils/router";
 
 export interface ArticleFaqItem {
@@ -463,7 +463,7 @@ interface BlogCardProps {
 
 // Standardized Reusable Blog Card Component matching exact design specs
 export function BlogCard({ post, index, onClick }: BlogCardProps) {
-  const cardImg = post.coverImage || post.featuredImage || DEFAULT_POST_IMAGE;
+  const cardImg = normalizeImageUrl(post.featuredImage || post.coverImage || post.ogImage || DEFAULT_POST_IMAGE);
   const cleanExcerpt = cleanHTMLToExcerpt(post.content, post.excerpt);
   const displayCategory = post.category || "Tajweed Rules";
   const displayDate = post.date || post.publishDate || "August 2026";
@@ -748,7 +748,7 @@ export default function BlogSection({
       );
     }
 
-    const postCoverImage = post.coverImage || post.featuredImage || DEFAULT_POST_IMAGE;
+    const postCoverImage = normalizeImageUrl(post.featuredImage || post.coverImage || post.ogImage || DEFAULT_POST_IMAGE);
     const authorAvatar = post.author?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80";
     const authorName = post.author?.name || "Muhammad Zain";
     const authorRole = post.author?.role || "Senior Quran Scholar & Tajweed Instructor";
@@ -1365,7 +1365,7 @@ export default function BlogSection({
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedPosts.map((rel) => {
-                const relImage = rel.coverImage || rel.featuredImage || DEFAULT_POST_IMAGE;
+                const relImage = normalizeImageUrl(rel.featuredImage || rel.coverImage || rel.ogImage || DEFAULT_POST_IMAGE);
                 return (
                   <div
                     key={rel.id}

@@ -482,15 +482,15 @@
         "1-on-1 Quran Lessons",
         "Quran for Kids"
       ],
-      "featuredImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
+      "featuredImage": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
       "readTime": "8 min read",
       "status": "published",
       "attachments": [],
       "videoUrls": [],
       "pdfUrls": [],
       "customLinks": [],
-      "coverImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
-      "ogImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
+      "coverImage": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
+      "ogImage": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
       "seoTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy | Truth Quran Academy",
       "metaTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
       "metaDescription": "Discover how to learn Quran online with certified 1-on-1 tutors at Truth Quran Academy. Step-by-step guide on interactive classrooms, Tajweed phonetic",
@@ -681,6 +681,16 @@
     }
   ],
   "mediaLibrary": [
+    {
+      "id": "m-1791979960457",
+      "title": "test-upload.png",
+      "url": "/uploads/test-upload-1791979960456-92c571.png",
+      "size": "0 KB",
+      "date": "2026-10-14",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "test-upload.png"
+    },
     {
       "id": "m-1790940694913",
       "title": "test-media-upload.jpg",
@@ -1200,6 +1210,34 @@
       "channel": "Organic Search",
       "sessionId": "sess_1790853159099_hmlqywp",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1791979068792_1jmwh",
+      "timestamp": "2026-10-14T11:57:48.792Z",
+      "ip": "116.90.119.240",
+      "country": "PK",
+      "countryName": "Pakistan",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://ais-dev-zanym4iula6fojzz3qmcyu-596355472989.asia-southeast1.run.app/",
+      "channel": "Direct Traffic",
+      "sessionId": "sess_1791458277099_wxu3off",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1791979068801_mduv0",
+      "timestamp": "2026-10-14T11:57:48.801Z",
+      "ip": "116.90.119.240",
+      "country": "PK",
+      "countryName": "Pakistan",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://ais-dev-zanym4iula6fojzz3qmcyu-596355472989.asia-southeast1.run.app/",
+      "channel": "Direct Traffic",
+      "sessionId": "sess_1791458277099_wxu3off",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
     }
   ],
   "indexingSettings": {

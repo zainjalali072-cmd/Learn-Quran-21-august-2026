@@ -234,19 +234,6 @@
   ],
   "blogPosts": [
     {
-      "id": "test-draft-123",
-      "title": "Test Tajweed Draft Article",
-      "slug": "test-tajweed-draft-article",
-      "content": "<p>This is a test draft article with an image <img src=\"https://images.unsplash.com/photo-test\" alt=\"test\" /></p>",
-      "status": "draft",
-      "category": "Tajweed Rules",
-      "focusKeyword": "Tajweed Mastery",
-      "metaTitle": "Test Tajweed Draft - Learn Tajweed Online",
-      "metaDescription": "Complete guide to Tajweed mastery online with test draft.",
-      "featuredImage": "https://images.unsplash.com/photo-featured-test",
-      "coverImage": "https://images.unsplash.com/photo-featured-test"
-    },
-    {
       "id": "hifz-tips-success",
       "title": "5 Proven Strategies to Accelerate Your Quran Memorization (Hifz)",
       "excerpt": "Embarking on the spiritual journey of memorizing the Holy Quran requires dedication, strategy, and consistency. Discover five traditional Jamia Naeemia Lahore techniques to double your retention rate.",
@@ -495,15 +482,15 @@
         "1-on-1 Quran Lessons",
         "Quran for Kids"
       ],
-      "featuredImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
+      "featuredImage": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
       "readTime": "8 min read",
       "status": "published",
       "attachments": [],
       "videoUrls": [],
       "pdfUrls": [],
       "customLinks": [],
-      "coverImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
-      "ogImage": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&h=800&q=80",
+      "coverImage": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
+      "ogImage": "/src/assets/images/online_quran_teacher_1784116886285.jpg",
       "seoTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy | Truth Quran Academy",
       "metaTitle": "Online Quran Academy: How to Learn Quran Online with Truth Quran Academy",
       "metaDescription": "Discover how to learn Quran online with certified 1-on-1 tutors at Truth Quran Academy. Step-by-step guide on interactive classrooms, Tajweed phonetic",
@@ -694,6 +681,16 @@
     }
   ],
   "mediaLibrary": [
+    {
+      "id": "m-1790940694913",
+      "title": "test-media-upload.jpg",
+      "url": "/uploads/test-media-upload-1790940694912-ccaa9a.jpg",
+      "size": "0 KB",
+      "date": "2026-10-02",
+      "type": "image/jpeg",
+      "dimensions": "1200x800",
+      "alt": "test-media-upload.jpg"
+    },
     {
       "id": "m-1",
       "title": "Truth Quran Academy Logo Image",
@@ -1147,6 +1144,76 @@
       "channel": "Organic Search",
       "sessionId": "sess_1790853159099_hmlqywp",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790938340948_27yfr",
+      "timestamp": "2026-10-02T10:52:20.948Z",
+      "ip": "116.90.119.240",
+      "country": "PK",
+      "countryName": "Pakistan",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790853159099_hmlqywp",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790938340958_rcpm2",
+      "timestamp": "2026-10-02T10:52:20.958Z",
+      "ip": "116.90.119.240",
+      "country": "PK",
+      "countryName": "Pakistan",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790853159099_hmlqywp",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790938612925_g94ia",
+      "timestamp": "2026-10-02T10:56:52.925Z",
+      "ip": "116.90.119.240",
+      "country": "PK",
+      "countryName": "Pakistan",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790853159099_hmlqywp",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1790938612933_9ie2f",
+      "timestamp": "2026-10-02T10:56:52.933Z",
+      "ip": "116.90.119.240",
+      "country": "PK",
+      "countryName": "Pakistan",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://aistudio.google.com/",
+      "channel": "Organic Search",
+      "sessionId": "sess_1790853159099_hmlqywp",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "hit_1791979068792_1jmwh",
+      "timestamp": "2026-10-14T11:57:48.792Z",
+      "ip": "116.90.119.240",
+      "country": "PK",
+      "countryName": "Pakistan",
+      "browser": "Chrome",
+      "device": "Desktop",
+      "url": "/",
+      "referrer": "https://ais-dev-zanym4iula6fojzz3qmcyu-596355472989.asia-southeast1.run.app/",
+      "channel": "Direct Traffic",
+      "sessionId": "sess_1791458277099_wxu3off",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
     }
   ],
   "indexingSettings": {
@@ -1159,10 +1226,32 @@
     "googlePrivateKey": "",
     "googleJsonConfig": "",
     "indexNowKey": "4a8e2bc9d17f4019a58b43f9a721b06c",
-    "dailyQuotaUsed": 14,
+    "dailyQuotaUsed": 15,
     "dailyQuotaTotal": 200
   },
   "indexingLogs": [
+    {
+      "id": "idx_in_1790855214277_vnyn",
+      "timestamp": "2026-10-01T11:46:54.277Z",
+      "url": "https://truthquranacademy.com/blog/test-tajweed-draft-article",
+      "action": "URL_UPDATED",
+      "service": "IndexNow (Bing)",
+      "status": "success",
+      "statusCode": 200,
+      "message": "HTTP 200 OK. IndexNow protocol broadcast to Bing, Yandex, & search bot network.",
+      "latencyMs": 136
+    },
+    {
+      "id": "idx_g_1790855214277_i6pg",
+      "timestamp": "2026-10-01T11:46:54.277Z",
+      "url": "https://truthquranacademy.com/blog/test-tajweed-draft-article",
+      "action": "URL_UPDATED",
+      "service": "Google Indexing API",
+      "status": "success",
+      "statusCode": 200,
+      "message": "Google Search Console & Indexing API accepted URL notification. Crawler queued (200 OK).",
+      "latencyMs": 148
+    },
     {
       "id": "idx_in_1790598539288_a10w",
       "timestamp": "2026-09-28T12:28:59.288Z",
@@ -1541,6 +1630,17 @@
       "status": "Indexed",
       "lastSubmitted": "2026-09-28T12:28:59.288Z",
       "lastCrawled": "2026-09-28T12:28:59.288Z",
+      "googleStatus": "Indexed & Submitted (200 OK)",
+      "indexNowStatus": "Broadcasted & Verified (200 OK)",
+      "httpCode": 200
+    },
+    "https://truthquranacademy.com/blog/test-tajweed-draft-article": {
+      "url": "https://truthquranacademy.com/blog/test-tajweed-draft-article",
+      "title": "Test Tajweed Draft Article",
+      "type": "post",
+      "status": "Indexed",
+      "lastSubmitted": "2026-10-01T11:46:54.277Z",
+      "lastCrawled": "2026-10-01T11:46:54.277Z",
       "googleStatus": "Indexed & Submitted (200 OK)",
       "indexNowStatus": "Broadcasted & Verified (200 OK)",
       "httpCode": 200
