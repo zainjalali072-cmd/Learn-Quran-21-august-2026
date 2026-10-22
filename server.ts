@@ -2835,11 +2835,9 @@ app.get(["/sitemap.xml", "/sitemap_index.xml"], (req, res) => {
   const subSitemaps = [
     "page-sitemap.xml",
     "post-sitemap.xml",
-    "category-sitemap.xml",
-    "tag-sitemap.xml",
     "course-sitemap.xml",
-    "service-sitemap.xml",
-    "faq-sitemap.xml"
+    "category-sitemap.xml",
+    "tag-sitemap.xml"
   ];
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -2864,11 +2862,11 @@ app.get("/page-sitemap.xml", (req, res) => {
   const now = new Date().toISOString().split("T")[0];
 
   const staticPages = [
-    { url: "", priority: "1.0", changefreq: "daily" },
+    { url: "/", priority: "1.0", changefreq: "daily" },
     { url: "/about", priority: "0.8", changefreq: "monthly" },
     { url: "/courses", priority: "0.9", changefreq: "weekly" },
-    { url: "/noorani-qaida", priority: "0.8", changefreq: "weekly" },
-    { url: "/kids-classes", priority: "0.8", changefreq: "weekly" },
+    { url: "/noorani-qaida", priority: "0.85", changefreq: "weekly" },
+    { url: "/kids-classes", priority: "0.85", changefreq: "weekly" },
     { url: "/fees", priority: "0.8", changefreq: "monthly" },
     { url: "/videos", priority: "0.7", changefreq: "weekly" },
     { url: "/contact", priority: "0.8", changefreq: "monthly" },
@@ -2880,8 +2878,9 @@ app.get("/page-sitemap.xml", (req, res) => {
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
   staticPages.forEach((p) => {
+    const loc = p.url === "/" ? `${domain}/` : `${domain}${p.url}`;
     xml += `  <url>\n`;
-    xml += `    <loc>${domain}${p.url}</loc>\n`;
+    xml += `    <loc>${loc}</loc>\n`;
     xml += `    <lastmod>${now}</lastmod>\n`;
     xml += `    <changefreq>${p.changefreq}</changefreq>\n`;
     xml += `    <priority>${p.priority}</priority>\n`;
@@ -2919,8 +2918,8 @@ app.get("/post-sitemap.xml", (req, res) => {
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
   published.forEach((post: any) => {
-    const slug = post.slug || post.id;
-    const postDate = formatIsoDate(post.date || post.publishDate || now);
+    const slug = slugify(post.slug || post.id);
+    const postDate = formatIsoDate(post.lastUpdated || post.publishDate || post.date || now);
     const postUrl = `${domain}/blog/${slug}`;
     const rawImg = post.featuredImage || post.coverImage;
 
@@ -3040,29 +3039,6 @@ app.get("/course-sitemap.xml", (req, res) => {
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
-  // Main courses hub
-  xml += `  <url>\n`;
-  xml += `    <loc>${domain}/courses</loc>\n`;
-  xml += `    <lastmod>${now}</lastmod>\n`;
-  xml += `    <changefreq>weekly</changefreq>\n`;
-  xml += `    <priority>0.9</priority>\n`;
-  xml += `  </url>\n`;
-
-  // Dedicated standalone course pathway pages
-  xml += `  <url>\n`;
-  xml += `    <loc>${domain}/noorani-qaida</loc>\n`;
-  xml += `    <lastmod>${now}</lastmod>\n`;
-  xml += `    <changefreq>weekly</changefreq>\n`;
-  xml += `    <priority>0.85</priority>\n`;
-  xml += `  </url>\n`;
-
-  xml += `  <url>\n`;
-  xml += `    <loc>${domain}/kids-classes</loc>\n`;
-  xml += `    <lastmod>${now}</lastmod>\n`;
-  xml += `    <changefreq>weekly</changefreq>\n`;
-  xml += `    <priority>0.85</priority>\n`;
-  xml += `  </url>\n`;
-
   // Clean canonical sub-course URLs (excluding standalone routes to prevent duplicate index bloat)
   courses.forEach((c: any) => {
     const courseSlug = slugify(c.id || c.title);
@@ -3082,62 +3058,9 @@ app.get("/course-sitemap.xml", (req, res) => {
   return res.status(200).send(xml);
 });
 
-// 7. Service Sitemap (/service-sitemap.xml)
-app.get("/service-sitemap.xml", (req, res) => {
-  const domain = "https://truthquranacademy.com";
-  const now = new Date().toISOString().split("T")[0];
-
-  const services = [
-    { url: "/noorani-qaida", priority: "0.85" },
-    { url: "/kids-classes", priority: "0.85" },
-    { url: "/courses", priority: "0.9" },
-    { url: "/fees", priority: "0.8" }
-  ];
-
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-  xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
-
-  services.forEach((s) => {
-    xml += `  <url>\n`;
-    xml += `    <loc>${domain}${s.url}</loc>\n`;
-    xml += `    <lastmod>${now}</lastmod>\n`;
-    xml += `    <changefreq>weekly</changefreq>\n`;
-    xml += `    <priority>${s.priority}</priority>\n`;
-    xml += `  </url>\n`;
-  });
-
-  xml += `</urlset>`;
-
-  res.header("Content-Type", "application/xml; charset=utf-8");
-  return res.status(200).send(xml);
-});
-
-// 8. FAQ Sitemap (/faq-sitemap.xml)
-app.get("/faq-sitemap.xml", (req, res) => {
-  const domain = "https://truthquranacademy.com";
-  const now = new Date().toISOString().split("T")[0];
-
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-  xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
-
-  xml += `  <url>\n`;
-  xml += `    <loc>${domain}/fees</loc>\n`;
-  xml += `    <lastmod>${now}</lastmod>\n`;
-  xml += `    <changefreq>monthly</changefreq>\n`;
-  xml += `    <priority>0.8</priority>\n`;
-  xml += `  </url>\n`;
-
-  xml += `  <url>\n`;
-  xml += `    <loc>${domain}/about</loc>\n`;
-  xml += `    <lastmod>${now}</lastmod>\n`;
-  xml += `    <changefreq>monthly</changefreq>\n`;
-  xml += `    <priority>0.8</priority>\n`;
-  xml += `  </url>\n`;
-
-  xml += `</urlset>`;
-
-  res.header("Content-Type", "application/xml; charset=utf-8");
-  return res.status(200).send(xml);
+// Legacy sub-sitemaps gracefully 301 redirected to consolidated main sitemaps
+app.get(["/service-sitemap.xml", "/faq-sitemap.xml"], (req, res) => {
+  return res.redirect(301, "/page-sitemap.xml");
 });
 
 // Serve files from public folder at root
@@ -3182,6 +3105,7 @@ Allow: /logo.png
 Allow: /site-logo.png
 Allow: /paras/
 Allow: /qaida/
+Allow: /uploads/
 Disallow: /wp-admin/
 Disallow: /api/
 
@@ -3193,15 +3117,16 @@ Sitemap: https://truthquranacademy.com/sitemap.xml`;
 
 // 301 Canonical & Legacy URL Redirect Middleware (Handles URLs discovered by Search Bots)
 app.use((req, res, next) => {
+  // Host & Protocol Normalization (e.g. www to non-www)
+  const host = req.headers.host || "";
+  if (host.startsWith("www.truthquranacademy.com")) {
+    const target = `https://truthquranacademy.com${req.originalUrl || req.url}`;
+    return res.redirect(301, target);
+  }
+
   const rawPath = req.path;
   if (!rawPath || rawPath.startsWith("/api/") || rawPath.startsWith("/paras/") || rawPath.startsWith("/qaida/")) {
     return next();
-  }
-
-  // Strip trailing slashes (except root)
-  if (rawPath.length > 1 && rawPath.endsWith("/")) {
-    const cleanUrl = rawPath.replace(/\/+$/, "") + ((req as any)._parsedUrl?.search || "");
-    return res.redirect(301, cleanUrl);
   }
 
   // Canonical Mappings for legacy or alternate URL variants
@@ -3215,6 +3140,7 @@ app.use((req, res, next) => {
     "/courses/kids-quran-classes": "/kids-classes",
     "/course/noorani-qaida": "/noorani-qaida",
     "/course/kids-classes": "/kids-classes",
+    "/course": "/courses",
     "/fees-faq": "/fees",
     "/fees/faq": "/fees",
     "/faq": "/fees",
@@ -3224,11 +3150,36 @@ app.use((req, res, next) => {
     "/downloads": "/download",
     "/video": "/videos",
     "/gallery": "/videos",
-    "/video-gallery": "/videos"
+    "/video-gallery": "/videos",
+    "/category": "/blog",
+    "/tag": "/blog"
   };
 
-  if (redirects[rawPath]) {
-    return res.redirect(301, redirects[rawPath]);
+  const normalizedLowerPath = rawPath.length > 1 ? rawPath.replace(/\/+$/, "").toLowerCase() : "/";
+
+  // Check redirects on normalized path (handles trailing slashes in single 301 hop!)
+  if (redirects[normalizedLowerPath]) {
+    const search = (req as any)._parsedUrl?.search || "";
+    return res.redirect(301, `${redirects[normalizedLowerPath]}${search}`);
+  }
+
+  // Regex redirects for /blog/category/ and /blog/tag/ legacy variants
+  if (normalizedLowerPath.startsWith("/blog/category/")) {
+    const sub = normalizedLowerPath.replace("/blog/category/", "");
+    const search = (req as any)._parsedUrl?.search || "";
+    return res.redirect(301, `/category/${slugify(sub)}${search}`);
+  }
+
+  if (normalizedLowerPath.startsWith("/blog/tag/")) {
+    const sub = normalizedLowerPath.replace("/blog/tag/", "");
+    const search = (req as any)._parsedUrl?.search || "";
+    return res.redirect(301, `/tag/${slugify(sub)}${search}`);
+  }
+
+  // Strip trailing slashes on all non-root paths (if not already handled by a redirect rule above)
+  if (rawPath.length > 1 && rawPath.endsWith("/")) {
+    const cleanUrl = rawPath.replace(/\/+$/, "") + ((req as any)._parsedUrl?.search || "");
+    return res.redirect(301, cleanUrl);
   }
 
   next();
@@ -3262,7 +3213,7 @@ function generateRouteSEO(reqPath: string, db: any) {
 
   let title = `${orgName} | 1-on-1 Online Quran & Tajweed Classes`;
   let description = "Learn Holy Quran recitation, Tajweed rules, Hifz, and Arabic language with certified native scholars in private 1-on-1 virtual classrooms.";
-  let canonicalUrl = `${domain}${cleanPath === "/" ? "" : cleanPath}`;
+  let canonicalUrl = `${domain}${cleanPath === "/" ? "/" : cleanPath}`;
   let ogImage = defaultOgImage;
   let ogType = "website";
   let schemaJson: any = null;
@@ -3281,7 +3232,7 @@ function generateRouteSEO(reqPath: string, db: any) {
   if (cleanPath === "/") {
     title = `${orgName} | 1-on-1 Online Quran & Tajweed Classes`;
     description = "Learn Holy Quran recitation, Tajweed rules, Hifz, and Quranic Arabic from certified native scholars in private 1-on-1 classrooms. Structured for kids, sisters, and adults.";
-    canonicalUrl = domain;
+    canonicalUrl = `${domain}/`;
 
     schemaJson = {
       "@context": "https://schema.org",
@@ -4001,69 +3952,115 @@ function generateRouteSEO(reqPath: string, db: any) {
   // ROUTE 13: CATEGORY ARCHIVE (/category/:category)
   else if (cleanPath.startsWith("/category/")) {
     const rawCat = cleanPath.replace("/category/", "");
+    const cleanCatSlug = slugify(rawCat);
     const matchingPosts = publishedPosts.filter((p: any) => 
-      slugify(p.category || "") === slugify(rawCat) ||
+      slugify(p.category || "") === cleanCatSlug ||
       (p.category && p.category.toLowerCase() === rawCat.toLowerCase())
     );
-    const catName = matchingPosts[0]?.category || rawCat.replace(/-/g, " ");
+    const catName = matchingPosts[0]?.category || rawCat.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
-    title = `${catName} Articles & Guides | Truth Quran Academy`;
-    description = `Explore all articles and educational study guides in the ${catName} category at Truth Quran Academy.`;
-    
-    schemaJson = {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      "name": title,
-      "description": description,
-      "url": canonicalUrl
-    };
+    if (matchingPosts.length === 0) {
+      statusCode = 404;
+      noIndex = true;
+      title = `Category Not Found | Truth Quran Academy`;
+      description = `The requested category could not be found or has no published articles.`;
+      prerenderContent = `
+        <header>
+          <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Category Not Found</span></nav>
+        </header>
+        <main>
+          <h1>Category Not Found</h1>
+          <p>No articles were found in this category.</p>
+          <p><a href="/blog">Browse all articles &rarr;</a> | <a href="/">Return to Homepage &rarr;</a></p>
+        </main>
+      `;
+    } else {
+      canonicalUrl = `${domain}/category/${cleanCatSlug}`;
+      title = `${catName} Articles & Guides | Truth Quran Academy`;
+      description = `Explore all articles and educational study guides in the ${catName} category at Truth Quran Academy.`;
+      
+      schemaJson = {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": title,
+        "description": description,
+        "url": canonicalUrl
+      };
 
-    prerenderContent = `
-      <header>
-        <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Category: ${escapeHtml(catName)}</span></nav>
-      </header>
-      <main>
-        <h1>Articles in ${escapeHtml(catName)}</h1>
-        <p class="lead">${description}</p>
-        <section>
-          ${matchingPosts.length > 0 ? matchingPosts.map((p: any) => `
-            <article>
-              <h2><a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a></h2>
-              <p>${escapeHtml(p.excerpt || "")}</p>
-            </article>
-          `).join("") : `<p>No articles currently published in this category. <a href="/blog">Browse all articles &rarr;</a></p>`}
-        </section>
-      </main>
-    `;
+      prerenderContent = `
+        <header>
+          <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Category: ${escapeHtml(catName)}</span></nav>
+        </header>
+        <main>
+          <h1>Articles in ${escapeHtml(catName)}</h1>
+          <p class="lead">${description}</p>
+          <section>
+            ${matchingPosts.map((p: any) => `
+              <article>
+                <h2><a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a></h2>
+                <p>${escapeHtml(p.excerpt || "")}</p>
+              </article>
+            `).join("")}
+          </section>
+        </main>
+      `;
+    }
   }
 
   // ROUTE 14: TAG ARCHIVE (/tag/:tag)
   else if (cleanPath.startsWith("/tag/")) {
     const rawTag = cleanPath.replace("/tag/", "");
+    const cleanTagSlug = slugify(rawTag);
     const matchingPosts = publishedPosts.filter((p: any) => 
-      Array.isArray(p.tags) && p.tags.some((t: string) => slugify(t) === slugify(rawTag))
+      Array.isArray(p.tags) && p.tags.some((t: string) => slugify(t) === cleanTagSlug)
     );
-    const tagName = rawTag.replace(/-/g, " ");
+    const tagName = rawTag.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
-    title = `${tagName} Articles & Quran Resources | Truth Quran Academy`;
-    description = `Discover all articles and resources tagged with #${tagName} at Truth Quran Academy.`;
+    if (matchingPosts.length === 0) {
+      statusCode = 404;
+      noIndex = true;
+      title = `Tag Archive Not Found | Truth Quran Academy`;
+      description = `The requested tag archive could not be found or has no published articles.`;
+      prerenderContent = `
+        <header>
+          <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Tag Not Found</span></nav>
+        </header>
+        <main>
+          <h1>Tag Archive Not Found</h1>
+          <p>No articles were found tagged with #${escapeHtml(rawTag)}.</p>
+          <p><a href="/blog">Browse all articles &rarr;</a> | <a href="/">Return to Homepage &rarr;</a></p>
+        </main>
+      `;
+    } else {
+      canonicalUrl = `${domain}/tag/${cleanTagSlug}`;
+      title = `${tagName} Articles & Quran Resources | Truth Quran Academy`;
+      description = `Discover all articles and resources tagged with #${tagName} at Truth Quran Academy.`;
 
-    prerenderContent = `
-      <header>
-        <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Tag: #${escapeHtml(tagName)}</span></nav>
-      </header>
-      <main>
-        <h1>Articles tagged with #${escapeHtml(tagName)}</h1>
-        <section>
-          ${matchingPosts.length > 0 ? matchingPosts.map((p: any) => `
-            <article>
-              <h2><a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a></h2>
-              <p>${escapeHtml(p.excerpt || "")}</p>
-            </article>
-          `).join("") : `<p>No articles found for this tag. <a href="/blog">Browse all articles &rarr;</a></p>`}
-        </section>
-      </main>
-    `;
+      schemaJson = {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": title,
+        "description": description,
+        "url": canonicalUrl
+      };
+
+      prerenderContent = `
+        <header>
+          <nav><a href="/">Home</a> &gt; <a href="/blog">Blog</a> &gt; <span>Tag: #${escapeHtml(tagName)}</span></nav>
+        </header>
+        <main>
+          <h1>Articles tagged with #${escapeHtml(tagName)}</h1>
+          <section>
+            ${matchingPosts.map((p: any) => `
+              <article>
+                <h2><a href="/blog/${slugify(p.slug || p.id)}">${escapeHtml(p.title)}</a></h2>
+                <p>${escapeHtml(p.excerpt || "")}</p>
+              </article>
+            `).join("")}
+          </section>
+        </main>
+      `;
+    }
   }
 
   // ROUTE 15: WORDPRESS ADMIN PANEL (/wp-admin)

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { CMSData, getFaviconUrl } from "../cmsStore";
 import { applyFaviconToDocument } from "../utils/favicon";
+import { slugify } from "../utils/router";
 
 interface SEOHeadProps {
   cmsData: CMSData;
@@ -35,7 +36,7 @@ export default function SEOHead({ cmsData, currentView, activePostId, categorySl
     let schemaJson: any = null;
 
     if (currentView === "home") {
-      canonical = "https://truthquranacademy.com";
+      canonical = "https://truthquranacademy.com/";
     } else if (currentView === "about") {
       title = "About Truth Quran Academy | Certified Online Quran Scholars & Ijazah Tutors";
       description = "Discover Truth Quran Academy's mission, certified teachers holding traditional Ijazah credentials, 1-on-1 personalized methodology, and female Quran tutors.";
@@ -85,7 +86,7 @@ export default function SEOHead({ cmsData, currentView, activePostId, categorySl
       ogTitle = title;
       ogDesc = description;
     } else if (currentView === "category" || (currentView === "blog" && categorySlug)) {
-      const rawCat = categorySlug || "tajweed";
+      const rawCat = (categorySlug || "tajweed").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
       const catName = rawCat.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
       title = `${catName} Articles & Quran Guides | Truth Quran Academy`;
       description = `Read all insightful Islamic articles, study notes, and Tajweed guides categorized under ${catName} at Truth Quran Academy.`;
@@ -93,7 +94,7 @@ export default function SEOHead({ cmsData, currentView, activePostId, categorySl
       ogTitle = title;
       ogDesc = description;
     } else if (currentView === "tag" || (currentView === "blog" && tagSlug)) {
-      const rawTag = tagSlug || "beginners";
+      const rawTag = (tagSlug || "beginners").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
       const tagName = rawTag.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
       title = `${tagName} - Articles & Topic Guides | Truth Quran Academy`;
       description = `Explore all articles and Quran lessons tagged with #${tagName} at Truth Quran Academy.`;
@@ -128,7 +129,7 @@ export default function SEOHead({ cmsData, currentView, activePostId, categorySl
       if (post) {
         title = post.metaTitle || post.seoTitle || `${post.title} | Truth Quran Academy`;
         description = post.metaDescription || post.excerpt || description;
-        canonical = post.canonicalUrl || `https://truthquranacademy.com/blog/${post.slug || post.id}`;
+        canonical = (post.canonicalUrl ? post.canonicalUrl.replace(/\/+$/, "") : "") || `https://truthquranacademy.com/blog/${slugify(post.slug || post.id)}`;
         ogTitle = post.ogTitle || title;
         ogDesc = post.ogDescription || description;
         ogImage = post.ogImage || post.coverImage || ogImage;
