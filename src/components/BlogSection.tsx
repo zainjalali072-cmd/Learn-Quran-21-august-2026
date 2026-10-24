@@ -627,7 +627,9 @@ export default function BlogSection({
       const target = activeCat.toLowerCase().trim();
       const match = categories.find(c => 
         slugify(String(c)) === slugify(target) || 
-        String(c).toLowerCase() === target
+        String(c).toLowerCase() === target ||
+        String(c).toLowerCase().includes(target) ||
+        target.includes(slugify(String(c)))
       );
       if (match) {
         setSelectedCategory(match);
@@ -1196,18 +1198,14 @@ export default function BlogSection({
                   Article Tags:
                 </span>
                 {post.tags.map((tag) => (
-                  <a
+                  <button
                     key={tag}
-                    href={`/tag/${slugify(tag)}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleTagSelect(tag);
-                    }}
+                    onClick={() => handleTagSelect(tag)}
                     className="inline-flex items-center space-x-1 px-3 py-1 rounded-md bg-[#12141b] border border-[#d9b45c]/25 hover:border-[#d9b45c] text-[10px] font-sans font-semibold text-[#c9c2ab] hover:text-[#f2d98a] transition-all cursor-pointer"
                   >
                     <Tag size={10} className="text-[#d9b45c]" />
                     <span>{tag}</span>
-                  </a>
+                  </button>
                 ))}
               </div>
             )}
@@ -1422,8 +1420,10 @@ export default function BlogSection({
       const postCatSlug = slugify(post.category || "");
       const selCatSlug = slugify(selectedCategory);
       const matchesCategory = 
-        (post.category && post.category.toLowerCase() === selectedCategory.toLowerCase()) || 
-        postCatSlug === selCatSlug;
+        post.category === selectedCategory || 
+        postCatSlug === selCatSlug ||
+        postCatSlug.includes(selCatSlug) ||
+        selCatSlug.includes(postCatSlug);
       if (!matchesCategory) return false;
     }
 

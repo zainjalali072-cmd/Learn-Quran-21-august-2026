@@ -698,7 +698,7 @@ export const ensureBlogPostSEO = (post: BlogPost): BlogPost => {
     focusKeyword: post.focusKeyword !== undefined ? post.focusKeyword : "",
     secondaryKeywords: post.secondaryKeywords || [],
     slug: post.slug || post.id || "blog-article",
-    canonicalUrl: (post.canonicalUrl ? post.canonicalUrl.replace(/\/+$/, "") : "") || `https://truthquranacademy.com/blog/${post.slug || post.id}`,
+    canonicalUrl: post.canonicalUrl || `https://truthquranacademy.com/blog/${post.slug || post.id}/`,
     robotsMeta: post.robotsMeta || "index, follow, max-image-preview:large",
     ogTitle: post.ogTitle || post.metaTitle || post.title || "",
     ogDescription: post.ogDescription || post.metaDescription || post.excerpt || cleanExcerpt,

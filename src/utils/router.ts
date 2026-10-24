@@ -170,28 +170,15 @@ export function parseCurrentRoute(): RouteState {
     return { view: "blog", activePostId: null, isWpAdmin: false };
   }
 
-  if (normalizedPath === "/category" || normalizedPath === "/tag") {
-    if (typeof window !== "undefined" && window.history && window.history.replaceState) {
-      window.history.replaceState(null, "", "/blog");
-    }
-    return { view: "blog", activePostId: null, isWpAdmin: false };
-  }
-
   if (normalizedPath.startsWith("/category/") || normalizedPath.startsWith("/blog/category/")) {
     const rawCat = normalizedPath.replace(/^\/(blog\/)?category\//, "").replace(/\/+$/, "");
-    const decodedCat = slugify(decodeURIComponent(rawCat).trim());
-    if (normalizedPath.startsWith("/blog/category/") && typeof window !== "undefined" && window.history && window.history.replaceState) {
-      window.history.replaceState(null, "", `/category/${decodedCat}`);
-    }
+    const decodedCat = decodeURIComponent(rawCat).trim();
     return { view: "category", activePostId: null, categorySlug: decodedCat, isWpAdmin: false };
   }
 
   if (normalizedPath.startsWith("/tag/") || normalizedPath.startsWith("/blog/tag/")) {
     const rawTag = normalizedPath.replace(/^\/(blog\/)?tag\//, "").replace(/\/+$/, "");
-    const decodedTag = slugify(decodeURIComponent(rawTag).trim());
-    if (normalizedPath.startsWith("/blog/tag/") && typeof window !== "undefined" && window.history && window.history.replaceState) {
-      window.history.replaceState(null, "", `/tag/${decodedTag}`);
-    }
+    const decodedTag = decodeURIComponent(rawTag).trim();
     return { view: "tag", activePostId: null, tagSlug: decodedTag, isWpAdmin: false };
   }
 
