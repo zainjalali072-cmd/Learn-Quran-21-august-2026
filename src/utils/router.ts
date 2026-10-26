@@ -14,6 +14,22 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+export function safeReplaceState(data: any, unused: string, url?: string | URL | null): void {
+  try {
+    if (typeof window !== "undefined" && window.history && typeof window.history.replaceState === "function") {
+      window.history.replaceState(data, unused, url);
+    }
+  } catch (_) {}
+}
+
+export function safePushState(data: any, unused: string, url?: string | URL | null): void {
+  try {
+    if (typeof window !== "undefined" && window.history && typeof window.history.pushState === "function") {
+      window.history.pushState(data, unused, url);
+    }
+  } catch (_) {}
+}
+
 export function parseCurrentRoute(): RouteState {
   const rawPath = typeof window !== "undefined" ? window.location.pathname || "/" : "/";
   let pathname = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : "/";
@@ -38,8 +54,8 @@ export function parseCurrentRoute(): RouteState {
     cleanHash === "admin-panel";
 
   if (isDirectWpAdminPath || isHashWpAdmin) {
-    if (isHashWpAdmin && typeof window !== "undefined" && window.history && window.history.replaceState) {
-      window.history.replaceState(null, "", "/wp-admin");
+    if (isHashWpAdmin) {
+      safeReplaceState(null, "", "/wp-admin");
     }
     return { view: "wp-admin", activePostId: null, isWpAdmin: true };
   }
@@ -56,9 +72,7 @@ export function parseCurrentRoute(): RouteState {
     restrictedAdminAliases.map(a => a.replace(/^\//, "")).includes(cleanHash);
 
   if (isRestrictedAlias) {
-    if (typeof window !== "undefined" && window.history && window.history.replaceState) {
-      window.history.replaceState(null, "", "/");
-    }
+    safeReplaceState(null, "", "/");
     return { view: "home", activePostId: null, isWpAdmin: false };
   }
 
@@ -67,47 +81,47 @@ export function parseCurrentRoute(): RouteState {
   // =========================================================================
   if (cleanHash) {
     if (cleanHash === "about") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/about");
+      safeReplaceState(null, "", "/about");
       return { view: "about", activePostId: null, isWpAdmin: false };
     }
     if (cleanHash === "courses" || cleanHash === "all-courses") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/courses");
+      safeReplaceState(null, "", "/courses");
       return { view: "courses", activePostId: null, isWpAdmin: false };
     }
     if (cleanHash === "noorani-qaida" || cleanHash === "courses#noorani-qaida") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/noorani-qaida");
+      safeReplaceState(null, "", "/noorani-qaida");
       return { view: "noorani-qaida", activePostId: "noorani-qaida", isWpAdmin: false };
     }
     if (cleanHash === "kids-classes" || cleanHash === "kids-quran-classes") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/kids-classes");
+      safeReplaceState(null, "", "/kids-classes");
       return { view: "kids-classes", activePostId: "kids-classes", isWpAdmin: false };
     }
     if (cleanHash === "tajweed-intensive" || cleanHash === "tajweed") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/courses/tajweed-intensive");
+      safeReplaceState(null, "", "/courses/tajweed-intensive");
       return { view: "courses", activePostId: "tajweed-intensive", isWpAdmin: false };
     }
     if (cleanHash === "quran-hifz" || cleanHash === "hifz") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/courses/quran-hifz");
+      safeReplaceState(null, "", "/courses/quran-hifz");
       return { view: "courses", activePostId: "quran-hifz", isWpAdmin: false };
     }
     if (cleanHash === "fees" || cleanHash === "pricing" || cleanHash === "faq" || cleanHash === "faqs") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/fees");
+      safeReplaceState(null, "", "/fees");
       return { view: "fees", activePostId: null, isWpAdmin: false };
     }
     if (cleanHash === "videos") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/videos");
+      safeReplaceState(null, "", "/videos");
       return { view: "videos", activePostId: null, isWpAdmin: false };
     }
     if (cleanHash === "download" || cleanHash === "downloads") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/download");
+      safeReplaceState(null, "", "/download");
       return { view: "download", activePostId: null, isWpAdmin: false };
     }
     if (cleanHash === "contact" || cleanHash === "enquiry") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/contact");
+      safeReplaceState(null, "", "/contact");
       return { view: "contact", activePostId: null, isWpAdmin: false };
     }
     if (cleanHash === "blog") {
-      if (window.history.replaceState) window.history.replaceState(null, "", "/blog");
+      safeReplaceState(null, "", "/blog");
       return { view: "blog", activePostId: null, isWpAdmin: false };
     }
   }
@@ -170,15 +184,26 @@ export function parseCurrentRoute(): RouteState {
     return { view: "blog", activePostId: null, isWpAdmin: false };
   }
 
+  if (normalizedPath === "/category" || normalizedPath === "/tag") {
+    safeReplaceState(null, "", "/blog");
+    return { view: "blog", activePostId: null, isWpAdmin: false };
+  }
+
   if (normalizedPath.startsWith("/category/") || normalizedPath.startsWith("/blog/category/")) {
     const rawCat = normalizedPath.replace(/^\/(blog\/)?category\//, "").replace(/\/+$/, "");
-    const decodedCat = decodeURIComponent(rawCat).trim();
+    const decodedCat = slugify(decodeURIComponent(rawCat).trim());
+    if (normalizedPath.startsWith("/blog/category/")) {
+      safeReplaceState(null, "", `/category/${decodedCat}`);
+    }
     return { view: "category", activePostId: null, categorySlug: decodedCat, isWpAdmin: false };
   }
 
   if (normalizedPath.startsWith("/tag/") || normalizedPath.startsWith("/blog/tag/")) {
     const rawTag = normalizedPath.replace(/^\/(blog\/)?tag\//, "").replace(/\/+$/, "");
-    const decodedTag = decodeURIComponent(rawTag).trim();
+    const decodedTag = slugify(decodeURIComponent(rawTag).trim());
+    if (normalizedPath.startsWith("/blog/tag/")) {
+      safeReplaceState(null, "", `/tag/${decodedTag}`);
+    }
     return { view: "tag", activePostId: null, tagSlug: decodedTag, isWpAdmin: false };
   }
 
@@ -193,7 +218,7 @@ export function parseCurrentRoute(): RouteState {
 
   // Direct blog post ID or slug (e.g. /blog-1)
   if (normalizedPath === "/blog-1" || normalizedPath === "/blog-post-1") {
-    if (window.history.replaceState) window.history.replaceState(null, "", "/blog/blog-1");
+    safeReplaceState(null, "", "/blog/blog-1");
     return { view: "blog-post", activePostId: "blog-1", isWpAdmin: false };
   }
 
@@ -261,7 +286,7 @@ export function navigateToRoute(
   }
 
   if (window.location.pathname !== targetPath && view !== "404") {
-    window.history.pushState({ view, activePostId, categorySlug, tagSlug }, "", targetPath);
+    safePushState({ view, activePostId, categorySlug, tagSlug }, "", targetPath);
   }
 
   window.dispatchEvent(new Event("app_route_changed"));

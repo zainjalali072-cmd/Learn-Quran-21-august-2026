@@ -147,10 +147,17 @@ export default function App() {
       pageName = `blog/${activePostId}`;
     }
 
-    let sessionId = sessionStorage.getItem("tqa_session_id");
-    if (!sessionId) {
-      sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      sessionStorage.setItem("tqa_session_id", sessionId);
+    let sessionId = "";
+    try {
+      sessionId = typeof window !== "undefined" && window.sessionStorage ? (sessionStorage.getItem("tqa_session_id") || "") : "";
+      if (!sessionId) {
+        sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        if (typeof window !== "undefined" && window.sessionStorage) {
+          sessionStorage.setItem("tqa_session_id", sessionId);
+        }
+      }
+    } catch (e) {
+      sessionId = `sess_${Date.now()}`;
     }
 
     const path = `/${pageName === "home" ? "" : pageName}`;

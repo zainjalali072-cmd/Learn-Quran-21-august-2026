@@ -706,10 +706,10 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
     const rawSlug = (currentPost.slug || "").trim();
     const postSlug = rawSlug || postTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `article-${Date.now()}`;
     const cleanExcerpt = cleanHTMLToExcerpt(activeContent, currentPost.excerpt);
-    const chosenImage = (currentPost.featuredImage || currentPost.coverImage || "").trim();
-    const updatedFeatured = chosenImage;
-    const updatedCover = chosenImage;
-    const updatedOg = (currentPost.ogImage ? currentPost.ogImage : chosenImage).trim();
+    const userAssignedImage = (currentPost.featuredImage || currentPost.coverImage || "").trim();
+    const updatedCover = userAssignedImage;
+    const updatedFeatured = userAssignedImage;
+    const updatedOg = (currentPost.ogImage && currentPost.ogImage !== DEFAULT_POST_IMAGE ? currentPost.ogImage : userAssignedImage).trim();
     const todayFormatted = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const postCategory = (currentPost.category || "").trim() || "Tajweed Rules";
     const assignedId = (currentPost.id && currentPost.id !== "new" && !currentPost.id.startsWith("post-new"))
@@ -4549,7 +4549,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                   <div className="space-y-3">
                     <div className="relative rounded-xl overflow-hidden border border-[#d9b45c]/30 aspect-[16/9] bg-black flex items-center justify-center group">
                       <img
-                        src={currentPost.featuredImage || currentPost.coverImage}
+                        src={currentPost.coverImage || currentPost.featuredImage}
                         alt={currentPost.imageAltText || "Featured Image"}
                         className="w-full h-full object-cover"
                       />
@@ -4557,7 +4557,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                         <button
                           type="button"
                           onClick={() => {
-                            setPendingCropImage(currentPost.featuredImage || currentPost.coverImage || null);
+                            setPendingCropImage(currentPost.coverImage || currentPost.featuredImage || null);
                             setShowCropModal(true);
                           }}
                           className="px-2.5 py-1.5 bg-black/90 backdrop-blur-md text-[#f2d98a] border border-[#d9b45c]/40 rounded-lg text-[11px] font-bold hover:bg-black flex items-center space-x-1"
@@ -4568,8 +4568,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                         <button
                           type="button"
                           onClick={() => {
-                            setCurrentPost((prev) => prev ? { ...prev, coverImage: "", featuredImage: "", ogImage: "" } : null);
-                            setIsDirty(true);
+                            handleUpdateField("coverImage", "");
+                            handleUpdateField("featuredImage", "");
                           }}
                           className="px-2.5 py-1.5 bg-red-950/90 backdrop-blur-md text-red-300 border border-red-500/40 rounded-lg text-[11px] font-bold hover:bg-red-900 flex items-center space-x-1"
                         >
@@ -4605,7 +4605,7 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                       <button
                         type="button"
                         onClick={() => {
-                          setPendingCropImage(currentPost.featuredImage || currentPost.coverImage || null);
+                          setPendingCropImage(currentPost.coverImage || currentPost.featuredImage || null);
                           setShowCropModal(true);
                         }}
                         className="py-1.5 px-2 bg-white/5 hover:bg-white/10 text-[#f2d98a] border border-[#d9b45c]/30 rounded-lg text-[10px] font-bold flex items-center justify-center space-x-1 transition-all"
@@ -4632,10 +4632,10 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                         </label>
                         <input
                           type="text"
-                          value={currentPost.featuredImage || currentPost.coverImage || ""}
+                          value={currentPost.coverImage || currentPost.featuredImage || ""}
                           onChange={(e) => {
                             const val = e.target.value.trim();
-                            setCurrentPost((prev) => prev ? { ...prev, featuredImage: val, coverImage: val, ogImage: val } : null);
+                            setCurrentPost((prev) => prev ? { ...prev, coverImage: val, featuredImage: val, ogImage: val } : null);
                             setIsDirty(true);
                           }}
                           placeholder="https://... or /uploads/..."
@@ -4715,6 +4715,16 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                             });
                             const json = await res.json().catch(() => ({}));
                             if (json.url) permanentUrl = json.url;
+                            if (json.media) {
+                              const currentCMS = getCMSData();
+                              const exists = (currentCMS.mediaLibrary || []).some(m => m.url === permanentUrl);
+                              if (!exists) {
+                                currentCMS.mediaLibrary = [json.media, ...(currentCMS.mediaLibrary || [])];
+                                try {
+                                  localStorage.setItem("truth_quran_cms_data", JSON.stringify(currentCMS));
+                                } catch (_) {}
+                              }
+                            }
                           } catch (uploadErr) {
                             console.warn("Featured image upload error:", uploadErr);
                           }
@@ -4723,8 +4733,8 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
                             if (!prev) return null;
                             return {
                               ...prev,
-                              featuredImage: permanentUrl,
                               coverImage: permanentUrl,
+                              featuredImage: permanentUrl,
                               ogImage: permanentUrl,
                               imageAltText: prev.imageAltText || currentPost?.title || file.name.replace(/\.[^/.]+$/, "")
                             };
@@ -5369,9 +5379,9 @@ export default function WPSEOEditor({ cmsData, onSave, externalPostId, onSelectP
               </button>
             </div>
 
-            {(currentPost.featuredImage || currentPost.coverImage) && (
+            {(currentPost.coverImage || currentPost.featuredImage) && (
               <img
-                src={currentPost.featuredImage || currentPost.coverImage}
+                src={currentPost.coverImage || currentPost.featuredImage}
                 alt={currentPost.imageAltText || "Featured"}
                 className="w-full max-h-96 object-cover rounded-2xl border border-white/10 shadow-2xl"
               />

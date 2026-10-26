@@ -258,3 +258,80 @@ export interface IndexingSettings {
   dailyQuotaTotal?: number;
   isEnabled: boolean;
 }
+
+export interface AdminAuditLog {
+  id: string;
+  timestamp: string;
+  user: {
+    name: string;
+    email: string;
+    role: string;
+  };
+  action: 
+    | "CREATE_POST" 
+    | "UPDATE_POST" 
+    | "DELETE_POST" 
+    | "CREATE_COURSE" 
+    | "UPDATE_COURSE" 
+    | "DELETE_COURSE" 
+    | "UPDATE_SETTINGS" 
+    | "UPLOAD_MEDIA" 
+    | "DELETE_MEDIA" 
+    | "CREATE_TAXONOMY" 
+    | "DELETE_TAXONOMY" 
+    | "CREATE_PAGE" 
+    | "UPDATE_PAGE" 
+    | "DELETE_PAGE" 
+    | "UPDATE_PRICING" 
+    | "UPDATE_FAQ" 
+    | "UPDATE_TEACHER" 
+    | "DELETE_TEACHER" 
+    | "UPDATE_TESTIMONIAL" 
+    | "DELETE_TESTIMONIAL" 
+    | "CREATE_SNAPSHOT" 
+    | "RESTORE_SNAPSHOT" 
+    | "BULK_ACTION" 
+    | "CODE_UPDATE_GUARD";
+  targetType: "post" | "course" | "media" | "faq" | "pricing" | "teacher" | "testimonial" | "setting" | "taxonomy" | "page" | "system";
+  targetId?: string;
+  targetTitle?: string;
+  details: string;
+  snapshotFile?: string;
+  dbRevision?: number;
+}
+
+export interface ProtectionSystemStatus {
+  databaseStatus: "healthy" | "degraded" | "recovered";
+  authoritativeSource: string;
+  revision: number;
+  lastSaved: string;
+  totalSnapshots: number;
+  totalUploads: number;
+  resurrectionGuardActive: boolean;
+  isolatedFromAiStudio: boolean;
+  deletedIdsCount: number;
+  lastAuditLog?: AdminAuditLog;
+}
+
+export interface CustomTaxonomy {
+  id: string;
+  name: string;
+  slug: string;
+  type: "category" | "tag";
+  description?: string;
+  createdAt?: string;
+}
+
+export interface CustomPage {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  status: "published" | "draft";
+  createdAt: string;
+  lastUpdated?: string;
+  seoTitle?: string;
+  metaDescription?: string;
+  isSystemSection?: boolean;
+  order?: number;
+}

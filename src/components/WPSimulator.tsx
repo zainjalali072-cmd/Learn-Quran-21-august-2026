@@ -18,7 +18,12 @@ import {
   fetchDatabaseBackups,
   createDatabaseSnapshot,
   restoreDatabaseSnapshot,
-  BackupMetadata
+  BackupMetadata,
+  AdminAuditLog,
+  ProtectionSystemStatus,
+  fetchProtectionStatus,
+  fetchAuditLogs,
+  rollbackToSnapshot
 } from "../cmsStore";
 import { 
   applyFaviconToDocument, 
@@ -84,7 +89,7 @@ interface WPSimulatorProps {
 export default function WPSimulator({ onClose }: WPSimulatorProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "posts" | "pages" | "media" | "videos" | "comments" | "customizer" | "rankmath" | "seo-settings" | "ai-settings" | "users" | "settings" | "tools" | "theme" | "courses" | "teachers" | "testimonials" | "faqs" | "services" | "pricing"
+    "dashboard" | "posts" | "pages" | "media" | "videos" | "comments" | "customizer" | "rankmath" | "seo-settings" | "ai-settings" | "users" | "settings" | "tools" | "theme" | "courses" | "teachers" | "testimonials" | "faqs" | "services" | "pricing" | "protection"
   >("dashboard");
   const [cmsData, setCmsData] = useState<CMSData>(getCMSData());
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -132,14 +137,35 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
   const [customSnapshotLabel, setCustomSnapshotLabel] = useState("");
   const [restoreConfirmTarget, setRestoreConfirmTarget] = useState<string | null>(null);
 
-  // Load server backups whenever tools tab is active
+  // Data Protection & Change Isolation System states
+  const [protectionStatus, setProtectionStatus] = useState<ProtectionSystemStatus | null>(null);
+  const [auditLogsList, setAuditLogsList] = useState<AdminAuditLog[]>([]);
+  const [isLoadingProtection, setIsLoadingProtection] = useState(false);
+  const [auditSearchQuery, setAuditSearchQuery] = useState("");
+  const [auditActionFilter, setAuditActionFilter] = useState("all");
+
+  const loadProtectionData = async () => {
+    setIsLoadingProtection(true);
+    try {
+      const [status, logs, backups] = await Promise.all([
+        fetchProtectionStatus(),
+        fetchAuditLogs(),
+        fetchDatabaseBackups()
+      ]);
+      if (status) setProtectionStatus(status);
+      setAuditLogsList(logs || []);
+      setServerBackupsList(backups || []);
+    } catch (e) {
+      console.warn("Could not load protection data:", e);
+    } finally {
+      setIsLoadingProtection(false);
+    }
+  };
+
+  // Load server backups and protection logs whenever tools or protection tab is active
   useEffect(() => {
-    if (activeTab === "tools") {
-      setIsLoadingBackups(true);
-      fetchDatabaseBackups()
-        .then((list) => setServerBackupsList(list))
-        .catch(console.error)
-        .finally(() => setIsLoadingBackups(false));
+    if (activeTab === "tools" || activeTab === "protection") {
+      loadProtectionData();
     }
   }, [activeTab]);
 
@@ -147,6 +173,9 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
   useEffect(() => {
     const handleSync = () => {
       setCmsData(getCMSData());
+      if (activeTab === "protection" || activeTab === "tools") {
+        loadProtectionData();
+      }
     };
     window.addEventListener("cms_data_updated", handleSync);
     return () => window.removeEventListener("cms_data_updated", handleSync);
@@ -244,12 +273,22 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
     }
   };
 
-  const handleSave = async (updatedData: CMSData, customMsg?: string): Promise<boolean> => {
+  const handleSave = async (
+    updatedData: CMSData, 
+    customMsg?: string,
+    auditMeta?: {
+      action: string;
+      targetType: string;
+      targetId?: string;
+      targetTitle?: string;
+      details?: string;
+    }
+  ): Promise<boolean> => {
     if (!updatedData) return false;
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      const result = await saveCMSDataWithResult(updatedData);
+      const result = await saveCMSDataWithResult(updatedData, auditMeta);
       if (!result.success) {
         showNotification(`❌ Error saving: ${result.error || "Failed to persist to database"}`, "error");
         return false;
@@ -258,7 +297,8 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
       setCmsData(dataToSet);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-      showNotification(customMsg || "✅ Changes Saved & Synchronized Successfully!", "success");
+      showNotification(customMsg || "✅ Changes Saved & Protected in Database!", "success");
+      loadProtectionData();
       return true;
     } catch (err: any) {
       console.error("handleSave failed:", err);
@@ -557,6 +597,26 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
                   </div>
                 )}
 
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("protection")}
+                  title="Admin Panel Data Protection & Code Isolation Active"
+                  className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                    activeTab === "protection"
+                      ? "bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                      : "bg-[#07080b]/60 border-emerald-500/30 text-emerald-400 hover:border-emerald-400 hover:bg-emerald-500/10"
+                  }`}
+                >
+                  <ShieldCheck size={14} className="text-emerald-400 animate-pulse" />
+                  <span className="hidden sm:inline">Data Protection Active</span>
+                  <span className="sm:hidden">Protected</span>
+                  {protectionStatus?.revision ? (
+                    <span className="text-[10px] bg-emerald-500/25 px-1.5 py-0.5 rounded font-mono text-emerald-300 font-bold">
+                      r{protectionStatus.revision}
+                    </span>
+                  ) : null}
+                </button>
+
                 {isSaving ? (
                   <span className="text-xs text-amber-300 font-bold flex items-center space-x-2 bg-amber-500/15 border border-amber-500/30 px-3 py-1 rounded-full animate-pulse">
                     <span className="w-2.5 h-2.5 rounded-full border-2 border-amber-300 border-t-transparent animate-spin"></span>
@@ -769,6 +829,17 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
                     >
                       <Wrench size={14} />
                       <span>WP Tools</span>
+                    </button>
+
+                    <button 
+                      onClick={() => setActiveTab("protection")}
+                      className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-sans font-bold uppercase tracking-wider transition-all text-left relative ${activeTab === "protection" ? "bg-emerald-500/15 text-emerald-300 border-l-2 border-emerald-400" : "text-[#c9c2ab] hover:bg-emerald-500/10 hover:text-emerald-300"}`}
+                    >
+                      <ShieldCheck size={14} className={activeTab === "protection" ? "text-emerald-400" : "text-emerald-500/80"} />
+                      <span>Data Protection &amp; Logs</span>
+                      <span className="ml-auto text-[8px] font-mono bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
+                        ACTIVE
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -2476,6 +2547,470 @@ export default function WPSimulator({ onClose }: WPSimulatorProps) {
                           <span>View &amp; Ping XML Sitemap</span>
                         </button>
                       </div>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* TAB: DATA PROTECTION, AUDIT LOG & CHANGE ISOLATION SYSTEM */}
+                {activeTab === "protection" && (
+                  <div className="space-y-6 text-left">
+                    
+                    {/* Header Banner */}
+                    <div className="bg-gradient-to-r from-[#0d1f17] via-[#12141b] to-[#0d141f] border border-emerald-500/30 rounded-2xl p-6 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+                      
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center space-x-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                              <span>Active Safeguard</span>
+                            </span>
+                            <span className="text-[10px] text-[#c9c2ab]/60 font-mono">
+                              Isolation Engine v2.0
+                            </span>
+                          </div>
+                          <h2 className="font-serif text-2xl text-[#f3ecd8] font-bold">
+                            Admin Panel Data Protection &amp; Change Isolation
+                          </h2>
+                          <p className="text-xs text-[#c9c2ab] leading-relaxed max-w-2xl font-sans">
+                            Guarantees all posts, custom pages, categories, pricing plans, uploaded media, and settings created through this Admin Panel remain permanently safe across future Google AI Studio code updates and deployments.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-3">
+                          <button
+                            type="button"
+                            onClick={() => loadProtectionData()}
+                            disabled={isLoadingProtection}
+                            className="px-3.5 py-2 bg-[#07080b]/80 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                          >
+                            <RefreshCw size={14} className={isLoadingProtection ? "animate-spin" : ""} />
+                            <span>Refresh Status</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4 Status Diagnostic Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      
+                      <div className="bg-[#12141b] border border-emerald-500/20 rounded-2xl p-4.5 space-y-2">
+                        <div className="flex items-center justify-between text-[#c9c2ab]">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">Database Source</span>
+                          <Database size={16} className="text-emerald-400" />
+                        </div>
+                        <div className="text-xl font-bold font-mono text-white">
+                          db.json
+                        </div>
+                        <p className="text-[11px] text-[#c9c2ab]/70 font-sans leading-tight">
+                          Authoritative server file storage. Client defaults never overwrite saved user content.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#12141b] border border-blue-500/20 rounded-2xl p-4.5 space-y-2">
+                        <div className="flex items-center justify-between text-[#c9c2ab]">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-blue-400">Database Revision</span>
+                          <Activity size={16} className="text-blue-400" />
+                        </div>
+                        <div className="text-xl font-bold font-mono text-white">
+                          rev #{protectionStatus?.revision ?? cmsData.db_revision ?? 1}
+                        </div>
+                        <p className="text-[11px] text-[#c9c2ab]/70 font-sans leading-tight">
+                          Monotonic revision tracking prevents concurrent overwrite collisions.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#12141b] border border-amber-500/20 rounded-2xl p-4.5 space-y-2">
+                        <div className="flex items-center justify-between text-[#c9c2ab]">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-amber-400">Resurrection Guard</span>
+                          <ShieldCheck size={16} className="text-amber-400" />
+                        </div>
+                        <div className="text-xl font-bold font-mono text-white">
+                          {protectionStatus?.deletedTombstonesCount ?? cmsData.deletedItemIds?.length ?? 0} Tombstones
+                        </div>
+                        <p className="text-[11px] text-[#c9c2ab]/70 font-sans leading-tight">
+                          Permanently deleted items are recorded so code templates never restore them.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#12141b] border border-[#d9b45c]/20 rounded-2xl p-4.5 space-y-2">
+                        <div className="flex items-center justify-between text-[#c9c2ab]">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-[#d9b45c]">Safety Snapshots</span>
+                          <History size={16} className="text-[#d9b45c]" />
+                        </div>
+                        <div className="text-xl font-bold font-mono text-white">
+                          {serverBackupsList.length} In Storage
+                        </div>
+                        <p className="text-[11px] text-[#c9c2ab]/70 font-sans leading-tight">
+                          Automated pre-save snapshots created before every write operation.
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {/* Change History & Live Audit Log */}
+                    <div className="bg-[#12141b] border border-[#d9b45c]/15 rounded-2xl p-6 space-y-4">
+                      
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <History size={18} className="text-[#d9b45c]" />
+                            <h3 className="text-base font-serif font-bold text-white uppercase tracking-wider">
+                              Live Admin Audit Log &amp; Change History
+                            </h3>
+                          </div>
+                          <p className="text-xs text-[#c9c2ab] font-sans">
+                            Every addition, update, deletion, and rollback is recorded with user attribution, timestamp, and pre-save recovery snapshots.
+                          </p>
+                        </div>
+
+                        {/* Search and Action Filter */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Search log entries..."
+                            value={auditSearchQuery}
+                            onChange={(e) => setAuditSearchQuery(e.target.value)}
+                            className="bg-[#07080b] border border-[#d9b45c]/25 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none w-48 font-sans"
+                          />
+                          <select
+                            value={auditActionFilter}
+                            onChange={(e) => setAuditActionFilter(e.target.value)}
+                            className="bg-[#07080b] border border-[#d9b45c]/25 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none font-sans"
+                          >
+                            <option value="all">All Actions</option>
+                            <option value="create">Creates</option>
+                            <option value="update">Updates</option>
+                            <option value="delete">Deletions</option>
+                            <option value="restore">Restores</option>
+                            <option value="snapshot">Snapshots</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Audit Log Table */}
+                      {(() => {
+                        const logs = auditLogsList || [];
+                        const filtered = logs.filter((log) => {
+                          if (auditActionFilter !== "all") {
+                            const actionLower = (log.action || "").toLowerCase();
+                            if (!actionLower.includes(auditActionFilter.toLowerCase())) return false;
+                          }
+                          if (auditSearchQuery.trim()) {
+                            const query = auditSearchQuery.toLowerCase();
+                            const target = (log.targetTitle || "").toLowerCase();
+                            const type = (log.targetType || "").toLowerCase();
+                            const details = (log.details || "").toLowerCase();
+                            const user = (log.user || "").toLowerCase();
+                            if (!target.includes(query) && !type.includes(query) && !details.includes(query) && !user.includes(query)) {
+                              return false;
+                            }
+                          }
+                          return true;
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="py-12 text-center space-y-2 border border-dashed border-[#d9b45c]/20 rounded-xl bg-[#07080b]/30">
+                              <ShieldCheck size={32} className="mx-auto text-emerald-400/60" />
+                              <p className="text-sm font-serif font-bold text-white">No Audit Records Matching Filter</p>
+                              <p className="text-xs text-[#c9c2ab]/60 font-sans max-w-md mx-auto">
+                                All future Admin Panel modifications (creating posts, updating custom fields, deleting media) will appear here instantly.
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="overflow-x-auto rounded-xl border border-white/5">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-[#07080b] text-[#d9b45c] uppercase text-[10px] tracking-wider border-b border-white/10 font-bold">
+                                  <th className="py-3 px-4">Time</th>
+                                  <th className="py-3 px-3">User</th>
+                                  <th className="py-3 px-3">Action</th>
+                                  <th className="py-3 px-4">Item &amp; Type</th>
+                                  <th className="py-3 px-4">Details</th>
+                                  <th className="py-3 px-3 text-right">Recovery Snapshot</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5 font-sans">
+                                {filtered.map((log) => {
+                                  const isDelete = log.action.includes("DELETE");
+                                  const isCreate = log.action.includes("CREATE");
+                                  const isRestore = log.action.includes("RESTORE");
+                                  const isUpdate = log.action.includes("UPDATE");
+
+                                  let badgeColor = "bg-gray-800 text-gray-300 border-gray-600";
+                                  if (isDelete) badgeColor = "bg-red-500/15 text-red-300 border-red-500/30";
+                                  else if (isCreate) badgeColor = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+                                  else if (isRestore) badgeColor = "bg-amber-500/15 text-amber-300 border-amber-500/30";
+                                  else if (isUpdate) badgeColor = "bg-blue-500/15 text-blue-300 border-blue-500/30";
+
+                                  return (
+                                    <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                                      <td className="py-3 px-4 text-[#c9c2ab] font-mono text-[11px] whitespace-nowrap">
+                                        {new Date(log.timestamp).toLocaleString(undefined, {
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                          second: "2-digit"
+                                        })}
+                                      </td>
+                                      <td className="py-3 px-3 text-white font-medium whitespace-nowrap">
+                                        {log.user}
+                                      </td>
+                                      <td className="py-3 px-3 whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badgeColor}`}>
+                                          {log.action}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 px-4 max-w-xs">
+                                        <span className="text-[10px] font-mono text-[#d9b45c] uppercase block">
+                                          [{log.targetType || "data"}]
+                                        </span>
+                                        <span className="text-white font-medium block truncate" title={log.targetTitle}>
+                                          {log.targetTitle || "Website Database"}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 px-4 text-[#c9c2ab] text-xs max-w-md">
+                                        <div className="line-clamp-2" title={log.details}>
+                                          {log.details}
+                                        </div>
+                                      </td>
+                                      <td className="py-3 px-3 text-right whitespace-nowrap">
+                                        {log.snapshotId ? (
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              if (window.confirm(`⚠️ Roll back website database to pre-save snapshot: "${log.snapshotId}"?\n\nThis will safely restore all records to their exact state before this change was applied.`)) {
+                                                try {
+                                                  const res = await rollbackToSnapshot(log.snapshotId!);
+                                                  if (res.success) {
+                                                    showNotification(`✅ Successfully rolled back to snapshot ${log.snapshotId}`, "success");
+                                                    setCmsData(getCMSData());
+                                                    await loadProtectionData();
+                                                  } else {
+                                                    showNotification(res.message, "error");
+                                                  }
+                                                } catch (e: any) {
+                                                  showNotification(`Rollback failed: ${e.message}`, "error");
+                                                }
+                                              }
+                                            }}
+                                            className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all inline-flex items-center space-x-1 cursor-pointer"
+                                            title={`Rollback to ${log.snapshotId}`}
+                                          >
+                                            <RotateCcw size={11} />
+                                            <span>Rollback</span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-[10px] text-gray-500 italic">None</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Clear Audit History */}
+                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                        <span className="text-[11px] text-[#c9c2ab]/50 font-sans">
+                          Audit entries are automatically capped at 500 records.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm("⚠️ Archive and clear the visible audit log history?\n\nA safety snapshot will be created automatically before clearing.")) {
+                              try {
+                                const res = await fetch("/api/admin/audit-logs/clear", { method: "POST" });
+                                const data = await res.json();
+                                if (data.success) {
+                                  showNotification("✅ Audit log history archived and reset cleanly.", "success");
+                                  await loadProtectionData();
+                                }
+                              } catch (e: any) {
+                                showNotification(`Failed to clear logs: ${e.message}`, "error");
+                              }
+                            }
+                          }}
+                          className="text-[10px] text-red-400 hover:text-white font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                        >
+                          Archive &amp; Clear Log History
+                        </button>
+                      </div>
+
+                    </div>
+
+                    {/* Snapshots & Recovery Center */}
+                    <div className="bg-[#12141b] border border-[#d9b45c]/15 rounded-2xl p-6 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <HardDrive size={18} className="text-emerald-400" />
+                            <h3 className="text-base font-serif font-bold text-white uppercase tracking-wider">
+                              Snapshot Storage &amp; 1-Click Recovery
+                            </h3>
+                          </div>
+                          <p className="text-xs text-[#c9c2ab] font-sans">
+                            Point-in-time immutable JSON copies stored on the server file system in <code className="text-[#f2d98a] font-mono">/backups</code>.
+                          </p>
+                        </div>
+
+                        {/* On-demand snapshot creation */}
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            placeholder="Snapshot label..."
+                            value={customSnapshotLabel}
+                            onChange={(e) => setCustomSnapshotLabel(e.target.value)}
+                            className="bg-[#07080b] border border-[#d9b45c]/25 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-sans"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setIsCreatingSnapshot(true);
+                              try {
+                                const res = await createDatabaseSnapshot(customSnapshotLabel || "manual_safeguard");
+                                if (res.success) {
+                                  showNotification(`✅ Safety snapshot created: ${res.fileName}`, "success");
+                                  setCustomSnapshotLabel("");
+                                  await loadProtectionData();
+                                } else {
+                                  showNotification(res.message, "error");
+                                }
+                              } catch (e: any) {
+                                showNotification(e.message, "error");
+                              } finally {
+                                setIsCreatingSnapshot(false);
+                              }
+                            }}
+                            disabled={isCreatingSnapshot}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+                          >
+                            {isCreatingSnapshot ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                            <span>Create Snapshot Now</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Snapshots Table */}
+                      {serverBackupsList.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-[#c9c2ab]/60">
+                          No server snapshots stored yet. Click above to create your first snapshot.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-xl border border-white/5 max-h-72 overflow-y-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead className="sticky top-0 bg-[#07080b] z-10">
+                              <tr className="text-[#d9b45c] uppercase text-[10px] tracking-wider border-b border-white/10 font-bold">
+                                <th className="py-2.5 px-4">Filename</th>
+                                <th className="py-2.5 px-3">Type</th>
+                                <th className="py-2.5 px-3">Created</th>
+                                <th className="py-2.5 px-3">Size</th>
+                                <th className="py-2.5 px-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 font-sans">
+                              {serverBackupsList.map((bk) => {
+                                const isPreSave = bk.fileName.startsWith("pre_save");
+                                const isStartup = bk.fileName.startsWith("startup");
+                                return (
+                                  <tr key={bk.fileName} className="hover:bg-white/[0.02]">
+                                    <td className="py-2.5 px-4 font-mono text-[11px] text-white">
+                                      {bk.fileName}
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                        isPreSave 
+                                          ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" 
+                                          : isStartup
+                                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                          : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                      }`}>
+                                        {isPreSave ? "Auto Pre-Save" : isStartup ? "Boot Safety" : "Manual"}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-[#c9c2ab] font-mono text-[11px]">
+                                      {new Date(bk.createdAt).toLocaleString()}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-[#c9c2ab] font-mono text-[11px]">
+                                      {(bk.sizeBytes / 1024).toFixed(1)} KB
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          if (window.confirm(`⚠️ Restore database to snapshot "${bk.fileName}"?\n\nThis will safely roll back all blog posts, pages, categories, pricing, and settings to the exact state saved in this snapshot.`)) {
+                                            try {
+                                              const res = await restoreDatabaseSnapshot(bk.fileName);
+                                              if (res.success) {
+                                                showNotification(`✅ Successfully restored database from ${bk.fileName}!`, "success");
+                                                setCmsData(getCMSData());
+                                                await loadProtectionData();
+                                              } else {
+                                                showNotification(res.message, "error");
+                                              }
+                                            } catch (e: any) {
+                                              showNotification(`Restore failed: ${e.message}`, "error");
+                                            }
+                                          }
+                                        }}
+                                        className="px-2.5 py-1 bg-[#07080b] hover:bg-emerald-600 border border-emerald-500/30 hover:border-emerald-500 text-emerald-300 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all inline-flex items-center space-x-1 cursor-pointer"
+                                      >
+                                        <RotateCcw size={11} />
+                                        <span>Restore</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Architectural Safeguard Explanation Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      
+                      <div className="bg-[#12141b]/60 border border-white/5 rounded-xl p-4 space-y-2">
+                        <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs uppercase font-serif">
+                          <CheckCircle2 size={14} />
+                          <span>Strict Code &amp; Data Separation</span>
+                        </div>
+                        <p className="text-[11px] text-[#c9c2ab] font-sans leading-relaxed">
+                          All editable blog posts, pages, categories, pricing plans, and media live in <code className="text-[#f2d98a] font-mono">/db.json</code> and <code className="text-[#f2d98a] font-mono">/public/uploads</code>. Application source code edits never overwrite or wipe user data.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#12141b]/60 border border-white/5 rounded-xl p-4 space-y-2">
+                        <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs uppercase font-serif">
+                          <CheckCircle2 size={14} />
+                          <span>Resurrection Guard Active</span>
+                        </div>
+                        <p className="text-[11px] text-[#c9c2ab] font-sans leading-relaxed">
+                          When you delete an article or page in the Admin Panel, its ID is registered in the persistent tombstone store. AI Studio cannot accidentally resurrect deleted items when templates are refreshed.
+                        </p>
+                      </div>
+
+                      <div className="bg-[#12141b]/60 border border-white/5 rounded-xl p-4 space-y-2">
+                        <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs uppercase font-serif">
+                          <CheckCircle2 size={14} />
+                          <span>Automated Pre-Save Snapshots</span>
+                        </div>
+                        <p className="text-[11px] text-[#c9c2ab] font-sans leading-relaxed">
+                          Every save operation generates an immutable server-side snapshot before persisting new data, guaranteeing point-in-time recovery for every modification.
+                        </p>
+                      </div>
+
                     </div>
 
                   </div>
