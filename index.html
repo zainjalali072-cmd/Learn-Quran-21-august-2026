@@ -18,18 +18,6 @@
     <!-- Preconnect for Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <style>
-      html, body {
-        background-color: #07080b !important;
-        color: #f3ecd8;
-        margin: 0;
-        padding: 0;
-      }
-      #root {
-        min-height: 100vh;
-        background-color: #07080b;
-      }
-    </style>
   </head>
   <body>
     <div id="root"></div>
@@ -39,9 +27,8 @@
     <!-- Taawwuz & Bismillah Opening Recitation (Rock-Solid for Mobile & PC/Laptop) -->
     <script>
       (function() {
-        try {
-          var AUDIO_PATH = "/assets/audio/taawwuz_bismillah.mp3";
-          var audio = document.getElementById("quran-audio-opening");
+        var AUDIO_PATH = "/assets/audio/taawwuz_bismillah.mp3";
+        var audio = document.getElementById("quran-audio-opening");
         if (!audio) {
           audio = new Audio(AUDIO_PATH);
           audio.id = "quran-audio-opening";
@@ -264,10 +251,7 @@
             playUnmutedSound();
           }
         });
-      } catch (e) {
-        console.warn("Audio initialization deferred:", e);
-      }
-    })();
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,6 +1,6 @@
 import { academyContact, coursesData, whyUsData, pricingPlans, testimonialsData, faqItems, blogPostsData } from "./data";
-import { Course, WhyUsPoint, PricingPlan, Testimonial, FAQItem, BlogPost, WPVideo, AISettings, AIProviderConfig, AIProviderId, IndexingLogEntry, UrlIndexStatus, IndexingSettings, AdminAuditLog, ProtectionSystemStatus, CustomTaxonomy, CustomPage } from "./types";
-export type { Course, WhyUsPoint, PricingPlan, Testimonial, FAQItem, BlogPost, WPVideo, AISettings, AIProviderConfig, AIProviderId, IndexingLogEntry, UrlIndexStatus, IndexingSettings, AdminAuditLog, ProtectionSystemStatus, CustomTaxonomy, CustomPage };
+import { Course, WhyUsPoint, PricingPlan, Testimonial, FAQItem, BlogPost, WPVideo, AISettings, AIProviderConfig, AIProviderId, IndexingLogEntry, UrlIndexStatus, IndexingSettings } from "./types";
+export type { Course, WhyUsPoint, PricingPlan, Testimonial, FAQItem, BlogPost, WPVideo, AISettings, AIProviderConfig, AIProviderId, IndexingLogEntry, UrlIndexStatus, IndexingSettings };
 
 import logoImg from "./assets/images/truth_quran_new_logo_1784203145448.jpg";
 import kidsLearningBg from "./assets/images/kids_quran_learning_1784116863937.jpg";
@@ -210,16 +210,6 @@ export interface CMSData {
   indexingSettings?: IndexingSettings;
   indexingLogs?: IndexingLogEntry[];
   urlIndexStatuses?: Record<string, UrlIndexStatus>;
-
-  // Data Protection, Change Isolation & Audit Engine
-  admin_audit_logs?: AdminAuditLog[];
-  deletedItemIds?: string[];
-  deletedMediaUrls?: string[];
-  deletedMediaIds?: string[];
-  customTaxonomies?: CustomTaxonomy[];
-  customPages?: CustomPage[];
-  db_revision?: number;
-  lastSavedTimestamp?: number;
 }
 
 export const DEFAULT_INDEXING_SETTINGS: IndexingSettings = {
@@ -820,12 +810,7 @@ export const getDefaultCMSData = (): CMSData => {
       securityFirewallActive: true
     },
     aiSettings: DEFAULT_AI_SETTINGS,
-    customImages: DEFAULT_CUSTOM_IMAGES,
-    admin_audit_logs: [],
-    deletedItemIds: [],
-    customTaxonomies: [],
-    customPages: [],
-    db_revision: 1
+    customImages: DEFAULT_CUSTOM_IMAGES
   };
 };
 
@@ -836,185 +821,126 @@ let lastSaveTimestamp = 0;
 // Strict Merging Engine to Protect User Data from Overwrites
 export const mergePreservingUserData = (cached: CMSData | null, incoming: Partial<CMSData>): CMSData => {
   const baseDefaults = getDefaultCMSData();
-
-  // Collect all deleted item IDs (tombstones) across server and client
-  const deletedItemIds = new Set<string>([
-    ...(incoming.deletedItemIds || []),
-    ...(cached?.deletedItemIds || []),
-    ...(typeof window !== "undefined" && localStorage.getItem("truth_quran_deleted_item_ids")
-      ? JSON.parse(localStorage.getItem("truth_quran_deleted_item_ids") || "[]")
-      : [])
-  ]);
-
-  const deletedMediaUrls = new Set<string>([
-    ...(incoming.deletedMediaUrls || (incoming as any).deletedMediaUrls || []),
-    ...(cached && (cached as any).deletedMediaUrls ? (cached as any).deletedMediaUrls : []),
-    ...(typeof window !== "undefined" && localStorage.getItem("truth_quran_deleted_media_urls")
-      ? JSON.parse(localStorage.getItem("truth_quran_deleted_media_urls") || "[]")
-      : [])
-  ]);
-
-  const deletedMediaIds = new Set<string>([
-    ...(incoming.deletedMediaIds || (incoming as any).deletedMediaIds || []),
-    ...(cached && (cached as any).deletedMediaIds ? (cached as any).deletedMediaIds : []),
-    ...(typeof window !== "undefined" && localStorage.getItem("truth_quran_deleted_media_ids")
-      ? JSON.parse(localStorage.getItem("truth_quran_deleted_media_ids") || "[]")
-      : [])
-  ]);
-
-  const isNotDeletedItem = (id?: string) => !id || !deletedItemIds.has(id);
-  const isNotDeletedMedia = (m: WPMedia) => m && (m.id || m.url) && !deletedMediaIds.has(m.id) && (!m.url || !deletedMediaUrls.has(m.url));
-
-  // 1. Strict Blog Posts Preservation: Server is authoritative! Never resurrect deleted posts.
-  const postsMap = new Map<string, BlogPost>();
-  if (incoming.blogPosts && Array.isArray(incoming.blogPosts) && incoming.blogPosts.length > 0) {
-    incoming.blogPosts.forEach(p => {
-      const key = p.id || p.slug;
-      if (key && isNotDeletedItem(p.id) && isNotDeletedItem(p.slug)) {
-        postsMap.set(key, ensureBlogPostSEO(p));
-      }
-    });
-  } else if (cached?.blogPosts && Array.isArray(cached.blogPosts) && cached.blogPosts.length > 0) {
-    cached.blogPosts.forEach(p => {
-      const key = p.id || p.slug;
-      if (key && isNotDeletedItem(p.id) && isNotDeletedItem(p.slug)) {
-        postsMap.set(key, ensureBlogPostSEO(p));
-      }
-    });
-  } else {
-    baseDefaults.blogPosts.forEach(p => {
-      const key = p.id || p.slug;
-      if (key && isNotDeletedItem(p.id) && isNotDeletedItem(p.slug)) {
-        postsMap.set(key, ensureBlogPostSEO(p));
-      }
-    });
+  if (!cached) {
+    return {
+      ...baseDefaults,
+      ...incoming,
+      blogPosts: (incoming.blogPosts || baseDefaults.blogPosts).map(ensureBlogPostSEO)
+    };
   }
 
-  // Overlay un-synced cached posts (e.g. user drafted or edited in active session)
-  if (cached?.blogPosts && Array.isArray(cached.blogPosts) && incoming.blogPosts) {
+  // 1. Strict Blog Posts Preservation: Never overwrite or delete user created posts or their SEO fields!
+  const postsMap = new Map<string, BlogPost>();
+
+  // Add all base defaults first
+  baseDefaults.blogPosts.forEach(p => {
+    const key = p.id || p.slug;
+    if (key) postsMap.set(key, ensureBlogPostSEO(p));
+  });
+
+  // Overlay user edits from cache first (preserves local offline drafts)
+  if (cached.blogPosts && Array.isArray(cached.blogPosts)) {
     cached.blogPosts.forEach(cachedPost => {
       if (!cachedPost) return;
       const key = cachedPost.id || cachedPost.slug;
-      if (!key || !isNotDeletedItem(cachedPost.id) || !isNotDeletedItem(cachedPost.slug)) return;
+      if (!key) return;
+
       if (postsMap.has(key)) {
-        postsMap.set(key, safeMergeBlogPost(postsMap.get(key)!, cachedPost));
+        const existing = postsMap.get(key)!;
+        postsMap.set(key, safeMergeBlogPost(existing, cachedPost));
       } else {
+        // User created post exists in local cache only -> Preserve it!
         postsMap.set(key, ensureBlogPostSEO(cachedPost));
       }
     });
   }
-  const mergedPosts = Array.from(postsMap.values());
 
-  // 2. Strict Courses Preservation
-  const coursesMap = new Map<string, Course>();
-  const isRemovedCourse = (id?: string) => id === "arabic-language" || !isNotDeletedItem(id);
-  if (incoming.courses && Array.isArray(incoming.courses) && incoming.courses.length > 0) {
-    incoming.courses.forEach(c => {
-      if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse(c));
-    });
-  } else if (cached?.courses && Array.isArray(cached.courses) && cached.courses.length > 0) {
-    cached.courses.forEach(c => {
-      if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse(c));
-    });
-  } else {
-    baseDefaults.courses.forEach(c => {
-      if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse(c));
-    });
-  }
-  if (cached?.courses && Array.isArray(cached.courses) && incoming.courses) {
-    cached.courses.forEach(c => {
-      if (c && c.id && !isRemovedCourse(c.id)) {
-        coursesMap.set(c.id, ensureCourse({ ...(coursesMap.get(c.id) || {}), ...c }));
+  // Overlay incoming posts from server database (authoritative source of truth)
+  if (incoming.blogPosts && Array.isArray(incoming.blogPosts)) {
+    incoming.blogPosts.forEach(incPost => {
+      if (!incPost) return;
+      const key = incPost.id || incPost.slug;
+      if (!key) return;
+      if (postsMap.has(key)) {
+        postsMap.set(key, safeMergeBlogPost(postsMap.get(key)!, incPost));
+      } else {
+        postsMap.set(key, ensureBlogPostSEO(incPost));
       }
     });
   }
-  const mergedCourses = Array.from(coursesMap.values());
+
+  const mergedPosts = Array.from(postsMap.values());
+
+  // 2. Strict Custom Video Preservation
+  const videoMap = new Map<string, WPVideo>();
+  baseDefaults.videos.forEach(v => { if (v && v.id) videoMap.set(v.id, v); });
+  (incoming.videos || []).forEach(v => { if (v && v.id) videoMap.set(v.id, v); });
+  (cached.videos || []).forEach(v => { if (v && v.id) videoMap.set(v.id, v); });
+  const mergedVideos = Array.from(videoMap.values());
 
   // 3. Strict Media Library Preservation & Deletion Protection
+  const deletedIdsRaw = typeof window !== "undefined" ? localStorage.getItem("truth_quran_deleted_media_ids") : null;
+  const deletedIds = new Set<string>(deletedIdsRaw ? JSON.parse(deletedIdsRaw) : []);
+  const deletedUrlsRaw = typeof window !== "undefined" ? localStorage.getItem("truth_quran_deleted_media_urls") : null;
+  const deletedUrls = new Set<string>(deletedUrlsRaw ? JSON.parse(deletedUrlsRaw) : []);
+
+  const isNotDeletedMedia = (m: WPMedia) => m && (m.id || m.url) && !deletedIds.has(m.id) && (!m.url || !deletedUrls.has(m.url));
+
   let mergedMedia: WPMedia[] = [];
   if (incoming.mediaLibrary && Array.isArray(incoming.mediaLibrary)) {
+    // Incoming from server or active save is authoritative!
     mergedMedia = incoming.mediaLibrary.filter(isNotDeletedMedia);
-  } else if (cached?.mediaLibrary && Array.isArray(cached.mediaLibrary)) {
+  } else if (cached.mediaLibrary && Array.isArray(cached.mediaLibrary)) {
     mergedMedia = cached.mediaLibrary.filter(isNotDeletedMedia);
   } else {
     mergedMedia = baseDefaults.mediaLibrary.filter(isNotDeletedMedia);
   }
 
-  // 4. Strict Teachers Preservation
+  // 4. Strict Courses Preservation
+  const coursesMap = new Map<string, Course>();
+  const isRemovedCourse = (id?: string) => id === "arabic-language";
+  baseDefaults.courses.forEach(c => { if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse(c)); });
+  (incoming.courses || []).forEach(c => { if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse(c)); });
+  (cached.courses || []).forEach(c => { if (c && c.id && !isRemovedCourse(c.id)) coursesMap.set(c.id, ensureCourse({ ...(coursesMap.get(c.id) || {}), ...c })); });
+  const mergedCourses = Array.from(coursesMap.values());
+
+  // 5. Strict Teachers Preservation
   const teachersMap = new Map<string, WPTeacher>();
-  if (incoming.teachers && Array.isArray(incoming.teachers) && incoming.teachers.length > 0) {
-    incoming.teachers.forEach(t => { if (t && t.id && isNotDeletedItem(t.id)) teachersMap.set(t.id, t); });
-  } else if (cached?.teachers && Array.isArray(cached.teachers) && cached.teachers.length > 0) {
-    cached.teachers.forEach(t => { if (t && t.id && isNotDeletedItem(t.id)) teachersMap.set(t.id, t); });
-  } else {
-    baseDefaults.teachers.forEach(t => { if (t && t.id && isNotDeletedItem(t.id)) teachersMap.set(t.id, t); });
-  }
+  baseDefaults.teachers.forEach(t => { if (t && t.id) teachersMap.set(t.id, t); });
+  (incoming.teachers || []).forEach(t => { if (t && t.id) teachersMap.set(t.id, t); });
+  (cached.teachers || []).forEach(t => { if (t && t.id) teachersMap.set(t.id, { ...(teachersMap.get(t.id) || {}), ...t }); });
   const mergedTeachers = Array.from(teachersMap.values());
 
-  // 5. Strict FAQs Preservation
+  // 6. Strict FAQs Preservation
   const faqsMap = new Map<string, FAQItem>();
-  if (incoming.faqs && Array.isArray(incoming.faqs) && incoming.faqs.length > 0) {
-    incoming.faqs.forEach(f => { if (f && f.id && isNotDeletedItem(f.id)) faqsMap.set(f.id, f); });
-  } else if (cached?.faqs && Array.isArray(cached.faqs) && cached.faqs.length > 0) {
-    cached.faqs.forEach(f => { if (f && f.id && isNotDeletedItem(f.id)) faqsMap.set(f.id, f); });
-  } else {
-    baseDefaults.faqs.forEach(f => { if (f && f.id && isNotDeletedItem(f.id)) faqsMap.set(f.id, f); });
-  }
+  baseDefaults.faqs.forEach(f => { if (f && f.id) faqsMap.set(f.id, f); });
+  (incoming.faqs || []).forEach(f => { if (f && f.id) faqsMap.set(f.id, f); });
+  (cached.faqs || []).forEach(f => { if (f && f.id) faqsMap.set(f.id, { ...(faqsMap.get(f.id) || {}), ...f }); });
   const mergedFaqs = Array.from(faqsMap.values());
 
-  // 6. Strict Testimonials Preservation
+  // 7. Strict Testimonials Preservation
   const testMap = new Map<string, Testimonial>();
-  if (incoming.testimonials && Array.isArray(incoming.testimonials) && incoming.testimonials.length > 0) {
-    incoming.testimonials.forEach(t => { if (t && t.id && isNotDeletedItem(t.id)) testMap.set(t.id, t); });
-  } else if (cached?.testimonials && Array.isArray(cached.testimonials) && cached.testimonials.length > 0) {
-    cached.testimonials.forEach(t => { if (t && t.id && isNotDeletedItem(t.id)) testMap.set(t.id, t); });
-  } else {
-    baseDefaults.testimonials.forEach(t => { if (t && t.id && isNotDeletedItem(t.id)) testMap.set(t.id, t); });
-  }
+  baseDefaults.testimonials.forEach(t => { if (t && t.id) testMap.set(t.id, t); });
+  (incoming.testimonials || []).forEach(t => { if (t && t.id) testMap.set(t.id, t); });
+  (cached.testimonials || []).forEach(t => { if (t && t.id) testMap.set(t.id, { ...(testMap.get(t.id) || {}), ...t }); });
   const mergedTestimonials = Array.from(testMap.values());
 
-  // 7. Strict Pricing Plans Preservation
+  // 8. Strict Pricing Plans Preservation
   const pricingMap = new Map<string, PricingPlan>();
-  const isDuplicateOldPlan = (id?: string) => id === "price-1" || id === "price-2" || id === "price-3" || !isNotDeletedItem(id);
-  if (incoming.pricingPlans && Array.isArray(incoming.pricingPlans) && incoming.pricingPlans.length > 0) {
-    incoming.pricingPlans.forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, p); });
-  } else if (cached?.pricingPlans && Array.isArray(cached.pricingPlans) && cached.pricingPlans.length > 0) {
-    cached.pricingPlans.forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, p); });
-  } else {
-    baseDefaults.pricingPlans.forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, p); });
-  }
+  const isDuplicateOldPlan = (id?: string) => id === "price-1" || id === "price-2" || id === "price-3";
+  baseDefaults.pricingPlans.forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, p); });
+  (incoming.pricingPlans || []).forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, p); });
+  (cached.pricingPlans || []).forEach(p => { if (p && p.id && !isDuplicateOldPlan(p.id)) pricingMap.set(p.id, { ...(pricingMap.get(p.id) || {}), ...p }); });
   const mergedPricing = Array.from(pricingMap.values());
 
-  // 8. Strict Why Us Preservation
+  // 9. Strict Why Us Preservation
   const whyUsMap = new Map<string, WhyUsPoint>();
-  if (incoming.whyUs && Array.isArray(incoming.whyUs) && incoming.whyUs.length > 0) {
-    incoming.whyUs.forEach(w => { if (w && w.id && isNotDeletedItem(w.id)) whyUsMap.set(w.id, w); });
-  } else if (cached?.whyUs && Array.isArray(cached.whyUs) && cached.whyUs.length > 0) {
-    cached.whyUs.forEach(w => { if (w && w.id && isNotDeletedItem(w.id)) whyUsMap.set(w.id, w); });
-  } else {
-    baseDefaults.whyUs.forEach(w => { if (w && w.id && isNotDeletedItem(w.id)) whyUsMap.set(w.id, w); });
-  }
+  baseDefaults.whyUs.forEach(w => { if (w && w.id) whyUsMap.set(w.id, w); });
+  (incoming.whyUs || []).forEach(w => { if (w && w.id) whyUsMap.set(w.id, w); });
+  (cached.whyUs || []).forEach(w => { if (w && w.id) whyUsMap.set(w.id, { ...(whyUsMap.get(w.id) || {}), ...w }); });
   const mergedWhyUs = Array.from(whyUsMap.values());
 
-  // 9. Strict Custom Video Preservation
-  const videoMap = new Map<string, WPVideo>();
-  if (incoming.videos && Array.isArray(incoming.videos) && incoming.videos.length > 0) {
-    incoming.videos.forEach(v => { if (v && v.id && isNotDeletedItem(v.id)) videoMap.set(v.id, v); });
-  } else if (cached?.videos && Array.isArray(cached.videos) && cached.videos.length > 0) {
-    cached.videos.forEach(v => { if (v && v.id && isNotDeletedItem(v.id)) videoMap.set(v.id, v); });
-  } else {
-    baseDefaults.videos.forEach(v => { if (v && v.id && isNotDeletedItem(v.id)) videoMap.set(v.id, v); });
-  }
-  const mergedVideos = Array.from(videoMap.values());
-
-  // 10. Custom Taxonomies, Custom Pages, Audit Logs & Concurrency Revision
-  const customTaxonomies = incoming.customTaxonomies || cached?.customTaxonomies || [];
-  const customPages = incoming.customPages || cached?.customPages || [];
-  const admin_audit_logs = incoming.admin_audit_logs || cached?.admin_audit_logs || [];
-  const db_revision = Math.max(incoming.db_revision || 0, cached?.db_revision || 0, 1);
-  const lastSavedTimestampVal = Math.max(incoming.lastSavedTimestamp || 0, cached?.lastSavedTimestamp || 0, 0);
-
-  // 11. Safe Merging for Configuration Objects & Metadata
+  // 10. Safe Merging for Configuration Objects & Metadata
   return {
     ...baseDefaults,
     ...incoming,
@@ -1028,42 +954,36 @@ export const mergePreservingUserData = (cached: CMSData | null, incoming: Partia
     whyUs: mergedWhyUs,
     videos: mergedVideos,
     mediaLibrary: mergedMedia,
-    customTaxonomies,
-    customPages,
-    admin_audit_logs,
-    deletedItemIds: Array.from(deletedItemIds),
-    db_revision,
-    lastSavedTimestamp: lastSavedTimestampVal,
     sectionsVisibility: {
       ...baseDefaults.sectionsVisibility,
       ...(incoming.sectionsVisibility || {}),
-      ...(cached?.sectionsVisibility || {})
+      ...(cached.sectionsVisibility || {})
     },
-    sectionsOrder: cached?.sectionsOrder || incoming.sectionsOrder || baseDefaults.sectionsOrder,
+    sectionsOrder: cached.sectionsOrder || incoming.sectionsOrder || baseDefaults.sectionsOrder,
     themeColors: {
       ...baseDefaults.themeColors,
       ...(incoming.themeColors || {}),
-      ...(cached?.themeColors || {})
+      ...(cached.themeColors || {})
     },
     themeTypography: {
       ...baseDefaults.themeTypography,
       ...(incoming.themeTypography || {}),
-      ...(cached?.themeTypography || {})
+      ...(cached.themeTypography || {})
     },
     siteSettings: {
       ...baseDefaults.siteSettings,
       ...(incoming.siteSettings || {}),
-      ...(cached?.siteSettings || {})
+      ...(cached.siteSettings || {})
     },
     aiSettings: {
       ...baseDefaults.aiSettings,
       ...(incoming.aiSettings || {}),
-      ...(cached?.aiSettings || {})
+      ...(cached.aiSettings || {})
     },
     customImages: {
       ...baseDefaults.customImages,
       ...(incoming.customImages || {}),
-      ...(cached?.customImages || {})
+      ...(cached.customImages || {})
     }
   };
 };
@@ -1166,26 +1086,11 @@ export const fetchCMSDataFromServer = async (): Promise<CMSData> => {
   return getCMSData();
 };
 
-export const saveCMSDataWithResult = async (
-  data: CMSData,
-  auditMeta?: {
-    action: string;
-    targetType: string;
-    targetId?: string;
-    targetTitle?: string;
-    details?: string;
-  }
-): Promise<{ success: boolean; data?: CMSData; error?: string }> => {
+export const saveCMSDataWithResult = async (data: CMSData): Promise<{ success: boolean; data?: CMSData; error?: string }> => {
   if (!data) return { success: false, error: "No data provided" };
 
   // 1. Sync to server database first to guarantee persistence
   try {
-    const payload = {
-      ...data,
-      expectedRevision: data.db_revision || 1,
-      auditMeta
-    };
-
     const res = await fetch("/api/cms-data", {
       method: "POST",
       headers: {
@@ -1193,7 +1098,7 @@ export const saveCMSDataWithResult = async (
         "X-Requested-With": "XMLHttpRequest",
         "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(data)
     });
 
     if (!res.ok) {
@@ -1212,9 +1117,6 @@ export const saveCMSDataWithResult = async (
     }
     if (json.cmsData && typeof json.cmsData === "object") {
       cleanSaved = { ...cleanSaved, ...json.cmsData };
-    }
-    if (json.db_revision) {
-      cleanSaved.db_revision = json.db_revision;
     }
 
     // Mark save timestamp so any older background fetch is ignored
@@ -1241,17 +1143,8 @@ export const saveCMSDataWithResult = async (
   }
 };
 
-export const saveCMSData = async (
-  data: CMSData,
-  auditMeta?: {
-    action: string;
-    targetType: string;
-    targetId?: string;
-    targetTitle?: string;
-    details?: string;
-  }
-): Promise<boolean> => {
-  const result = await saveCMSDataWithResult(data, auditMeta);
+export const saveCMSData = async (data: CMSData): Promise<boolean> => {
+  const result = await saveCMSDataWithResult(data);
   return result.success;
 };
 
@@ -1628,70 +1521,5 @@ export const restoreDatabaseSnapshot = async (fileName: string): Promise<{ succe
   } catch (e: any) {
     return { success: false, message: e.message || "Network error restoring snapshot." };
   }
-};
-
-/**
- * Records an explicitly deleted item ID into the local tombstone registry so it is never resurrected.
- */
-export const recordDeletedItemId = (id: string) => {
-  if (!id || typeof window === "undefined") return;
-  try {
-    const raw = localStorage.getItem("truth_quran_deleted_item_ids");
-    const list: string[] = raw ? JSON.parse(raw) : [];
-    if (!list.includes(id)) {
-      list.push(id);
-      localStorage.setItem("truth_quran_deleted_item_ids", JSON.stringify(list));
-    }
-  } catch (e) {
-    console.warn("Could not save deleted item ID tombstone:", e);
-  }
-};
-
-/**
- * Fetches the system protection & isolation status from the backend.
- */
-export const fetchProtectionStatus = async (): Promise<ProtectionSystemStatus | null> => {
-  try {
-    const res = await fetch("/api/system/protection-status", {
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
-      }
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.warn("Could not fetch protection status:", e);
-  }
-  return null;
-};
-
-/**
- * Fetches the persistent audit logs / change history from the backend.
- */
-export const fetchAuditLogs = async (): Promise<AdminAuditLog[]> => {
-  try {
-    const res = await fetch("/api/admin/audit-logs", {
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        "X-WP-Admin-Token": "SECURE_WP_WPSECRET_2026"
-      }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return data.auditLogs || [];
-    }
-  } catch (e) {
-    console.warn("Could not fetch audit logs:", e);
-  }
-  return [];
-};
-
-/**
- * Rolls back database state to a specific snapshot, recording an audit entry.
- */
-export const rollbackToSnapshot = async (fileName: string): Promise<{ success: boolean; message: string }> => {
-  return restoreDatabaseSnapshot(fileName);
 };
 

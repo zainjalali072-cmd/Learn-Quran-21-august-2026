@@ -10,8 +10,7 @@ import {
   WPComment,
   saveCMSData,
   deleteMediaItem,
-  submitUrlsForIndexing,
-  recordDeletedItemId
+  submitUrlsForIndexing
 } from "../cmsStore";
 import { 
   Search, 
@@ -54,17 +53,7 @@ import { exportDatabaseBackup, getCMSData } from "../cmsStore";
 
 interface WPContentManagerProps {
   cmsData: CMSData;
-  onSave: (
-    updatedData: CMSData, 
-    customMsg?: string, 
-    auditMeta?: { 
-      action: string; 
-      targetType: string; 
-      targetId?: string; 
-      targetTitle?: string; 
-      details?: string; 
-    }
-  ) => void;
+  onSave: (updatedData: CMSData, customMsg?: string) => void;
   activeTab: string;
   setActiveTab: (tab: any) => void;
 }
@@ -529,8 +518,6 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
 
     const items = (cmsData as any)[key] || [];
     const itemToDelete = items.find((item: any) => item.id === id);
-    const itemLabel = currentConfig?.singular || "Item";
-    const itemName = itemToDelete?.title || itemToDelete?.name || itemToDelete?.question || id;
 
     if (activeTab === "media" && itemToDelete) {
       const usedInArticles: string[] = [];
@@ -549,47 +536,20 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
           return;
         }
       } else {
-        if (!window.confirm(`Are you sure you want to permanently delete media "${itemName}" from the database?`)) {
+        if (!window.confirm("Are you sure you want to permanently delete this media file from the database?")) {
           return;
         }
       }
 
-      recordDeletedItemId(id);
-      if (itemToDelete.url) recordDeletedItemId(itemToDelete.url);
       const res = await deleteMediaItem(id, itemToDelete.url);
       const updated = (res.mediaLibrary || items).filter((item: any) => item.id !== id && item.url !== itemToDelete.url);
-      onSave(
-        { ...cmsData, mediaLibrary: updated }, 
-        "✅ Media asset permanently deleted from database!",
-        {
-          action: "DELETE_MEDIA",
-          targetType: "media",
-          targetId: id,
-          targetTitle: itemName,
-          details: `Permanently deleted media "${itemName}"`
-        }
-      );
+      onSave({ ...cmsData, mediaLibrary: updated }, "✅ Media asset permanently deleted from database!");
       return;
     }
 
-    if (window.confirm(`⚠️ Permanently Delete "${itemName}"?\n\nThis item will be safely removed, recorded in the change audit log, and protected against resurrection by any code updates.`)) {
-      recordDeletedItemId(id);
-      if (itemToDelete?.slug) recordDeletedItemId(itemToDelete.slug);
-
+    if (window.confirm("Are you sure you want to permanently delete this item from the database? This is irreversible.")) {
       const updated = items.filter((item: any) => item.id !== id);
-      const updatedDeleted = Array.from(new Set([...(cmsData.deletedItemIds || []), id, ...(itemToDelete?.slug ? [itemToDelete.slug] : [])]));
-
-      onSave(
-        { ...cmsData, [key]: updated, deletedItemIds: updatedDeleted }, 
-        `✅ "${itemName}" permanently deleted & protected from resurrection!`,
-        {
-          action: `DELETE_${itemLabel.toUpperCase().replace(/\s+/g, "_")}`,
-          targetType: itemLabel.toLowerCase(),
-          targetId: id,
-          targetTitle: itemName,
-          details: `Permanently deleted ${itemLabel} "${itemName}" via Admin Panel`
-        }
-      );
+      onSave({ ...cmsData, [key]: updated }, "✅ Item permanently deleted from database!");
     }
   };
 
@@ -695,30 +655,13 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
     if (activeTab === "pages") {
       // Save static pages
       const nextVis = { ...cmsData.sectionsVisibility, [formData.id]: formData.status === "published" };
-      onSave(
-        { ...cmsData, sectionsVisibility: nextVis }, 
-        `✅ Page "${formData.title}" visibility updated!`,
-        {
-          action: "UPDATE_PAGE",
-          targetType: "page",
-          targetId: formData.id,
-          targetTitle: formData.title,
-          details: `Updated section visibility to ${formData.status}`
-        }
-      );
+      onSave({ ...cmsData, sectionsVisibility: nextVis }, `✅ Page "${formData.title}" visibility updated!`);
       setSubView("all");
       setEditingItemId(null);
       return;
     }
 
     let items = [...((cmsData as any)[key] || [])];
-    const itemLabel = currentConfig?.singular || "Item";
-    const actionLabel = editingItemId ? "updated" : "created & published";
-    const actionType = editingItemId 
-      ? `UPDATE_${itemLabel.toUpperCase().replace(/\s+/g, "_")}` 
-      : `CREATE_${itemLabel.toUpperCase().replace(/\s+/g, "_")}`;
-    const itemName = formData.title || formData.name || formData.question || "Item";
-    const itemId = editingItemId || `${activeTab.slice(0, 3)}-${Date.now()}`;
 
     if (editingItemId) {
       // Update
@@ -727,34 +670,21 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
       );
     } else {
       // Insert New
-      items = [{ 
-        id: itemId, 
-        ...formData, 
-        status: formData.status || "published", 
-        date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), 
-        publishDate: new Date().toISOString().split("T")[0] 
-      }, ...items];
+      const newId = `${activeTab.slice(0,3)}-${Date.now()}`;
+      items = [{ id: newId, ...formData, status: formData.status || "published", date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), publishDate: new Date().toISOString().split("T")[0] }, ...items];
     }
 
-    onSave(
-      { ...cmsData, [key]: items }, 
-      `✅ ${itemLabel} "${itemName}" ${actionLabel} & protected in persistent database!`,
-      {
-        action: actionType,
-        targetType: itemLabel.toLowerCase(),
-        targetId: itemId,
-        targetTitle: itemName,
-        details: `${actionLabel.toUpperCase()}: ${itemName}`
-      }
-    );
+    const itemLabel = currentConfig?.singular || "Item";
+    const actionLabel = editingItemId ? "updated" : "created & published";
+    onSave({ ...cmsData, [key]: items }, `✅ ${itemLabel} "${formData.title || formData.name || formData.question || ''}" ${actionLabel} & submitted to Google Indexing API!`);
 
     // Instant Google Search Console & IndexNow Auto-Ping
     const domain = "https://truthquranacademy.com";
     let targetUrl = "";
     if (activeTab === "posts") {
-      targetUrl = `${domain}/blog/${formData.slug || itemId || "new-post"}`;
+      targetUrl = `${domain}/blog/${formData.slug || editingItemId || "new-post"}`;
     } else if (activeTab === "courses") {
-      targetUrl = `${domain}/${formData.id || itemId || "new-course"}`;
+      targetUrl = `${domain}/${formData.id || editingItemId || "new-course"}`;
     }
 
     if (targetUrl) {
@@ -835,41 +765,33 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
   // Taxonomy Helpers (Adding Category or Tag)
   const handleAddTaxonomy = (type: "category" | "tag") => {
     if (!newTaxName.trim()) return;
-    const cleanName = newTaxName.trim();
-    const slug = newTaxSlug.trim() || cleanName.toLowerCase().replace(/\s+/g, "-");
+    const slug = newTaxSlug.trim() || newTaxName.toLowerCase().replace(/\s+/g, "-");
     
-    // Save directly to persistent customTaxonomies collection without polluting blog posts!
-    const newTax = {
-      id: `tax-${Date.now()}`,
-      name: cleanName,
-      slug,
-      type,
-      description: newTaxDesc.trim() || `Custom ${type}`,
-      createdAt: new Date().toISOString()
+    // Create simulated post to house this category/tag so that it shows up in count metrics
+    const newPostId = `tax-trigger-${Date.now()}`;
+    const mockPost: BlogPost = {
+      id: newPostId,
+      title: `Simulated placeholder for taxonomy tag ${newTaxName}`,
+      excerpt: newTaxDesc || `System taxonomy anchor representation.`,
+      status: "draft",
+      coverImage: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=400",
+      category: type === "category" ? newTaxName : "Tajweed Rules",
+      tags: type === "tag" ? [newTaxName] : [],
+      author: { name: "System Admin", avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde", role: "WP System" },
+      date: new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      content: "Taxonomy simulation anchor.",
+      readTime: "1 min read"
     };
 
-    const existingTaxonomies = cmsData.customTaxonomies || [];
-    const updatedTaxonomies = existingTaxonomies.some(t => t.slug === slug || t.name.toLowerCase() === cleanName.toLowerCase())
-      ? existingTaxonomies.map(t => (t.slug === slug || t.name.toLowerCase() === cleanName.toLowerCase()) ? newTax : t)
-      : [...existingTaxonomies, newTax];
-
-    onSave(
-      {
-        ...cmsData,
-        customTaxonomies: updatedTaxonomies
-      },
-      `✅ Custom ${type} "${cleanName}" created and preserved in persistent database!`,
-      {
-        action: "CREATE_TAXONOMY",
-        targetType: "taxonomy",
-        targetTitle: cleanName,
-        details: `Created custom ${type}: ${cleanName} (${slug})`
-      }
-    );
+    onSave({
+      ...cmsData,
+      blogPosts: [mockPost, ...cmsData.blogPosts]
+    });
 
     setNewTaxName("");
     setNewTaxSlug("");
     setNewTaxDesc("");
+    alert(`Success: Standard WordPress dynamic ${type} [${newTaxName}] created and integrated!`);
   };
 
   const taxonomyList = useMemo(() => {
@@ -886,17 +808,7 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
       ];
       defaults.forEach(d => map.set(d.name, { ...d, count: 0 }));
 
-      // Custom persistent categories
-      (cmsData.customTaxonomies || []).filter(t => t.type === "category").forEach(t => {
-        map.set(t.name, {
-          name: t.name,
-          slug: t.slug,
-          description: t.description || "Custom category",
-          count: 0
-        });
-      });
-
-      // Dynamically calculate counts from blog posts
+      // dynamically read counts and custom ones from posts
       cmsData.blogPosts.forEach(post => {
         if (!post.category) return;
         const existing = map.get(post.category);
@@ -906,7 +818,7 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
           map.set(post.category, {
             name: post.category,
             slug: post.category.toLowerCase().replace(/\s+/g, "-"),
-            description: "Custom user-generated category",
+            description: "Custom user-generated categories",
             count: 1
           });
         }
@@ -920,16 +832,6 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
         { name: "Makharij", slug: "makharij", description: "Where letter sounds emerge." }
       ];
       defaults.forEach(d => map.set(d.name, { ...d, count: 0 }));
-
-      // Custom persistent tags
-      (cmsData.customTaxonomies || []).filter(t => t.type === "tag").forEach(t => {
-        map.set(t.name, {
-          name: t.name,
-          slug: t.slug,
-          description: t.description || "Custom tag",
-          count: 0
-        });
-      });
 
       cmsData.blogPosts.forEach(post => {
         if (!post.tags) return;
@@ -950,11 +852,11 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
     }
 
     return Array.from(map.values());
-  }, [cmsData.blogPosts, cmsData.customTaxonomies, subView]);
+  }, [cmsData.blogPosts, subView]);
 
   const handleDeleteTaxonomy = (name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      const updatedTaxonomies = (cmsData.customTaxonomies || []).filter(t => t.name !== name && t.slug !== name);
+    if (window.confirm(`Are you sure you want to delete this taxonomy item?`)) {
+      // remove simulated posts holding this category or rename tags
       let nextPosts = [...cmsData.blogPosts];
       if (subView === "categories") {
         nextPosts = nextPosts.filter(p => !p.id.startsWith("tax-trigger") || p.category !== name);
@@ -963,16 +865,7 @@ export default function WPContentManager({ cmsData, onSave, activeTab, setActive
         nextPosts = nextPosts.filter(p => !p.id.startsWith("tax-trigger") || !p.tags?.includes(name));
         nextPosts = nextPosts.map(p => p.tags ? { ...p, tags: p.tags.filter(t => t !== name) } : p);
       }
-      onSave(
-        { ...cmsData, customTaxonomies: updatedTaxonomies, blogPosts: nextPosts },
-        `✅ Taxonomy "${name}" deleted.`,
-        {
-          action: "DELETE_TAXONOMY",
-          targetType: "taxonomy",
-          targetTitle: name,
-          details: `Deleted taxonomy "${name}"`
-        }
-      );
+      onSave({ ...cmsData, blogPosts: nextPosts });
     }
   };
 

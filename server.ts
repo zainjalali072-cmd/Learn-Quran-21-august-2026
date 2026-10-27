@@ -674,58 +674,12 @@ const getDatabase = () => {
     needsSave = true;
   }
 
-  // Ensure Data Protection, Change Isolation & Audit Engine fields exist
-  if (!Array.isArray(db.admin_audit_logs)) {
-    db.admin_audit_logs = [];
-    needsSave = true;
-  }
-  if (!Array.isArray(db.deletedItemIds)) {
-    db.deletedItemIds = [];
-    needsSave = true;
-  }
-  if (!Array.isArray(db.customTaxonomies)) {
-    db.customTaxonomies = [];
-    needsSave = true;
-  }
-  if (!Array.isArray(db.customPages)) {
-    db.customPages = [];
-    needsSave = true;
-  }
-  if (typeof db.db_revision !== "number") {
-    db.db_revision = 1;
-    needsSave = true;
-  }
-  if (!db.lastSavedTimestamp) {
-    db.lastSavedTimestamp = Date.now();
-    needsSave = true;
-  }
-
   if (needsSave) {
     saveDatabase(db);
   }
 
   return db;
 };
-
-// Automatic Server Startup Safety Snapshot (runs once on application boot)
-let startupSnapshotCreated = false;
-const ensureStartupSafetySnapshot = () => {
-  if (startupSnapshotCreated) return;
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, "utf8");
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        createAutoBackup(parsed, "server_startup_safety");
-        startupSnapshotCreated = true;
-        console.log("[Data Protection] Startup safety snapshot successfully created in /backups.");
-      }
-    }
-  } catch (err) {
-    console.warn("[Data Protection] Could not create startup snapshot:", err);
-  }
-};
-ensureStartupSafetySnapshot();
 
 const saveDatabase = (db: any, skipBackup = false) => {
   try {
@@ -1754,66 +1708,13 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
     });
   }
 
-  // Pre-save safety snapshot
-  const preSaveSnapshot = createAutoBackup(db, "pre_save");
-
-  // Track deleted item tombstones to ensure zero resurrection
-  const incomingDeletedItemIds = Array.isArray(updatedData.deletedItemIds) ? updatedData.deletedItemIds : [];
-  const deletedItemIds = new Set<string>([
-    ...(db.deletedItemIds || []),
-    ...incomingDeletedItemIds
-  ]);
-
-  // Concurrency & Revision tracking
-  const currentRevision = typeof db.db_revision === "number" ? db.db_revision : 1;
-  const nextRevision = currentRevision + 1;
-  const saveTimestamp = Date.now();
-
-  // Audit Log Entry generation
-  const auditMeta = updatedData.auditMeta;
-  const auditAction = auditMeta?.action || "UPDATE_SETTINGS";
-  const auditTargetType = auditMeta?.targetType || "setting";
-  const auditTargetTitle = auditMeta?.targetTitle || "Website Configuration";
-  const auditDetails = auditMeta?.details || "Changes saved through Admin Panel";
-
-  const auditEntry = {
-    id: `audit_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
-    timestamp: new Date().toISOString(),
-    user: session ? {
-      name: session.name || "Administrator",
-      email: session.email || "muhammadzain92624@gmail.com",
-      role: session.role || "Administrator"
-    } : {
-      name: "Muhammad Zain",
-      email: "muhammadzain92624@gmail.com",
-      role: "Administrator"
-    },
-    action: auditAction,
-    targetType: auditTargetType,
-    targetId: auditMeta?.targetId || "",
-    targetTitle: auditTargetTitle,
-    details: auditDetails,
-    snapshotFile: preSaveSnapshot,
-    dbRevision: nextRevision
-  };
-
-  const auditLogs = Array.isArray(db.admin_audit_logs) 
-    ? [auditEntry, ...db.admin_audit_logs].slice(0, 500) 
-    : [auditEntry];
-
-  // Validate fields and build authoritative cleanData
+  // Validate fields
   const cleanData = {
     ...db,
     ...updatedData,
     mediaLibrary: activeMediaLibrary,
     deletedMediaUrls: Array.from(deletedUrls),
     deletedMediaIds: Array.from(deletedIds),
-    deletedItemIds: Array.from(deletedItemIds),
-    admin_audit_logs: auditLogs,
-    customTaxonomies: Array.isArray(updatedData.customTaxonomies) ? updatedData.customTaxonomies : (db.customTaxonomies || []),
-    customPages: Array.isArray(updatedData.customPages) ? updatedData.customPages : (db.customPages || []),
-    db_revision: nextRevision,
-    lastSavedTimestamp: saveTimestamp,
     // Keep logs safe from being overwritten by UI saves
     traffic_logs: db.traffic_logs,
     indexingLogs: db.indexingLogs,
@@ -1821,11 +1722,7 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
     indexingSettings: updatedData.indexingSettings || db.indexingSettings
   };
 
-  // Remove temporary request metadata
-  delete (cleanData as any).auditMeta;
-  delete (cleanData as any).expectedRevision;
-
-  saveDatabase(cleanData, true);
+  saveDatabase(cleanData);
 
   // Dispatch background auto-indexing if URLs detected
   if (autoIndexUrls.length > 0) {
@@ -1839,9 +1736,7 @@ app.post("/api/cms-data", csrfProtection, inputScrubber, (req, res) => {
 
   return res.json({ 
     success: true, 
-    message: "Admin Panel changes saved & protected! Database snapshot created.", 
-    db_revision: nextRevision,
-    auditEntry,
+    message: "WP DB fully synchronized!", 
     autoIndexedUrls: autoIndexUrls,
     blogPosts: cleanData.blogPosts,
     mediaLibrary: cleanData.mediaLibrary,
@@ -2204,32 +2099,9 @@ app.post("/api/database/restore-backup", csrfProtection, (req, res) => {
     // Safety: Pre-restore rollback snapshot
     const rollback = createAutoBackup(currentDb, "pre_restore_rollback");
 
-    const auditEntry = {
-      id: `audit_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
-      timestamp: new Date().toISOString(),
-      user: session ? {
-        name: session.name || "Administrator",
-        email: session.email || "muhammadzain92624@gmail.com",
-        role: session.role || "Administrator"
-      } : {
-        name: "Muhammad Zain",
-        email: "muhammadzain92624@gmail.com",
-        role: "Administrator"
-      },
-      action: "RESTORE_SNAPSHOT",
-      targetType: "system",
-      targetTitle: fileName,
-      details: `Database restored from snapshot: ${fileName}`,
-      snapshotFile: rollback,
-      dbRevision: ((currentDb.db_revision || 1) + 1)
-    };
-
     const merged = {
       ...currentDb,
       ...restoredData,
-      admin_audit_logs: [auditEntry, ...(currentDb.admin_audit_logs || [])].slice(0, 500),
-      db_revision: ((currentDb.db_revision || 1) + 1),
-      lastSavedTimestamp: Date.now(),
       traffic_logs: currentDb.traffic_logs,
       indexingLogs: currentDb.indexingLogs,
       indexingStatus: currentDb.indexingStatus
@@ -2245,59 +2117,6 @@ app.post("/api/database/restore-backup", csrfProtection, (req, res) => {
   } catch (err: any) {
     return res.status(500).json({ error: "Failed to parse or restore backup: " + err.message });
   }
-});
-
-// 6. System Protection & Data Isolation Status API
-app.get("/api/system/protection-status", (req, res) => {
-  const db = getDatabase();
-  let totalSnapshots = 0;
-  try {
-    if (fs.existsSync(BACKUPS_DIR)) {
-      totalSnapshots = fs.readdirSync(BACKUPS_DIR).filter(f => f.endsWith(".json")).length;
-    }
-  } catch (_) {}
-
-  let totalUploads = 0;
-  try {
-    if (fs.existsSync(UPLOADS_DIR)) {
-      totalUploads = fs.readdirSync(UPLOADS_DIR).length;
-    }
-  } catch (_) {}
-
-  const status = {
-    databaseStatus: "healthy",
-    authoritativeSource: "db.json (Persistent Server Storage)",
-    revision: db.db_revision || 1,
-    lastSaved: new Date(db.lastSavedTimestamp || Date.now()).toISOString(),
-    totalSnapshots,
-    totalUploads,
-    resurrectionGuardActive: true,
-    isolatedFromAiStudio: true,
-    deletedIdsCount: (db.deletedItemIds || []).length,
-    lastAuditLog: (db.admin_audit_logs || [])[0] || null
-  };
-
-  return res.json(status);
-});
-
-// 7. Audit Log / Change History API
-app.get("/api/admin/audit-logs", (req, res) => {
-  const db = getDatabase();
-  return res.json({ success: true, auditLogs: db.admin_audit_logs || [] });
-});
-
-// 8. Clear / Archive Audit Logs API
-app.post("/api/admin/audit-logs/clear", csrfProtection, (req, res) => {
-  const session = validateSession(req);
-  const isValidAdminToken = req.headers["x-wp-admin-token"] === "SECURE_WP_WPSECRET_2026";
-  if (!session && !isValidAdminToken) {
-    return res.status(401).json({ error: "Unauthorized." });
-  }
-  const db = getDatabase();
-  createAutoBackup(db, "pre_audit_clear");
-  db.admin_audit_logs = [];
-  saveDatabase(db, true);
-  return res.json({ success: true, message: "Audit logs archived and reset successfully." });
 });
 
 // Helper for Indexing Pipeline Execution

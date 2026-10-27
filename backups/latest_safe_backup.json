@@ -682,29 +682,6 @@
   ],
   "mediaLibrary": [
     {
-      "id": "m-1793014927127-619",
-      "title": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters featured photo",
-      "url": "/src/assets/images/blog_tajweed_rules_1784121484956.jpg",
-      "size": "Optimized",
-      "date": "2026-10-26",
-      "type": "image/jpeg",
-      "dimensions": "1200x675",
-      "alt": "Understanding the Essential Rules of Tajweed: Why Pronunciation Matters cover banner",
-      "caption": "Illustration for Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
-      "description": "High quality featured photo for article Understanding the Essential Rules of Tajweed: Why Pronunciation Matters",
-      "author": "Ustadh Hafiz Zain"
-    },
-    {
-      "id": "m-1791979960457",
-      "title": "test-upload.png",
-      "url": "/uploads/test-upload-1791979960456-92c571.png",
-      "size": "0 KB",
-      "date": "2026-10-14",
-      "type": "image/jpeg",
-      "dimensions": "1200x800",
-      "alt": "test-upload.png"
-    },
-    {
       "id": "m-1790940694913",
       "title": "test-media-upload.jpg",
       "url": "/uploads/test-media-upload-1790940694912-ccaa9a.jpg",
@@ -1237,20 +1214,6 @@
       "channel": "Direct Traffic",
       "sessionId": "sess_1791458277099_wxu3off",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
-    },
-    {
-      "id": "hit_1791979068801_mduv0",
-      "timestamp": "2026-10-14T11:57:48.801Z",
-      "ip": "116.90.119.240",
-      "country": "PK",
-      "countryName": "Pakistan",
-      "browser": "Chrome",
-      "device": "Desktop",
-      "url": "/",
-      "referrer": "https://ais-dev-zanym4iula6fojzz3qmcyu-596355472989.asia-southeast1.run.app/",
-      "channel": "Direct Traffic",
-      "sessionId": "sess_1791458277099_wxu3off",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
     }
   ],
   "indexingSettings": {
@@ -1685,76 +1648,76 @@
   },
   "test": 1,
   "analyticsData": {
-    "totalVisitors": 3,
-    "uniqueVisitors": 3,
+    "totalVisitors": 1,
+    "uniqueVisitors": 1,
     "returningVisitors": 0,
-    "pageViews": 14,
-    "sessions": 3,
-    "avgSessionDuration": "28m 06s",
+    "pageViews": 6,
+    "sessions": 1,
+    "avgSessionDuration": "44m 09s",
     "bounceRate": "0.0%",
     "realTimeVisitors": 1,
     "trafficOverTime": [
       {
         "date": "Tuesday",
-        "dateShort": "Oct 20",
-        "fullDate": "2026-10-20",
+        "dateShort": "Aug 18",
+        "fullDate": "2026-08-18",
         "views": 0,
         "visitors": 0
       },
       {
         "date": "Wednesday",
-        "dateShort": "Oct 21",
-        "fullDate": "2026-10-21",
+        "dateShort": "Aug 19",
+        "fullDate": "2026-08-19",
         "views": 0,
         "visitors": 0
       },
       {
         "date": "Thursday",
-        "dateShort": "Oct 22",
-        "fullDate": "2026-10-22",
+        "dateShort": "Aug 20",
+        "fullDate": "2026-08-20",
         "views": 0,
         "visitors": 0
       },
       {
         "date": "Friday",
-        "dateShort": "Oct 23",
-        "fullDate": "2026-10-23",
+        "dateShort": "Aug 21",
+        "fullDate": "2026-08-21",
         "views": 0,
         "visitors": 0
       },
       {
         "date": "Saturday",
-        "dateShort": "Oct 24",
-        "fullDate": "2026-10-24",
+        "dateShort": "Aug 22",
+        "fullDate": "2026-08-22",
         "views": 0,
         "visitors": 0
       },
       {
         "date": "Sunday",
-        "dateShort": "Oct 25",
-        "fullDate": "2026-10-25",
+        "dateShort": "Aug 23",
+        "fullDate": "2026-08-23",
         "views": 0,
         "visitors": 0
       },
       {
         "date": "Monday",
-        "dateShort": "Oct 26",
-        "fullDate": "2026-10-26",
-        "views": 0,
-        "visitors": 0
+        "dateShort": "Aug 24",
+        "fullDate": "2026-08-24",
+        "views": 6,
+        "visitors": 1
       }
     ],
     "sources": [
       {
         "name": "Organic Search",
-        "percent": 86,
-        "count": 12,
+        "percent": 100,
+        "count": 6,
         "color": "#d9b45c"
       },
       {
         "name": "Direct Traffic",
-        "percent": 14,
-        "count": 2,
+        "percent": 0,
+        "count": 0,
         "color": "#8b5cf6"
       },
       {
@@ -1772,29 +1735,17 @@
     ],
     "countries": [
       {
-        "code": "CA",
-        "name": "Canada",
+        "code": "AE",
+        "name": "United Arab Emirates",
         "count": 6,
-        "percent": 43
-      },
-      {
-        "code": "PK",
-        "name": "Pakistan",
-        "count": 6,
-        "percent": 43
-      },
-      {
-        "code": "SA",
-        "name": "Saudi Arabia",
-        "count": 2,
-        "percent": 14
+        "percent": 100
       }
     ],
     "devices": [
       {
         "name": "Desktop",
         "percent": 100,
-        "count": 14
+        "count": 6
       },
       {
         "name": "Mobile",
@@ -1810,7 +1761,7 @@
     "browsers": [
       {
         "name": "Chrome",
-        "count": 14,
+        "count": 6,
         "percent": 100
       }
     ],
@@ -1818,50 +1769,50 @@
       {
         "url": "/",
         "title": "Truth Quran Academy Home",
-        "views": 3
+        "views": 1
       }
     ],
     "exitPages": [
       {
         "url": "/",
         "title": "Truth Quran Academy Home",
-        "views": 3
+        "views": 1
       }
     ],
     "topKeywords": [
       {
         "query": "learn tajweed online",
-        "clicks": 5,
-        "impressions": 45,
+        "clicks": 3,
+        "impressions": 23,
         "ctr": "15.7%",
         "position": 1.2
       },
       {
         "query": "online quran class uk",
-        "clicks": 4,
-        "impressions": 36,
+        "clicks": 2,
+        "impressions": 18,
         "ctr": "14.8%",
         "position": 2.1
       },
       {
         "query": "truth quran academy",
-        "clicks": 3,
-        "impressions": 26,
+        "clicks": 2,
+        "impressions": 13,
         "ctr": "18.2%",
         "position": 1
       },
       {
         "query": "female tajweed tutor",
-        "clicks": 2,
-        "impressions": 22,
+        "clicks": 1,
+        "impressions": 11,
         "ctr": "11.8%",
         "position": 1.8
       }
     ]
   },
   "searchPerformance": {
-    "totalClicks": 12,
-    "totalImpressions": 126,
+    "totalClicks": 6,
+    "totalImpressions": 63,
     "averageCtr": "9.52%",
     "averagePosition": 1.8,
     "indexedPages": 18,
@@ -2055,64 +2006,5 @@
       "dimensions": "512x512",
       "size": "95 KB"
     }
-  },
-  "admin_audit_logs": [
-    {
-      "id": "audit_1793014971873_b42a53",
-      "timestamp": "2026-10-26T11:42:51.873Z",
-      "user": {
-        "name": "Muhammad Zain",
-        "email": "muhammadzain92624@gmail.com",
-        "role": "Administrator"
-      },
-      "action": "DELETE_POST",
-      "targetType": "post",
-      "targetId": "post-999-deleted-by-user",
-      "targetTitle": "Test Old Deleted Post",
-      "details": "Permanent deletion test with tombstone resurrection guard",
-      "snapshotFile": "pre_save_2026-10-26T11-42-51-871Z.json",
-      "dbRevision": 4
-    },
-    {
-      "id": "audit_1793014944482_95f5db",
-      "timestamp": "2026-10-26T11:42:24.482Z",
-      "user": {
-        "name": "Muhammad Zain",
-        "email": "muhammadzain92624@gmail.com",
-        "role": "Administrator"
-      },
-      "action": "DELETE_POST",
-      "targetType": "post",
-      "targetId": "post-999-deleted-by-user",
-      "targetTitle": "Test Old Deleted Post",
-      "details": "Permanent deletion test with tombstone resurrection guard",
-      "snapshotFile": "pre_save_2026-10-26T11-42-24-477Z.json",
-      "dbRevision": 3
-    },
-    {
-      "id": "audit_1793014927128_e479fc",
-      "timestamp": "2026-10-26T11:42:07.129Z",
-      "user": {
-        "name": "Muhammad Zain",
-        "email": "muhammadzain92624@gmail.com",
-        "role": "Administrator"
-      },
-      "action": "UPDATE_SETTINGS",
-      "targetType": "setting",
-      "targetId": "",
-      "targetTitle": "Hero Kicker & Protection Verification",
-      "details": "Automated verification test of Admin Panel Data Protection and Pre-Save Snapshotting",
-      "snapshotFile": "pre_save_2026-10-26T11-42-07-127Z.json",
-      "dbRevision": 2
-    }
-  ],
-  "deletedItemIds": [
-    "post-999-deleted-by-user"
-  ],
-  "customTaxonomies": [],
-  "customPages": [],
-  "db_revision": 4,
-  "lastSavedTimestamp": 1793014971873,
-  "deletedMediaUrls": [],
-  "deletedMediaIds": []
+  }
 }
